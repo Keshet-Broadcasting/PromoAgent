@@ -14,26 +14,29 @@ azure_openai  (default)
     Auth: API key from AZURE_OPENAI_CHAT_KEY.
 
 foundry
-    Wraps Microsoft Agent Framework / FoundryChatClient.
+    Wraps Azure AI Foundry via AIProjectClient (azure-ai-projects).
+    Gets an OpenAI-compatible client from the project and calls
+    chat.completions.create() — same message format, no aiohttp required.
     Auth: Azure credential (AzureCliCredential locally,
-          ManagedIdentityCredential on Azure-hosted deployments).
-    Requires: pip install agent-framework azure-identity
+          ManagedIdentityCredential / DefaultAzureCredential on Azure).
+    Requires: pip install azure-ai-projects azure-identity
 
 Environment variables
 ---------------------
 CHAT_PROVIDER                   azure_openai | foundry  (default: azure_openai)
-AZURE_CREDENTIAL_TYPE           cli | managed_identity  (default: cli, Foundry only)
+AZURE_CREDENTIAL_TYPE           cli | managed_identity | default
+                                (default: cli, Foundry only)
 
 Azure OpenAI provider
     AZURE_OPENAI_CHAT_ENDPOINT
     AZURE_OPENAI_CHAT_KEY
     AZURE_OPENAI_CHAT_DEPLOYMENT
 
-Foundry provider (Agent Framework canonical names)
+Foundry provider
     AZURE_AI_PROJECT_ENDPOINT        Foundry project endpoint URL.
-                                     Format: https://<resource-name>.services.ai.azure.com/api/projects/<project-name>
-                                     (NOT the old api.azureml.ms domain)
-    AZURE_AI_MODEL_DEPLOYMENT_NAME   deployment name in Foundry
+                                     Format: https://<resource>.services.ai.azure.com/api/projects/<project>
+                                     Example: https://Keshet-Foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry
+    AZURE_AI_MODEL_DEPLOYMENT_NAME   deployment name in Foundry (e.g. gpt-4o-1)
 
     Aliases accepted as fallbacks:
     FOUNDRY_PROJECT_ENDPOINT
@@ -42,11 +45,9 @@ Foundry provider (Agent Framework canonical names)
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 from abc import ABC, abstractmethod
-from concurrent.futures import ThreadPoolExecutor
 
 log = logging.getLogger(__name__)
 
@@ -105,24 +106,31 @@ class AzureOpenAIProvider(ChatProvider):
 
 
 # ---------------------------------------------------------------------------
-# Microsoft Foundry implementation  (Agent Framework)
+# Microsoft Foundry implementation  (azure-ai-projects)
 # ---------------------------------------------------------------------------
 
 
 class FoundryProvider(ChatProvider):
-    """Microsoft Foundry via Microsoft Agent Framework.
+    """Azure AI Foundry via AIProjectClient (azure-ai-projects).
 
-    Maps our two-message format to Agent Framework's (instructions, run) pattern:
-        messages[0]["content"]  →  Agent.instructions  (system prompt)
-        messages[1]["content"]  →  agent.run(...)       (user message + context)
+    Uses the sync AIProjectClient to obtain an OpenAI-compatible client,
+    then calls chat.completions.create() with the same messages format as
+    AzureOpenAIProvider — zero changes to the pipeline upstream.
 
-    The async agent.run() is run in a dedicated thread so this method stays
-    synchronous and is safe to call from both CLI and FastAPI contexts.
+    This approach matches the pattern shown in the Azure AI Foundry portal:
+
+        from azure.ai.projects import AIProjectClient
+        from azure.identity import DefaultAzureCredential
+
+        client = AIProjectClient(endpoint=endpoint, credential=DefaultAzureCredential())
+        openai_client = client.get_openai_client()
+        response = openai_client.chat.completions.create(model=..., messages=...)
+
+    No aiohttp, no asyncio bridging, no agent_framework package required.
     """
 
     def __init__(self) -> None:
-        # Accept both the Agent Framework canonical name and our own aliases
-        self.project_endpoint = (
+        self.endpoint = (
             os.environ.get("AZURE_AI_PROJECT_ENDPOINT")
             or os.environ.get("FOUNDRY_PROJECT_ENDPOINT")
             or ""
@@ -132,7 +140,7 @@ class FoundryProvider(ChatProvider):
             or os.environ.get("FOUNDRY_MODEL_DEPLOYMENT_NAME")
             or ""
         )
-        if not self.project_endpoint or not self.model:
+        if not self.endpoint or not self.model:
             raise EnvironmentError(
                 "Foundry provider requires:\n"
                 "  AZURE_AI_PROJECT_ENDPOINT  (or FOUNDRY_PROJECT_ENDPOINT)\n"
@@ -143,14 +151,19 @@ class FoundryProvider(ChatProvider):
     def _get_credential(self):
         """Return the Azure credential instance, created once per provider lifetime.
 
-        AZURE_CREDENTIAL_TYPE=cli               → AzureCliCredential  (requires az login)
+        AZURE_CREDENTIAL_TYPE=cli               → AzureCliCredential  (requires: az login)
         AZURE_CREDENTIAL_TYPE=managed_identity  → ManagedIdentityCredential  (Azure-hosted)
+        AZURE_CREDENTIAL_TYPE=default           → DefaultAzureCredential  (auto-chain, recommended for prod)
         """
         if self._credential is not None:
             return self._credential
 
         try:
-            from azure.identity import AzureCliCredential, ManagedIdentityCredential
+            from azure.identity import (
+                AzureCliCredential,
+                DefaultAzureCredential,
+                ManagedIdentityCredential,
+            )
         except ImportError as exc:
             raise ImportError(
                 "azure-identity is required for the Foundry provider. "
@@ -161,6 +174,9 @@ class FoundryProvider(ChatProvider):
         if cred_type == "managed_identity":
             self._credential = ManagedIdentityCredential()
             log.info("Foundry auth: ManagedIdentityCredential")
+        elif cred_type == "default":
+            self._credential = DefaultAzureCredential()
+            log.info("Foundry auth: DefaultAzureCredential")
         else:
             self._credential = AzureCliCredential()
             log.info("Foundry auth: AzureCliCredential (run 'az login' if not authenticated)")
@@ -168,60 +184,27 @@ class FoundryProvider(ChatProvider):
         return self._credential
 
     def complete(self, messages: list[dict]) -> str:
-        """Bridge sync call → async Agent Framework, safe from any context."""
         try:
-            from agent_framework import Agent
-            from agent_framework.foundry import FoundryChatClient
+            from azure.ai.projects import AIProjectClient
         except ImportError as exc:
             raise ImportError(
-                "Microsoft Agent Framework is not installed. "
-                "Run: pip install agent-framework"
+                "azure-ai-projects is required for the Foundry provider. "
+                "Run: pip install azure-ai-projects"
             ) from exc
 
-        # Our build_messages() always returns [system, user]
-        system_msg = next(
-            (m["content"] for m in messages if m["role"] == "system"), ""
+        credential = self._get_credential()
+        project_client = AIProjectClient(
+            endpoint=self.endpoint,
+            credential=credential,
         )
-        user_msg = next(
-            (m["content"] for m in messages if m["role"] == "user"), ""
+        openai_client = project_client.get_openai_client()
+        resp = openai_client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            temperature=0,
+            max_tokens=1500,
         )
-
-        credential     = self._get_credential()
-        project_endpoint = self.project_endpoint
-        model          = self.model
-
-        async def _run() -> str:
-            agent = Agent(
-                client=FoundryChatClient(
-                    credential=credential,
-                    project_endpoint=project_endpoint,
-                    model=model,
-                ),
-                name="PromoAgent",
-                instructions=system_msg,
-            )
-            result = await agent.run(user_msg)
-            # Prefer the explicit .text attribute (mirrors streaming chunk.text).
-            # Fall back to str() if the result type does not expose it — this
-            # keeps the code forward-compatible if the Agent Framework response
-            # type changes between SDK versions.
-            text = getattr(result, "text", None)
-            if not text:
-                log.debug("FoundryProvider: result has no .text attribute, using str()")
-                text = str(result)
-            return text.strip()
-
-        # Sync → async bridge strategy:
-        #   asyncio.run() requires a thread with NO running event loop.
-        #   A dedicated worker thread (ThreadPoolExecutor) always satisfies this:
-        #   - CLI: the main thread has no event loop → the worker is clean.
-        #   - FastAPI: the uvicorn event loop runs on the main thread; the worker
-        #     thread has no loop → asyncio.run() starts a fresh one safely.
-        #   Alternatives rejected:
-        #     loop.run_until_complete()  — raises RuntimeError if loop already running
-        #     nest_asyncio               — monkey-patches asyncio (fragile)
-        with ThreadPoolExecutor(max_workers=1) as pool:
-            return pool.submit(asyncio.run, _run()).result()
+        return resp.choices[0].message.content.strip()
 
 
 # ---------------------------------------------------------------------------
