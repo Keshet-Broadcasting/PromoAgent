@@ -1,0 +1,83 @@
+trigger:
+  branches:
+    include: [main]
+
+resources:
+  repositories:
+    - repository: pipelines
+      type: github
+      name: Keshet-Broadcasting/kst.ai_pipelines
+      endpoint: 'GitHub-Keshet'
+      ref: refs/heads/main
+
+variables:
+  appName: 'promo-agent'
+  language: 'python'
+  acrServiceConnection: 'ACR-ServiceConnection'
+  azureServiceConnection: 'Azure-ServiceConnection'
+  containerRegistry: 'keshetacr.azurecr.io'
+
+stages:
+- stage: Test
+  displayName: 'Run Tests'
+  jobs:
+  - job: RunTests
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - template: templates/tests.yml@pipelines
+      parameters:
+        language: $(language)
+
+- stage: Build
+  displayName: 'Build Docker Image'
+  dependsOn: Test
+  jobs:
+  - job: BuildImage
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - template: templates/build.yml@pipelines
+      parameters:
+        appName: $(appName)
+        containerRegistry: $(containerRegistry)
+        acrServiceConnection: $(acrServiceConnection)
+        dockerfilePath: 'Dockerfile'
+
+- stage: DeployStaging
+  displayName: 'Deploy to Staging'
+  dependsOn: Build
+  jobs:
+  - deployment: Deploy
+    environment: 'stage'
+    pool:
+      vmImage: 'ubuntu-latest'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - template: templates/deploy.yml@pipelines
+            parameters:
+              appName: $(appName)
+              environment: 'stage'
+              containerRegistry: $(containerRegistry)
+              azureServiceConnection: $(azureServiceConnection)
+
+- stage: DeployProd
+  displayName: 'Deploy to Production'
+  dependsOn: DeployStaging
+  jobs:
+  - deployment: Deploy
+    environment: 'prod'
+    pool:
+      vmImage: 'ubuntu-latest'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - template: templates/deploy.yml@pipelines
+            parameters:
+              appName: $(appName)
+              environment: 'prod'
+              containerRegistry: $(containerRegistry)
+              azureServiceConnection: $(azureServiceConnection)
