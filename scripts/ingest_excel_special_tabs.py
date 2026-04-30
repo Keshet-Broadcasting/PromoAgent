@@ -33,6 +33,7 @@ Usage:
 import argparse
 import hashlib
 import io
+import logging
 import os
 import re
 from typing import Any
@@ -51,6 +52,8 @@ from azure.storage.blob import BlobServiceClient
 from dotenv import load_dotenv
 
 load_dotenv()
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -256,7 +259,7 @@ def parse_standard_sheet(
     show_name, season = parse_tab_name(sheet.title)
     header_map = _build_header_map(sheet[2])
     if not header_map:
-        print(f"    WARNING: no recognised headers in row 2 — skipping '{sheet.title}'.")
+        logger.warning(f"    WARNING: no recognised headers in row 2 — skipping '{sheet.title}'.")
         return []
 
     docs: list[dict] = []
@@ -332,7 +335,7 @@ def parse_sectioned_sheet(
 
     header_row, header_map = _find_header_row(sheet)
     if not header_map:
-        print(f"    WARNING: no recognised headers in rows 1-5 — skipping '{sheet.title}'.")
+        logger.warning(f"    WARNING: no recognised headers in rows 1-5 — skipping '{sheet.title}'.")
         return []
 
     current_section, data_start = _row2_section_info(sheet, header_row)
@@ -365,12 +368,12 @@ def preview_tab(wb: openpyxl.Workbook, tab_name: str) -> None:
     tab_type = _detect_tab_type(sheet)
     show_name, season = parse_tab_name(tab_name)
 
-    print(f"\n{'=' * 64}")
-    print(f"  TAB PREVIEW: '{tab_name}'")
-    print(f"  Type      : {tab_type}")
-    print(f"  show_name : {show_name!r}")
-    print(f"  season    : {season!r}")
-    print(f"{'=' * 64}")
+    logger.info(f"\n{'=' * 64}")
+    logger.info(f"  TAB PREVIEW: '{tab_name}'")
+    logger.info(f"  Type      : {tab_type}")
+    logger.info(f"  show_name : {show_name!r}")
+    logger.info(f"  season    : {season!r}")
+    logger.info(f"{'=' * 64}")
 
     if tab_type == "standard":
         header_map = _build_header_map(sheet[2])
@@ -378,14 +381,14 @@ def preview_tab(wb: openpyxl.Workbook, tab_name: str) -> None:
             1 for row in sheet.iter_rows(min_row=3)
             if any(cell_value(c) for c in row)
         )
-        print(f"  Headers (row 2) : {list(header_map.values())}")
-        print(f"  Data rows       : {data_rows}")
+        logger.info(f"  Headers (row 2) : {list(header_map.values())}")
+        logger.info(f"  Data rows       : {data_rows}")
         return
 
     # Sectioned
     header_row, header_map = _find_header_row(sheet)
     current_section, data_start = _row2_section_info(sheet, header_row)
-    print(f"  Headers (row {header_row}) : {list(header_map.values())}")
+    logger.info(f"  Headers (row {header_row}) : {list(header_map.values())}")
 
     # Walk from data_start collecting section labels and row counts
     sections: dict[str, int] = {}
@@ -401,12 +404,12 @@ def preview_tab(wb: openpyxl.Workbook, tab_name: str) -> None:
         else:
             sections[current_section] = sections.get(current_section, 0) + 1
 
-    print(f"\n  Sections found ({len(sections)}):")
+    logger.info(f"\n  Sections found ({len(sections)}):")
     for sec_name, count in sections.items():
-        print(f"    [{sec_name}]  — {count} data row(s)")
+        logger.info(f"    [{sec_name}]  — {count} data row(s)")
 
     # Sample: first 3 data rows
-    print(f"\n  Sample rows (first 3):")
+    logger.info(f"\n  Sample rows (first 3):")
     shown = 0
     # current_section already set by _row2_section_info above
     for row in sheet.iter_rows(min_row=data_start):
@@ -423,7 +426,7 @@ def preview_tab(wb: openpyxl.Workbook, tab_name: str) -> None:
             for col_idx, fname in header_map.items()
             if col_idx <= len(row)
         }
-        print(f"    section={current_section!r}  {values}")
+        logger.info(f"    section={current_section!r}  {values}")
         shown += 1
 
 
@@ -448,15 +451,15 @@ def trace_tab(wb: openpyxl.Workbook, tab_name: str) -> None:
 
     COL_W = 28   # truncation width for cell value display
 
-    print(f"\n{'=' * 80}")
-    print(f"  TRACE: '{tab_name}'")
-    print(f"  headers in row {header_row_num}: {list(header_map.values())}")
-    print(f"  first section (row 2): '{current_section}'")
-    print(f"  data scan starts at row {data_start}")
-    print(f"{'=' * 80}")
-    print(f"  {'ROW':>4}  {'NON-EMPTY':>9}  {'CLASSIFICATION':<20}  "
-          f"{'COL_A':<{COL_W}}  {'COL_B':<{COL_W}}  COL_C")
-    print(f"  {'-'*4}  {'-'*9}  {'-'*20}  {'-'*COL_W}  {'-'*COL_W}  {'-'*20}")
+    logger.info(f"\n{'=' * 80}")
+    logger.info(f"  TRACE: '{tab_name}'")
+    logger.info(f"  headers in row {header_row_num}: {list(header_map.values())}")
+    logger.info(f"  first section (row 2): '{current_section}'")
+    logger.info(f"  data scan starts at row {data_start}")
+    logger.info(f"{'=' * 80}")
+    logger.info(f"  {'ROW':>4}  {'NON-EMPTY':>9}  {'CLASSIFICATION':<20}  "
+                f"{'COL_A':<{COL_W}}  {'COL_B':<{COL_W}}  COL_C")
+    logger.info(f"  {'-'*4}  {'-'*9}  {'-'*20}  {'-'*COL_W}  {'-'*COL_W}  {'-'*20}")
 
     for row_idx, row in enumerate(sheet.iter_rows(min_row=data_start), start=data_start):
         all_vals = [cell_value(c) for c in row]
@@ -484,10 +487,10 @@ def trace_tab(wb: openpyxl.Workbook, tab_name: str) -> None:
         c3 = _trunc(all_vals[2]) if len(all_vals) > 2 else ""
 
         section_tag = f" [{current_section[:18]}]" if cls == "DATA" else ""
-        print(f"  {row_idx:>4}  {non_empty_count:>9}  "
-              f"{cls + section_tag:<20}  {c1:<{COL_W}}  {c2:<{COL_W}}  {c3}")
+        logger.info(f"  {row_idx:>4}  {non_empty_count:>9}  "
+                    f"{cls + section_tag:<20}  {c1:<{COL_W}}  {c2:<{COL_W}}  {c3}")
 
-    print(f"{'=' * 80}")
+    logger.info(f"{'=' * 80}")
 
 
 # ---------------------------------------------------------------------------
@@ -521,13 +524,13 @@ def update_index_schema(index_client: SearchIndexClient, index_name: str) -> Non
         ))
 
     if not new_fields:
-        print("  Index already has 'section' and 'tab_type' fields — no schema change needed.")
+        logger.info("  Index already has 'section' and 'tab_type' fields — no schema change needed.")
         return
 
     index.fields = list(index.fields) + new_fields
     index_client.create_or_update_index(index)
     names = [f.name for f in new_fields]
-    print(f"  Index schema updated — added fields: {names}")
+    logger.info(f"  Index schema updated — added fields: {names}")
 
 
 # ---------------------------------------------------------------------------
@@ -557,7 +560,7 @@ def upload_in_batches(search_client: SearchClient, docs: list[dict]) -> int:
         failed  = len(batch) - ok
         total  += ok
         if failed:
-            print(f"    WARNING: {failed} document(s) failed to upload.")
+            logger.warning(f"    WARNING: {failed} document(s) failed to upload.")
     return total
 
 
@@ -596,22 +599,22 @@ def main(preview: bool = False, trace: bool = False) -> None:
     )
 
     # ---- Update index schema (additive, safe to run every time) ----
-    print("Checking index schema ...")
+    logger.info("Checking index schema ...")
     update_index_schema(index_client, AZURE_SEARCH_INDEX_NAME)
 
     # ---- Download Excel ----
-    print(f"\nDownloading '{EXCEL_BLOB_NAME}' ...")
+    logger.info(f"\nDownloading '{EXCEL_BLOB_NAME}' ...")
     blob_client  = blob_service.get_blob_client(
         container=AZURE_STORAGE_CONTAINER_NAME, blob=EXCEL_BLOB_NAME
     )
     excel_bytes  = blob_client.download_blob().readall()
     wb           = openpyxl.load_workbook(io.BytesIO(excel_bytes), data_only=True)
-    print(f"  {len(wb.sheetnames)} sheet(s) in workbook.")
+    logger.info(f"  {len(wb.sheetnames)} sheet(s) in workbook.")
 
     # ---- Find which tabs are missing from the index ----
-    print("\nQuerying index for already-indexed (show_name, season) pairs ...")
+    logger.info("\nQuerying index for already-indexed (show_name, season) pairs ...")
     indexed_pairs = get_indexed_pairs(search_client)
-    print(f"  {len(indexed_pairs)} pair(s) already indexed.")
+    logger.info(f"  {len(indexed_pairs)} pair(s) already indexed.")
 
     tabs_to_process: list[str] = []
     tabs_skipped_list: list[str] = []
@@ -627,19 +630,19 @@ def main(preview: bool = False, trace: bool = False) -> None:
         else:
             tabs_to_process.append(tab_name)
 
-    print(f"\n  Already indexed : {len(tabs_already_indexed)} tab(s) — will skip")
-    print(f"  In skip list    : {len(tabs_skipped_list)} tab(s) — will skip")
-    print(f"  To process      : {len(tabs_to_process)} tab(s)")
+    logger.info(f"\n  Already indexed : {len(tabs_already_indexed)} tab(s) — will skip")
+    logger.info(f"  In skip list    : {len(tabs_skipped_list)} tab(s) — will skip")
+    logger.info(f"  To process      : {len(tabs_to_process)} tab(s)")
     if tabs_to_process:
         for t in tabs_to_process:
             tab_type = _detect_tab_type(wb[t])
-            print(f"    '{t}'  [{tab_type}]")
+            logger.info(f"    '{t}'  [{tab_type}]")
 
     # ---- Trace mode: row-by-row classification for each tab-to-process ----
     if trace:
         for tab_name in tabs_to_process:
             trace_tab(wb, tab_name)
-        print("\n-- TRACE MODE: no documents uploaded --")
+        logger.info("\n-- TRACE MODE: no documents uploaded --")
         return
 
     # ---- Always preview 'מאסטר שף עונה 10' if it's in the workbook ----
@@ -652,15 +655,15 @@ def main(preview: bool = False, trace: bool = False) -> None:
         for tab_name in tabs_to_process:
             if tab_name != SPECIAL_PREVIEW_TAB:
                 preview_tab(wb, tab_name)
-        print("\n-- PREVIEW MODE: no documents uploaded --")
+        logger.info("\n-- PREVIEW MODE: no documents uploaded --")
         return
 
     if not tabs_to_process:
-        print("\nNothing to do — all non-skipped tabs are already indexed.")
+        logger.info("\nNothing to do — all non-skipped tabs are already indexed.")
         return
 
     # ---- Parse, embed, upload ----
-    print()
+    logger.info("")
     grand_total  = 0
     tabs_done    = 0
     tabs_errored = 0
@@ -668,7 +671,7 @@ def main(preview: bool = False, trace: bool = False) -> None:
     for tab_name in tabs_to_process:
         sheet    = wb[tab_name]
         tab_type = _detect_tab_type(sheet)
-        print(f"  Processing '{tab_name}'  [{tab_type}] ...")
+        logger.info(f"  Processing '{tab_name}'  [{tab_type}] ...")
 
         try:
             if tab_type == "sectioned":
@@ -677,7 +680,7 @@ def main(preview: bool = False, trace: bool = False) -> None:
                 docs = parse_standard_sheet(sheet, EXCEL_BLOB_NAME)
 
             if not docs:
-                print(f"    No documents produced — skipping.")
+                logger.info(f"    No documents produced — skipping.")
                 continue
 
             # Embed promo_text for all docs in this tab
@@ -692,19 +695,19 @@ def main(preview: bool = False, trace: bool = False) -> None:
             uploaded = upload_in_batches(search_client, docs)
             grand_total += uploaded
             tabs_done   += 1
-            print(f"    Parsed {len(docs)} row(s), embedded {embedded}, "
-                  f"uploaded {uploaded}.")
+            logger.info(f"    Parsed {len(docs)} row(s), embedded {embedded}, "
+                        f"uploaded {uploaded}.")
 
         except Exception as exc:
-            print(f"    ERROR: {exc}")
+            logger.error(f"    ERROR: {exc}")
             tabs_errored += 1
 
-    print()
-    print("=" * 52)
-    print(f"  Tabs processed  : {tabs_done}")
-    print(f"  Tabs errored    : {tabs_errored}")
-    print(f"  Total docs uploaded : {grand_total}")
-    print("=" * 52)
+    logger.info("")
+    logger.info("=" * 52)
+    logger.info(f"  Tabs processed  : {tabs_done}")
+    logger.info(f"  Tabs errored    : {tabs_errored}")
+    logger.info(f"  Total docs uploaded : {grand_total}")
+    logger.info("=" * 52)
 
 
 if __name__ == "__main__":

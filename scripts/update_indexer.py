@@ -16,12 +16,15 @@ Usage:
 import os
 import time
 import warnings
+import logging
 from datetime import datetime, timezone
 
 import requests
 from dotenv import load_dotenv
 
 load_dotenv()
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 AZURE_SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
 AZURE_SEARCH_KEY = os.getenv("AZURE_SEARCH_KEY")
@@ -84,12 +87,12 @@ def main() -> None:
     # -----------------------------------------------------------------------
     # 1. Fetch the live indexer definition to preserve all existing settings
     # -----------------------------------------------------------------------
-    print(f"Fetching current definition of '{INDEXER_NAME}' ...")
+    logger.info(f"Fetching current definition of '{INDEXER_NAME}' ...")
     indexer = _get(f"/indexers/{INDEXER_NAME}")
 
-    print(f"  dataSourceName  : {indexer['dataSourceName']}")
-    print(f"  targetIndexName : {indexer.get('targetIndexName')!r}  ->  {TARGET_INDEX!r}")
-    print(f"  skillsetName    : {indexer.get('skillsetName')!r}  ->  {SKILLSET_NAME!r}")
+    logger.info(f"  dataSourceName  : {indexer['dataSourceName']}")
+    logger.info(f"  targetIndexName : {indexer.get('targetIndexName')!r}  ->  {TARGET_INDEX!r}")
+    logger.info(f"  skillsetName    : {indexer.get('skillsetName')!r}  ->  {SKILLSET_NAME!r}")
 
     # -----------------------------------------------------------------------
     # 2. Apply changes — preserve everything else
@@ -112,38 +115,38 @@ def main() -> None:
     # -----------------------------------------------------------------------
     # 3. PUT the updated definition
     # -----------------------------------------------------------------------
-    print(f"\nUpdating indexer '{INDEXER_NAME}' ...")
+    logger.info(f"\nUpdating indexer '{INDEXER_NAME}' ...")
     r = _put(f"/indexers/{INDEXER_NAME}", indexer)
 
     if r.status_code == 201:
-        print(f"  Indexer created (HTTP 201).")
+        logger.info("  Indexer created (HTTP 201).")
     elif r.status_code in (200, 204):
         # 200 = updated with body returned; 204 = updated, no body (both are success)
-        print(f"  Indexer updated (HTTP {r.status_code}).")
+        logger.info(f"  Indexer updated (HTTP {r.status_code}).")
     else:
-        print(f"  ERROR {r.status_code}:\n{r.text}")
+        logger.error(f"  ERROR {r.status_code}:\n{r.text}")
         r.raise_for_status()
 
     # -----------------------------------------------------------------------
     # 4. Reset (clears the high-water mark — forces reprocessing of all docs)
     # -----------------------------------------------------------------------
-    print(f"\nResetting indexer ...")
+    logger.info("\nResetting indexer ...")
     r = _post(f"/indexers/{INDEXER_NAME}/reset")
     if r.status_code == 204:
-        print("  Reset OK (204).")
+        logger.info("  Reset OK (204).")
     else:
-        print(f"  ERROR {r.status_code}: {r.text}")
+        logger.error(f"  ERROR {r.status_code}: {r.text}")
         r.raise_for_status()
 
     # -----------------------------------------------------------------------
     # 5. Run
     # -----------------------------------------------------------------------
-    print(f"\nTriggering indexer run ...")
+    logger.info("\nTriggering indexer run ...")
     r = _post(f"/indexers/{INDEXER_NAME}/run")
     if r.status_code == 202:
-        print("  Run accepted (202). Starting to poll ...\n")
+        logger.info("  Run accepted (202). Starting to poll ...\n")
     else:
-        print(f"  ERROR {r.status_code}: {r.text}")
+        logger.error(f"  ERROR {r.status_code}: {r.text}")
         r.raise_for_status()
 
     # -----------------------------------------------------------------------
@@ -164,7 +167,7 @@ def main() -> None:
         failed = last_result.get("itemsFailed", 0)
 
         ts = datetime.now(timezone.utc).strftime("%H:%M:%S")
-        print(
+        logger.info(
             f"  [{ts} UTC]  status={run_status:<16}  "
             f"processed={processed}  failed={failed}"
         )
@@ -172,7 +175,7 @@ def main() -> None:
         if run_status in TERMINAL:
             break
     else:
-        print(f"\nTimed out after {MAX_WAIT_MIN} minutes — check the portal for status.")
+        logger.warning(f"\nTimed out after {MAX_WAIT_MIN} minutes — check the portal for status.")
         return
 
     # -----------------------------------------------------------------------
@@ -185,25 +188,25 @@ def main() -> None:
     errors = last_result.get("errors") or []
     run_warnings = last_result.get("warnings") or []
 
-    print(f"\n{'=' * 52}")
-    print(f"  Final status   : {run_status}")
-    print(f"  Docs processed : {processed}")
-    print(f"  Docs failed    : {failed}")
+    logger.info(f"\n{'=' * 52}")
+    logger.info(f"  Final status   : {run_status}")
+    logger.info(f"  Docs processed : {processed}")
+    logger.info(f"  Docs failed    : {failed}")
     if end_time:
-        print(f"  Completed at   : {end_time}")
+        logger.info(f"  Completed at   : {end_time}")
     if errors:
-        print(f"\n  Errors ({len(errors)}):")
+        logger.info(f"\n  Errors ({len(errors)}):")
         for e in errors[:5]:
-            print(f"    -{e.get('errorMessage', e)}")
+            logger.info(f"    -{e.get('errorMessage', e)}")
         if len(errors) > 5:
-            print(f"    … and {len(errors) - 5} more")
+            logger.info(f"    … and {len(errors) - 5} more")
     if run_warnings:
-        print(f"\n  Warnings ({len(run_warnings)}):")
+        logger.info(f"\n  Warnings ({len(run_warnings)}):")
         for w in run_warnings[:5]:
-            print(f"    -{w.get('message', w)}")
+            logger.info(f"    -{w.get('message', w)}")
         if len(run_warnings) > 5:
-            print(f"    … and {len(run_warnings) - 5} more")
-    print("=" * 52)
+            logger.info(f"    … and {len(run_warnings) - 5} more")
+    logger.info("=" * 52)
 
 
 if __name__ == "__main__":

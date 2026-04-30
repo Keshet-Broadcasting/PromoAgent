@@ -18,7 +18,11 @@ from __future__ import annotations
 
 import re
 import sys
+import logging
 from dataclasses import dataclass
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 EXCEL_NUMERIC_PATTERNS: list[re.Pattern] = [
     re.compile(p)
@@ -175,10 +179,10 @@ def run_examples() -> None:
         ok = result.route == expected
         passed += ok
         mark = "PASS" if ok else "FAIL"
-        print(f"  [{mark}]  {result.route:<14}  (expect {expected:<14})  {query[:60]}")
+        logger.info(f"  [{mark}]  {result.route:<14}  (expect {expected:<14})  {query[:60]}")
         if not ok:
-            print(f"         hits: {result.summary}")
-    print(f"\n  {passed}/{len(EXAMPLES)} passed")
+            logger.info(f"         hits: {result.summary}")
+    logger.info(f"\n  {passed}/{len(EXAMPLES)} passed")
 
 
 # ---------------------------------------------------------------------------
@@ -192,9 +196,9 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         q = sys.argv[1]
         r = classify(q)
-        print(f"Query:  {q}")
-        print(f"Route:  {r.route}")
-        print(f"Detail: {r.summary}")
+        logger.info(f"Query:  {q}")
+        logger.info(f"Route:  {r.route}")
+        logger.info(f"Detail: {r.summary}")
     else:
-        print("Query Router — built-in examples\n")
+        logger.info("Query Router — built-in examples\n")
         run_examples()

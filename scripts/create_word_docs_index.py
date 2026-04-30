@@ -18,6 +18,7 @@ Usage:
 """
 
 import argparse
+import logging
 import os
 
 from azure.core.credentials import AzureKeyCredential
@@ -40,6 +41,8 @@ from azure.search.documents.indexes.models import (
 from dotenv import load_dotenv
 
 load_dotenv()
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 INDEX_NAME = "word-docs"
 AZURE_SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
@@ -158,22 +161,22 @@ def _get_client() -> SearchIndexClient:
 def create_index() -> None:
     client = _get_client()
     result = client.create_or_update_index(get_index_definition())
-    print(f"Index '{result.name}' created/updated successfully.")
+    logger.info(f"Index '{result.name}' created/updated successfully.")
 
 
 def recreate_index() -> None:
     client = _get_client()
     try:
         client.delete_index(INDEX_NAME)
-        print(f"Deleted existing index '{INDEX_NAME}'.")
+        logger.info(f"Deleted existing index '{INDEX_NAME}'.")
     except Exception as exc:
         msg = str(exc).lower()
         if "not found" in msg or "does not exist" in msg:
-            print(f"Index '{INDEX_NAME}' did not exist — skipping deletion.")
+            logger.info(f"Index '{INDEX_NAME}' did not exist — skipping deletion.")
         else:
             raise
     result = client.create_index(get_index_definition())
-    print(f"Index '{result.name}' created successfully.")
+    logger.info(f"Index '{result.name}' created successfully.")
 
 
 # ---------------------------------------------------------------------------

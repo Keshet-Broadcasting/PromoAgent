@@ -170,7 +170,7 @@ class FoundryProvider(ChatProvider):
                 "Run: pip install azure-identity"
             ) from exc
 
-        cred_type = os.getenv("AZURE_CREDENTIAL_TYPE", "cli").lower()
+        cred_type = os.getenv("AZURE_CREDENTIAL_TYPE", "default").lower()
         if cred_type == "managed_identity":
             self._credential = ManagedIdentityCredential()
             log.info("Foundry auth: ManagedIdentityCredential")

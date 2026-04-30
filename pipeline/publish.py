@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import logging
 import os
 import sys
 from pathlib import Path
@@ -45,6 +46,8 @@ from dotenv import load_dotenv
 from pipeline.config import load_settings
 
 YAML_PATH = Path(__file__).parent / "promo-pipeline.yaml"
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 WORKFLOW_AGENT = "PromoPipeline"
 APP_NAME       = "promo-pipeline-app"
@@ -84,7 +87,7 @@ async def register_agents(settings):
         from agent_framework.azure import AzureAIProjectAgentProvider
         from pipeline.agents import create_retriever, create_answer_agent
     except ImportError as exc:
-        print(
+        logger.error(
             f"\nCannot import async dependencies: {exc}\n"
             "  → Register agents manually in the Foundry portal instead:\n"
             "      1. Go to https://ai.azure.com → your project → Agents\n"
@@ -98,13 +101,13 @@ async def register_agents(settings):
         project_endpoint=settings.project_endpoint,
         credential=credential,
     ) as provider:
-        print("Registering PromoRetriever ...")
+        logger.info("Registering PromoRetriever ...")
         retriever = await create_retriever(provider, model=settings.model_deployment)
-        print(f"  ✓ PromoRetriever registered (id={getattr(retriever, 'id', '?')})")
+        logger.info(f"  ✓ PromoRetriever registered (id={getattr(retriever, 'id', '?')})")
 
-        print("Registering PromoAnswer ...")
+        logger.info("Registering PromoAnswer ...")
         answerer = await create_answer_agent(provider, model=settings.model_deployment)
-        print(f"  ✓ PromoAnswer registered (id={getattr(answerer, 'id', '?')})")
+        logger.info(f"  ✓ PromoAnswer registered (id={getattr(answerer, 'id', '?')})")
 
     await credential.close()
 
@@ -129,7 +132,7 @@ def register_workflow(settings, credential) -> str:
         definition=WorkflowAgentDefinition(workflow=yaml_text),
     )
     vid = f"{version.name}:{version.version}"
-    print(f"  ✓ Workflow agent registered: {vid}")
+    logger.info(f"  ✓ Workflow agent registered: {vid}")
     return vid
 
 
@@ -145,7 +148,7 @@ def publish_app(settings, credential, version_id: str):
     sub = settings.subscription_id
     rg  = settings.resource_group
     if not sub or not rg:
-        print(
+        logger.warning(
             "\n  ⚠  AZURE_SUBSCRIPTION_ID and AZURE_RESOURCE_GROUP are required to publish.\n"
             "     Add them to .env and re-run without --register.\n"
             "     The workflow agent is already registered and usable via the Foundry portal."
@@ -197,8 +200,8 @@ def publish_app(settings, credential, version_id: str):
     invoke_url = (
         f"{ai_base}/openai/responses?api-version={AI_API_VER}"
     )
-    print(f"  ✓ Published — invoke via:\n     POST {invoke_url}")
-    print(f'     body: {{"input": "שאלה כאן", "agent": {{"name": "{agent_name}", "type": "agent_reference"}}}}')
+    logger.info(f"  ✓ Published — invoke via:\n     POST {invoke_url}")
+    logger.info(f'     body: {{"input": "שאלה כאן", "agent": {{"name": "{agent_name}", "type": "agent_reference"}}}}')
 
 
 # ---------------------------------------------------------------------------
@@ -231,7 +234,7 @@ async def verify(settings, credential):
             },
         )
     assert r.status_code == 200, f"ERROR {r.status_code}: {r.text[:300]}"
-    print(json.dumps(r.json(), indent=2)[:3000])
+    logger.info(json.dumps(r.json(), indent=2)[:3000])
 
 
 # ---------------------------------------------------------------------------
@@ -260,18 +263,18 @@ def main():
         asyncio.run(verify(settings, credential))
         return
 
-    print(f"\nPublishing PromoAgent pipeline to Foundry")
-    print(f"  endpoint : {settings.project_endpoint}")
-    print(f"  model    : {settings.model_deployment}\n")
+    logger.info("\nPublishing PromoAgent pipeline to Foundry")
+    logger.info(f"  endpoint : {settings.project_endpoint}")
+    logger.info(f"  model    : {settings.model_deployment}\n")
 
     version_id = register_workflow(settings, credential)
 
     if args.register:
-        print("\nDone — workflow registered. Run without --register to also publish as an App.")
+        logger.info("\nDone — workflow registered. Run without --register to also publish as an App.")
         return
 
     publish_app(settings, credential, version_id)
-    print("\nDone.")
+    logger.info("\nDone.")
 
 
 if __name__ == "__main__":

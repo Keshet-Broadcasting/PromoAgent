@@ -40,6 +40,7 @@ import base64
 import hashlib
 import io
 import json
+import logging
 import os
 
 import xml.etree.ElementTree as ET            # stdlib XML parser for .docx fallback
@@ -51,6 +52,8 @@ from azure.storage.blob import BlobServiceClient, ContainerClient
 from dotenv import load_dotenv
 
 load_dotenv()
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 AZURE_DI_ENDPOINT = os.getenv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")
@@ -445,9 +448,9 @@ def _ensure_container(blob_service: BlobServiceClient, name: str) -> ContainerCl
     try:
         cc.get_container_properties()
     except Exception:
-        print(f"  Container '{name}' not found — creating it ...")
+        logger.info(f"  Container '{name}' not found — creating it ...")
         cc.create_container()
-        print(f"  Container '{name}' created.")
+        logger.info(f"  Container '{name}' created.")
     return cc
 
 
@@ -492,11 +495,11 @@ def main(overwrite: bool = False) -> None:
     docx_blobs = [b for b in blobs if b.name.lower().endswith(".docx")]
     skipped_ext = len(blobs) - len(docx_blobs)
 
-    print(f"Found {len(blobs)} blob(s) in '{SOURCE_CONTAINER}'.")
-    print(f"  {len(docx_blobs)} .docx file(s) to process.")
+    logger.info(f"Found {len(blobs)} blob(s) in '{SOURCE_CONTAINER}'.")
+    logger.info(f"  {len(docx_blobs)} .docx file(s) to process.")
     if skipped_ext:
-        print(f"  {skipped_ext} non-.docx file(s) skipped.")
-    print()
+        logger.info(f"  {skipped_ext} non-.docx file(s) skipped.")
+    logger.info("")
 
     processed       = 0
     skipped_existing = 0
@@ -510,11 +513,11 @@ def main(overwrite: bool = False) -> None:
         size_mb    = size_bytes / 1_048_576
 
         if json_name in existing_json and not overwrite:
-            print(f"  SKIP  {blob_name!r} (already processed)")
+            logger.info(f"  SKIP  {blob_name!r} (already processed)")
             skipped_existing += 1
             continue
 
-        print(f"  Processing  {blob_name!r}  ({size_mb:.1f} MB) ...")
+        logger.info(f"  Processing  {blob_name!r}  ({size_mb:.1f} MB) ...")
 
         try:
             blob_client = source_container.get_blob_client(blob_name)
@@ -524,12 +527,12 @@ def main(overwrite: bool = False) -> None:
 
             if size_bytes > DI_SIZE_LIMIT_BYTES:
                 # ----- python-docx fallback for large files -----
-                print(f"    File exceeds {DI_SIZE_LIMIT_BYTES // (1024*1024)} MB limit "
-                      f"— using python-docx fallback ...")
+                logger.info(f"    File exceeds {DI_SIZE_LIMIT_BYTES // (1024*1024)} MB limit "
+                            f"— using python-docx fallback ...")
                 chunks = extract_chunks_docx(docx_bytes, title, source_url)
             else:
                 # ----- Document Intelligence path -----
-                print(f"    Analyzing with Document Intelligence ({MODEL_ID}) ...")
+                logger.info(f"    Analyzing with Document Intelligence ({MODEL_ID}) ...")
                 poller = di_client.begin_analyze_document(
                     "prebuilt-layout",
                     {"base64Source": base64.b64encode(docx_bytes).decode()},
@@ -537,31 +540,31 @@ def main(overwrite: bool = False) -> None:
                 result = poller.result()
                 chunks = extract_chunks_di(result, title, source_url)
 
-            print(f"    Produced {len(chunks)} chunk(s).")
+            logger.info(f"    Produced {len(chunks)} chunk(s).")
 
             if chunks:
                 json_bytes = json.dumps(chunks, ensure_ascii=False, indent=2).encode("utf-8")
                 dest_container.upload_blob(name=json_name, data=json_bytes, overwrite=True)
-                print(f"    Saved -> '{json_name}'")
+                logger.info(f"    Saved -> '{json_name}'")
             else:
-                print(f"    WARNING: No text content extracted — skipping upload.")
+                logger.warning("    WARNING: No text content extracted — skipping upload.")
 
             processed    += 1
             total_chunks += len(chunks)
 
         except Exception as exc:
-            print(f"    ERROR processing '{blob_name}': {exc}")
+            logger.error(f"    ERROR processing '{blob_name}': {exc}")
             errors += 1
 
-    print()
-    print("=" * 52)
-    print(f"  .docx blobs found     : {len(docx_blobs)}")
-    print(f"  Documents processed   : {processed}")
-    print(f"  Skipped (exist)       : {skipped_existing}")
-    print(f"  Total chunks produced : {total_chunks}")
-    print(f"  Errors                : {errors}")
-    print(f"  Output container      : {DEST_CONTAINER}")
-    print("=" * 52)
+    logger.info("")
+    logger.info("=" * 52)
+    logger.info(f"  .docx blobs found     : {len(docx_blobs)}")
+    logger.info(f"  Documents processed   : {processed}")
+    logger.info(f"  Skipped (exist)       : {skipped_existing}")
+    logger.info(f"  Total chunks produced : {total_chunks}")
+    logger.info(f"  Errors                : {errors}")
+    logger.info(f"  Output container      : {DEST_CONTAINER}")
+    logger.info("=" * 52)
 
 
 if __name__ == "__main__":

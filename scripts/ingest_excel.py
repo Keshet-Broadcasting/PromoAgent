@@ -20,6 +20,7 @@ Usage:
 
 import hashlib
 import io
+import logging
 import os
 import re
 from typing import Any
@@ -36,6 +37,8 @@ from dotenv import load_dotenv
 # ---------------------------------------------------------------------------
 
 load_dotenv()
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 AZURE_SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
 AZURE_SEARCH_KEY = os.getenv("AZURE_SEARCH_KEY")
@@ -108,11 +111,11 @@ def validate_env() -> None:
 
 def download_blob(connection_string: str, container: str, blob_name: str) -> bytes:
     """Download a blob from Azure Blob Storage and return its raw bytes."""
-    print(f"Downloading '{blob_name}' from container '{container}' ...")
+    logger.info(f"Downloading '{blob_name}' from container '{container}' ...")
     blob_service = BlobServiceClient.from_connection_string(connection_string)
     blob_client = blob_service.get_blob_client(container=container, blob=blob_name)
     data = blob_client.download_blob().readall()
-    print(f"  Downloaded {len(data):,} bytes.")
+    logger.info(f"  Downloaded {len(data):,} bytes.")
     return data
 
 
@@ -224,7 +227,7 @@ def parse_sheet(
             header_map[col_idx] = COLUMN_MAP[header_text]
 
     if not header_map:
-        print(
+        logger.warning(
             f"  WARNING: No recognised column headers found in tab '{sheet.title}'. "
             "Skipping tab."
         )
@@ -280,7 +283,7 @@ def upload_in_batches(search_client: SearchClient, documents: list[dict]) -> int
         failed = len(batch) - succeeded
         total_uploaded += succeeded
         if failed:
-            print(f"  WARNING: {failed} document(s) failed to upload in this batch.")
+            logger.warning(f"  WARNING: {failed} document(s) failed to upload in this batch.")
     return total_uploaded
 
 
@@ -303,7 +306,7 @@ def main() -> None:
     workbook = openpyxl.load_workbook(
         filename=io.BytesIO(excel_bytes), data_only=True
     )
-    print(f"Workbook loaded. Found {len(workbook.sheetnames)} sheet(s): {workbook.sheetnames}\n")
+    logger.info(f"Workbook loaded. Found {len(workbook.sheetnames)} sheet(s): {workbook.sheetnames}\n")
 
     # Build the Azure AI Search client once and reuse it for all tabs
     credential = AzureKeyCredential(AZURE_SEARCH_KEY)
@@ -325,12 +328,12 @@ def main() -> None:
 
     for sheet_name in workbook.sheetnames:
         sheet = workbook[sheet_name]
-        print(f"Processing tab: '{sheet_name}'")
+        logger.info(f"Processing tab: '{sheet_name}'")
 
         documents = parse_sheet(sheet, source_file=EXCEL_BLOB_NAME)
 
         if not documents:
-            print("  No documents to upload for this tab.\n")
+            logger.info("  No documents to upload for this tab.\n")
             tabs_skipped += 1
             continue
 
@@ -344,18 +347,18 @@ def main() -> None:
                 embedded += 1
 
         tabs_with_data += 1
-        print(f"  Parsed {len(documents)} row(s), embedded {embedded}. Uploading ...")
+        logger.info(f"  Parsed {len(documents)} row(s), embedded {embedded}. Uploading ...")
         uploaded = upload_in_batches(search_client, documents)
         grand_total += uploaded
-        print(f"  Uploaded {uploaded}/{len(documents)} document(s).\n")
+        logger.info(f"  Uploaded {uploaded}/{len(documents)} document(s).\n")
 
     total_tabs = len(workbook.sheetnames)
-    print("=" * 52)
-    print(f"  Total tabs in workbook : {total_tabs}")
-    print(f"  Tabs with data uploaded: {tabs_with_data}")
-    print(f"  Tabs skipped (no rows) : {tabs_skipped}")
-    print(f"  Total documents        : {grand_total}")
-    print("=" * 52)
+    logger.info("=" * 52)
+    logger.info(f"  Total tabs in workbook : {total_tabs}")
+    logger.info(f"  Tabs with data uploaded: {tabs_with_data}")
+    logger.info(f"  Tabs skipped (no rows) : {tabs_skipped}")
+    logger.info(f"  Total documents        : {grand_total}")
+    logger.info("=" * 52)
 
 
 if __name__ == "__main__":

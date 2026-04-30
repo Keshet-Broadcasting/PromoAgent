@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import os
 import sys
+import logging
 
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents import SearchClient
@@ -25,14 +26,19 @@ from azure.search.documents.models import QueryType
 from dotenv import load_dotenv
 
 load_dotenv()
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 _ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT", "")
 _KEY = os.getenv("AZURE_SEARCH_KEY", "")
 
-_WORD_DOCS_INDEX = "word-docs"
-_PROMOS_INDEX = os.getenv("AZURE_SEARCH_INDEX_NAME", "tv-promos")
+_WORD_DOCS_INDEX   = os.getenv("AZURE_SEARCH_WORD_INDEX",   "word-docs")
+_PROMOS_INDEX      = os.getenv("AZURE_SEARCH_INDEX_NAME",   "tv-promos")
+_WORD_SEMANTIC_CFG = os.getenv("AZURE_SEARCH_WORD_SEMANTIC_CONFIG",  "word-docs-semantic-config")
+_PROMO_SEMANTIC_CFG = os.getenv("AZURE_SEARCH_PROMO_SEMANTIC_CONFIG", "promo-semantic-config")
 
 _QUERY_LANGUAGE = "he-il"
+_SEARCH_TIMEOUT = int(os.getenv("AZURE_SEARCH_TIMEOUT_SECONDS", "30"))
 
 
 # ---------------------------------------------------------------------------
@@ -49,6 +55,8 @@ def _client(index_name: str) -> SearchClient:
         endpoint=_ENDPOINT,
         index_name=index_name,
         credential=AzureKeyCredential(_KEY),
+        connection_timeout=_SEARCH_TIMEOUT,
+        read_timeout=_SEARCH_TIMEOUT,
     )
 
 
@@ -75,7 +83,7 @@ def search_word_docs(query: str, top: int = 5) -> list[dict]:
     results = client.search(
         search_text=query,
         query_type=QueryType.SEMANTIC,
-        semantic_configuration_name="word-docs-semantic-config",
+        semantic_configuration_name=_WORD_SEMANTIC_CFG,
         query_language=_QUERY_LANGUAGE,
         query_caption="extractive",
         query_answer="extractive|count-3",
@@ -108,7 +116,7 @@ def search_excel_promos(query: str, top: int = 5) -> list[dict]:
     results = client.search(
         search_text=query,
         query_type=QueryType.SEMANTIC,
-        semantic_configuration_name="promo-semantic-config",
+        semantic_configuration_name=_PROMO_SEMANTIC_CFG,
         query_language=_QUERY_LANGUAGE,
         query_caption="extractive",
         query_answer="extractive|count-3",
@@ -152,29 +160,29 @@ def search_both(query: str, top: int = 5) -> dict:
 
 
 def _print_word_docs(docs: list[dict]) -> None:
-    print(f"\n{'='*60}")
-    print(f"  WORD-DOCS results ({len(docs)} hits)")
-    print(f"{'='*60}")
+    logger.info(f"\n{'='*60}")
+    logger.info(f"  WORD-DOCS results ({len(docs)} hits)")
+    logger.info(f"{'='*60}")
     for i, d in enumerate(docs, 1):
-        print(f"\n[{i}] {d['title']}  |  header: {d['header'] or '—'}  |  score: {d['score']:.3f}")
+        logger.info(f"\n[{i}] {d['title']}  |  header: {d['header'] or '—'}  |  score: {d['score']:.3f}")
         if d["caption"]:
-            print(f"    Caption: {d['caption']}")
+            logger.info(f"    Caption: {d['caption']}")
         snippet = d["chunk"][:200].replace("\n", " ")
-        print(f"    Chunk:   {snippet}{'…' if len(d['chunk']) > 200 else ''}")
+        logger.info(f"    Chunk:   {snippet}{'…' if len(d['chunk']) > 200 else ''}")
 
 
 def _print_excel_promos(docs: list[dict]) -> None:
-    print(f"\n{'='*60}")
-    print(f"  TV-PROMOS (Excel) results ({len(docs)} hits)")
-    print(f"{'='*60}")
+    logger.info(f"\n{'='*60}")
+    logger.info(f"  TV-PROMOS (Excel) results ({len(docs)} hits)")
+    logger.info(f"{'='*60}")
     for i, d in enumerate(docs, 1):
-        print(
+        logger.info(
             f"\n[{i}] {d['show_name']} עונה {d['season']}  |  {d['date']}"
             f"  |  section: {d['section'] or '—'}  |  rating: {d['rating'] or '—'}"
             f"  |  score: {d['score']:.3f}"
         )
         snippet = d["promo_text"][:200].replace("\n", " ")
-        print(f"    Promo:   {snippet}{'…' if len(d['promo_text']) > 200 else ''}")
+        logger.info(f"    Promo:   {snippet}{'…' if len(d['promo_text']) > 200 else ''}")
 
 
 if __name__ == "__main__":
@@ -185,7 +193,7 @@ if __name__ == "__main__":
     query = sys.argv[1] if len(sys.argv) > 1 else "האם מאסטר שף עונה 11 הייתה פופולרית?"
     top = int(sys.argv[2]) if len(sys.argv) > 2 else 5
 
-    print(f"\nQuery: {query}  (top={top})")
+    logger.info(f"\nQuery: {query}  (top={top})")
 
     combined = search_both(query, top=top)
     _print_word_docs(combined["word_docs"])

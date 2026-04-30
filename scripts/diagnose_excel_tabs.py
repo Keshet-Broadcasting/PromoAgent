@@ -19,6 +19,7 @@ Usage:
 """
 
 import io
+import logging
 import os
 import re
 
@@ -29,6 +30,8 @@ from azure.storage.blob import BlobServiceClient
 from dotenv import load_dotenv
 
 load_dotenv()
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 AZURE_SEARCH_ENDPOINT   = os.getenv("AZURE_SEARCH_ENDPOINT")
 AZURE_SEARCH_KEY        = os.getenv("AZURE_SEARCH_KEY")
@@ -75,13 +78,13 @@ def parse_tab_name(tab_name: str) -> tuple[str, str]:
 
 
 def download_workbook() -> openpyxl.Workbook:
-    print(f"Downloading '{EXCEL_BLOB_NAME}' from container '{AZURE_STORAGE_CONTAINER_NAME}' ...")
+    logger.info(f"Downloading '{EXCEL_BLOB_NAME}' from container '{AZURE_STORAGE_CONTAINER_NAME}' ...")
     blob_service = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
     blob_client  = blob_service.get_blob_client(
         container=AZURE_STORAGE_CONTAINER_NAME, blob=EXCEL_BLOB_NAME
     )
     data = blob_client.download_blob().readall()
-    print(f"  Downloaded {len(data):,} bytes.")
+    logger.info(f"  Downloaded {len(data):,} bytes.")
     return openpyxl.load_workbook(filename=io.BytesIO(data), data_only=True, read_only=True)
 
 
@@ -95,7 +98,7 @@ def fetch_indexed_pairs(search_client: SearchClient) -> set[tuple[str, str]]:
     Iterate ALL documents in the index (auto-paginated by the SDK) and return
     the set of unique (show_name, season) pairs.
     """
-    print("Querying 'tv-promos' index for all indexed (show_name, season) pairs ...")
+    logger.info("Querying 'tv-promos' index for all indexed (show_name, season) pairs ...")
     pairs: set[tuple[str, str]] = set()
     results = search_client.search(
         search_text="*",
@@ -103,7 +106,7 @@ def fetch_indexed_pairs(search_client: SearchClient) -> set[tuple[str, str]]:
     )
     for doc in results:
         pairs.add((doc.get("show_name", "") or "", doc.get("season", "") or ""))
-    print(f"  Found {len(pairs)} unique (show_name, season) pair(s) in the index.")
+    logger.info(f"  Found {len(pairs)} unique (show_name, season) pair(s) in the index.")
     return pairs
 
 
@@ -183,7 +186,7 @@ def main() -> None:
     # ---- Download Excel ----
     wb = download_workbook()
     excel_sheets = wb.sheetnames
-    print(f"  Workbook has {len(excel_sheets)} sheet(s).\n")
+    logger.info(f"  Workbook has {len(excel_sheets)} sheet(s).\n")
 
     # ---- Build Excel → (show_name, season) map ----
     # key = tab name, value = parsed pair
@@ -224,46 +227,46 @@ def main() -> None:
 
     # ---- Print summary ----
     sep = "=" * 60
-    print(sep)
-    print(f"  Total sheets in Excel : {len(excel_sheets)}")
-    print(f"  Unique parsed keys    : {len(excel_pairs)}")
-    print(f"  Indexed pairs         : {len(indexed_pairs)}")
-    print(f"  Missing from index    : {len(missing_pairs)}")
-    print(f"  Extra in index        : {len(extra_pairs)}")
-    print(sep)
+    logger.info(sep)
+    logger.info(f"  Total sheets in Excel : {len(excel_sheets)}")
+    logger.info(f"  Unique parsed keys    : {len(excel_pairs)}")
+    logger.info(f"  Indexed pairs         : {len(indexed_pairs)}")
+    logger.info(f"  Missing from index    : {len(missing_pairs)}")
+    logger.info(f"  Extra in index        : {len(extra_pairs)}")
+    logger.info(sep)
 
     # ---- Duplicate parse warnings ----
     if duplicates:
-        print("\nWARNING — multiple tabs parse to the same (show_name, season):")
+        logger.warning("\nWARNING — multiple tabs parse to the same (show_name, season):")
         for (sn, se), tabs in duplicates.items():
-            print(f"  show_name={sn!r}  season={se!r}")
+            logger.info(f"  show_name={sn!r}  season={se!r}")
             for t in tabs:
-                print(f"    tab: {t!r}")
+                logger.info(f"    tab: {t!r}")
 
     # ---- Missing tabs detail ----
     if missing_tabs:
-        print(f"\nMISSING tabs ({len(missing_tabs)}) — not found in index:")
-        print("-" * 60)
+        logger.info(f"\nMISSING tabs ({len(missing_tabs)}) — not found in index:")
+        logger.info("-" * 60)
         for tab, (show_name, season) in missing_tabs:
             detail = inspect_sheet(wb, tab)
             cause  = _likely_cause(show_name, season, detail)
-            print(f"  Tab       : {tab!r}")
-            print(f"  Parsed as : show_name={show_name!r}  season={season!r}")
-            print(f"  Data rows : {detail['data_rows']}")
-            print(f"  Row-2 hdrs: {detail['headers']}")
-            print(f"  Likely cause: {cause}")
-            print()
+            logger.info(f"  Tab       : {tab!r}")
+            logger.info(f"  Parsed as : show_name={show_name!r}  season={season!r}")
+            logger.info(f"  Data rows : {detail['data_rows']}")
+            logger.info(f"  Row-2 hdrs: {detail['headers']}")
+            logger.info(f"  Likely cause: {cause}")
+            logger.info("")
     else:
-        print("\nAll Excel tabs are represented in the index.")
+        logger.info("\nAll Excel tabs are represented in the index.")
 
     # ---- Extra in index ----
     if extra_pairs:
-        print(f"\nEXTRA in index ({len(extra_pairs)}) — not in current Excel file:")
-        print("-" * 60)
+        logger.info(f"\nEXTRA in index ({len(extra_pairs)}) — not in current Excel file:")
+        logger.info("-" * 60)
         for show_name, season in sorted(extra_pairs):
-            print(f"  show_name={show_name!r}  season={season!r}")
+            logger.info(f"  show_name={show_name!r}  season={season!r}")
 
-    print(sep)
+    logger.info(sep)
 
 
 if __name__ == "__main__":

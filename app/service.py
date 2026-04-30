@@ -231,7 +231,13 @@ def run_query(question: str, debug: bool = False) -> QueryResponse:
              route_result.analysis_hits or "—")
 
     # Step 2 — retrieve
-    retrieval = _retrieve(route, question)
+    try:
+        retrieval = _retrieve(route, question)
+    except EnvironmentError:
+        raise  # bubble up — api.py returns 503
+    except Exception as exc:
+        log.error("[%s] Retrieval failed: %s", trace_id, exc, exc_info=True)
+        raise RuntimeError(f"Azure Search error: {type(exc).__name__}") from exc
     log.info("[%s] Context length: %d chars", trace_id, len(retrieval.context))
     log.debug("[%s] === FULL CONTEXT ===\n%s\n=== END ===", trace_id, retrieval.context)
 
@@ -243,7 +249,11 @@ def run_query(question: str, debug: bool = False) -> QueryResponse:
     # Step 4 — call LLM via configured provider
     provider = get_provider()
     log.info("[%s] Sending to provider: %s", trace_id, os.getenv("CHAT_PROVIDER", "azure_openai"))
-    answer = provider.complete(messages)
+    try:
+        answer = provider.complete(messages)
+    except Exception as exc:
+        log.error("[%s] LLM call failed: %s", trace_id, exc, exc_info=True)
+        raise RuntimeError(f"LLM error: {type(exc).__name__}") from exc
     log.info("[%s] Answer length: %d chars", trace_id, len(answer))
 
     # Step 5 — assemble response

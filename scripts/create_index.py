@@ -11,6 +11,7 @@ Usage:
 
 import os
 import argparse
+import logging
 from dotenv import load_dotenv
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents.indexes import SearchIndexClient
@@ -32,6 +33,8 @@ from azure.search.documents.indexes.models import (
 
 # Load environment variables from .env file
 load_dotenv()
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 AZURE_SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
 AZURE_SEARCH_KEY = os.getenv("AZURE_SEARCH_KEY")
@@ -186,9 +189,9 @@ def create_index() -> None:
     index = get_index_definition()
 
     # Create or update the index (create_or_update is idempotent)
-    print(f"Creating index '{AZURE_SEARCH_INDEX_NAME}' ...")
+    logger.info(f"Creating index '{AZURE_SEARCH_INDEX_NAME}' ...")
     result = index_client.create_or_update_index(index)
-    print(f"Index '{result.name}' created/updated successfully.")
+    logger.info(f"Index '{result.name}' created/updated successfully.")
 
 
 def recreate_index() -> None:
@@ -209,21 +212,21 @@ def recreate_index() -> None:
 
     # Try to delete the index
     try:
-        print(f"Attempting to delete index '{AZURE_SEARCH_INDEX_NAME}' if it exists...")
+        logger.info(f"Attempting to delete index '{AZURE_SEARCH_INDEX_NAME}' if it exists...")
         index_client.delete_index(AZURE_SEARCH_INDEX_NAME)
-        print(f"Index '{AZURE_SEARCH_INDEX_NAME}' deleted successfully.")
+        logger.info(f"Index '{AZURE_SEARCH_INDEX_NAME}' deleted successfully.")
     except Exception as e:
         if "not found" in str(e).lower() or "does not exist" in str(e).lower():
-            print(f"Index '{AZURE_SEARCH_INDEX_NAME}' does not exist, skipping deletion.")
+            logger.info(f"Index '{AZURE_SEARCH_INDEX_NAME}' does not exist, skipping deletion.")
         else:
-            print(f"Error deleting index: {e}")
+            logger.error(f"Error deleting index: {e}")
             raise
 
     # Recreate the index
     index = get_index_definition()
-    print(f"Creating index '{AZURE_SEARCH_INDEX_NAME}' ...")
+    logger.info(f"Creating index '{AZURE_SEARCH_INDEX_NAME}' ...")
     result = index_client.create_index(index)
-    print(f"Index '{result.name}' created successfully.")
+    logger.info(f"Index '{result.name}' created successfully.")
 
 
 if __name__ == "__main__":

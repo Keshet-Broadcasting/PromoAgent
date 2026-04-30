@@ -16,11 +16,14 @@ from __future__ import annotations
 
 import os
 import sys
+import logging
 
 from dotenv import load_dotenv
 from openai import OpenAI
 
 load_dotenv()
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 AZURE_OPENAI_CHAT_ENDPOINT   = os.getenv("AZURE_OPENAI_CHAT_ENDPOINT", "")
 AZURE_OPENAI_CHAT_KEY        = os.getenv("AZURE_OPENAI_CHAT_KEY", "")
@@ -63,20 +66,20 @@ if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
 
-    print("Azure OpenAI Chat — connectivity test")
-    print("=" * 40)
-    print(f"  Endpoint:   {AZURE_OPENAI_CHAT_ENDPOINT}")
-    print(f"  Deployment: {AZURE_OPENAI_CHAT_DEPLOYMENT}")
-    print(f"  Base URL:   {AZURE_OPENAI_CHAT_ENDPOINT}")
-    print()
+    logger.info("Azure OpenAI Chat — connectivity test")
+    logger.info("=" * 40)
+    logger.info(f"  Endpoint:   {AZURE_OPENAI_CHAT_ENDPOINT}")
+    logger.info(f"  Deployment: {AZURE_OPENAI_CHAT_DEPLOYMENT}")
+    logger.info(f"  Base URL:   {AZURE_OPENAI_CHAT_ENDPOINT}")
+    logger.info("")
 
     try:
         reply = test_chat()
-        print(f"Response: {reply}")
-        print("\nChat connection is working.")
+        logger.info(f"Response: {reply}")
+        logger.info("\nChat connection is working.")
     except EnvironmentError as e:
-        print(f"Configuration error: {e}", file=sys.stderr)
+        logger.error(f"Configuration error: {e}")
         sys.exit(1)
     except Exception as e:
-        print(f"Connection failed: {e}", file=sys.stderr)
+        logger.error(f"Connection failed: {e}")
         sys.exit(1)

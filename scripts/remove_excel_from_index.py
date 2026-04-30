@@ -9,12 +9,15 @@ Usage:
 """
 
 import os
+import logging
 from dotenv import load_dotenv
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents import SearchClient
 from azure.search.documents.indexes import SearchIndexClient
 
 load_dotenv()
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
 KEY = os.getenv("AZURE_SEARCH_KEY")
@@ -32,7 +35,7 @@ def main() -> None:
     index_client = SearchIndexClient(endpoint=ENDPOINT, credential=credential)
     index_def = index_client.get_index(INDEX_NAME)
     key_field = next(f.name for f in index_def.fields if f.key)
-    print(f"Index key field: '{key_field}'")
+    logger.info(f"Index key field: '{key_field}'")
 
     # --- 2. Search for the Excel document by filename.
     search_client = SearchClient(endpoint=ENDPOINT, index_name=INDEX_NAME, credential=credential)
@@ -56,19 +59,19 @@ def main() -> None:
         ))
 
     if not results:
-        print(f"No document found matching '{EXCEL_FILENAME}'. Nothing to delete.")
+        logger.info(f"No document found matching '{EXCEL_FILENAME}'. Nothing to delete.")
         return
 
     if len(results) > 1:
-        print(f"WARNING: Found {len(results)} matching documents. Showing all:")
+        logger.warning(f"WARNING: Found {len(results)} matching documents. Showing all:")
         for r in results:
-            print(f"  key={r[key_field]!r}")
-        print("Aborting — please narrow the filter and re-run.")
+            logger.info(f"  key={r[key_field]!r}")
+        logger.info("Aborting — please narrow the filter and re-run.")
         return
 
     doc = results[0]
     doc_key = doc[key_field]
-    print(f"Found document key: {doc_key!r}")
+    logger.info(f"Found document key: {doc_key!r}")
 
     # --- 3. Delete the document.
     delete_batch = [{key_field: doc_key}]
@@ -76,9 +79,9 @@ def main() -> None:
 
     result = delete_results[0]
     if result.succeeded:
-        print(f"Deletion succeeded (key={doc_key!r}, status={result.status_code}).")
+        logger.info(f"Deletion succeeded (key={doc_key!r}, status={result.status_code}).")
     else:
-        print(f"Deletion FAILED: {result.error_message}")
+        logger.error(f"Deletion FAILED: {result.error_message}")
 
 
 if __name__ == "__main__":

@@ -46,6 +46,7 @@ from __future__ import annotations
 
 import os
 import sys
+import logging
 
 # Ensure project root is on sys.path so 'app' is importable regardless of
 # how this file is invoked (python tests/test_agent.py or python -m tests.test_agent)
@@ -53,6 +54,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import unicodedata
 from dataclasses import dataclass, field
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Test case definition
@@ -777,7 +781,7 @@ def run_route_checks() -> tuple[int, int]:
     from app.query_router import classify
 
     passed = failed = 0
-    print("ROUTE CHECKS (no network, all cases)\n" + "-" * 50)
+    logger.info("ROUTE CHECKS (no network, all cases)\n" + "-" * 50)
     for case in CASES:
         result = classify(case.query)
         ok = result.route == case.expected_route
@@ -790,10 +794,10 @@ def run_route_checks() -> tuple[int, int]:
             f"(expected {case.expected_route:<14}) "
             f"{case.query[:50]}{live_tag}"
         )
-        print(status)
+        logger.info(status)
         if not ok:
-            print(f"       hits: {result.summary}")
-    print()
+            logger.info(f"       hits: {result.summary}")
+    logger.info("")
     return passed, failed
 
 
@@ -807,18 +811,18 @@ def run_live_checks() -> tuple[int, int]:
     live_cases = [c for c in CASES if c.live]
 
     passed = failed = 0
-    print(
+    logger.info(
         f"LIVE CHECKS (router + retrieval + LLM) — {len(live_cases)}/{len(CASES)} cases\n"
         + "-" * 60
     )
 
     for case in live_cases:
-        print(f"\n[{case.id}] {case.description}")
-        print(f"  Query:  {case.query[:90]}")
+        logger.info(f"\n[{case.id}] {case.description}")
+        logger.info(f"  Query:  {case.query[:90]}")
         try:
             answer = answer_question(case.query)
         except Exception as exc:
-            print(f"  ERROR:  {exc}")
+            logger.error(f"  ERROR:  {exc}")
             failed += 1
             continue
 
@@ -907,12 +911,12 @@ def run_live_checks() -> tuple[int, int]:
 
         for check_name, ok, detail in checks:
             mark = "PASS" if ok else "FAIL"
-            print(f"  [{mark}] {check_name:<8} {detail}")
+            logger.info(f"  [{mark}] {check_name:<8} {detail}")
 
         preview = answer[:300]
-        print(f"  Answer: {preview}{'…' if len(answer) > 300 else ''}")
+        logger.info(f"  Answer: {preview}{'…' if len(answer) > 300 else ''}")
 
-    print()
+    logger.info("")
     return passed, failed
 
 
@@ -937,17 +941,17 @@ if __name__ == "__main__":
         total_failed += lf
     else:
         live_count = sum(1 for c in CASES if c.live)
-        print(
+        logger.info(
             f"Skipping live checks ({live_count} curated cases). "
             "Run with --live to include LLM responses.\n"
         )
 
     total = total_passed + total_failed
-    print("=" * 50)
-    print(f"RESULT: {total_passed}/{total} passed", end="")
+    logger.info("=" * 50)
+    sys.stdout.write(f"RESULT: {total_passed}/{total} passed")
     if total_failed:
-        print(f"  ({total_failed} FAILED)")
+        logger.info(f"  ({total_failed} FAILED)")
     else:
-        print("  — all clear")
+        logger.info("  — all clear")
 
     sys.exit(0 if total_failed == 0 else 1)

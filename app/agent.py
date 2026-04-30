@@ -59,28 +59,28 @@ if __name__ == "__main__":
 
     if _args:
         q = " ".join(_args)
-        print(f"\nשאלה: {q}\n")
+        log.info(f"\nשאלה: {q}\n")
         result = run_query(q, debug=_debug)
-        print(result.answer)
-        print(f"\n[route={result.route}  confidence={result.confidence}  "
-              f"sources={len(result.sources)}  trace={result.trace_id}]")
+        log.info(result.answer)
+        log.info(f"\n[route={result.route}  confidence={result.confidence}  "
+                 f"sources={len(result.sources)}  trace={result.trace_id}]")
         if _debug and result.debug_trace:
-            print("\n=== DEBUG TRACE ===")
-            print(result.debug_trace)
-            print("=== END TRACE ===")
+            log.info("\n=== DEBUG TRACE ===")
+            log.info(result.debug_trace)
+            log.info("=== END TRACE ===")
     else:
-        print("סוכן מחלקת הפרומו — מצב אינטראקטיבי (Ctrl+C ליציאה)\n")
+        log.info("סוכן מחלקת הפרומו — מצב אינטראקטיבי (Ctrl+C ליציאה)\n")
         while True:
             try:
                 q = input("שאלה: ").strip()
             except (KeyboardInterrupt, EOFError):
-                print("\nיציאה.")
+                log.info("\nיציאה.")
                 break
             if not q:
                 continue
-            print()
+            log.info("")
             result = run_query(q)
-            print(result.answer)
-            print(f"\n[route={result.route}  confidence={result.confidence}  "
-                  f"sources={len(result.sources)}]")
-            print()
+            log.info(result.answer)
+            log.info(f"\n[route={result.route}  confidence={result.confidence}  "
+                     f"sources={len(result.sources)}]")
+            log.info("")

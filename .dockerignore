@@ -1,0 +1,13 @@
+.env
+.env.*
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.git/
+.gitignore
+tests/
+scratch/
+*.md
+dataset.jsonl
+dataset.jsonl.bak

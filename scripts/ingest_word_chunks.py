@@ -28,6 +28,7 @@ Usage:
 
 import argparse
 import json
+import logging
 import os
 
 import httpx
@@ -36,6 +37,8 @@ from azure.search.documents import SearchClient
 from dotenv import load_dotenv
 
 load_dotenv()
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 AZURE_SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
 AZURE_SEARCH_KEY = os.getenv("AZURE_SEARCH_KEY")
@@ -136,7 +139,7 @@ def main(dry_run: bool = False) -> None:
         )
 
     if dry_run:
-        print("DRY RUN — documents will be parsed and embedded but NOT uploaded.\n")
+        logger.info("DRY RUN — documents will be parsed and embedded but NOT uploaded.\n")
 
     # Clients
     from azure.storage.blob import BlobServiceClient
@@ -155,7 +158,7 @@ def main(dry_run: bool = False) -> None:
 
     # List JSON blobs
     json_blobs = [b for b in json_container.list_blobs() if b.name.lower().endswith(".json")]
-    print(f"Found {len(json_blobs)} JSON file(s) in '{JSON_CONTAINER}'.\n")
+    logger.info(f"Found {len(json_blobs)} JSON file(s) in '{JSON_CONTAINER}'.\n")
 
     grand_total_chunks = 0
     grand_succeeded = 0
@@ -165,7 +168,7 @@ def main(dry_run: bool = False) -> None:
 
     for blob_props in json_blobs:
         blob_name = blob_props.name
-        print(f"  {blob_name}")
+        logger.info(f"  {blob_name}")
 
         try:
             # Download and parse JSON
@@ -173,16 +176,16 @@ def main(dry_run: bool = False) -> None:
             chunks: list[dict] = json.loads(raw.decode("utf-8"))
 
             if not chunks:
-                print(f"    Empty — skipping.")
+                logger.info("    Empty — skipping.")
                 continue
 
             # Filter out chunks with no text
             chunks = [c for c in chunks if c.get("chunk", "").strip()]
             if not chunks:
-                print(f"    All chunks empty after filtering — skipping.")
+                logger.info("    All chunks empty after filtering — skipping.")
                 continue
 
-            print(f"    {len(chunks)} chunk(s) — embedding ...")
+            logger.info(f"    {len(chunks)} chunk(s) — embedding ...")
 
             # Embed all chunks in batches
             texts = [c["chunk"] for c in chunks]
@@ -199,7 +202,7 @@ def main(dry_run: bool = False) -> None:
 
             skipped_no_vec = len(chunks) - len(docs_to_upload)
             if skipped_no_vec:
-                print(f"    {skipped_no_vec} chunk(s) skipped (no embedding).")
+                logger.info(f"    {skipped_no_vec} chunk(s) skipped (no embedding).")
 
             # Upload in batches of UPLOAD_BATCH_SIZE
             file_succeeded = 0
@@ -217,23 +220,23 @@ def main(dry_run: bool = False) -> None:
 
             status = "would upload" if dry_run else "uploaded"
             warn = f"  ({file_failed} failed)" if file_failed else ""
-            print(f"    {status} {file_succeeded}/{len(docs_to_upload)}{warn}")
+            logger.info(f"    {status} {file_succeeded}/{len(docs_to_upload)}{warn}")
 
         except Exception as exc:
-            print(f"    ERROR: {exc}")
+            logger.error(f"    ERROR: {exc}")
             files_errors += 1
 
-    print()
-    print("=" * 52)
-    print(f"  JSON files processed  : {files_processed}")
-    print(f"  JSON files errored    : {files_errors}")
-    print(f"  Total chunks seen     : {grand_total_chunks}")
+    logger.info("")
+    logger.info("=" * 52)
+    logger.info(f"  JSON files processed  : {files_processed}")
+    logger.info(f"  JSON files errored    : {files_errors}")
+    logger.info(f"  Total chunks seen     : {grand_total_chunks}")
     if dry_run:
-        print(f"  Chunks (dry run)      : {grand_succeeded}")
+        logger.info(f"  Chunks (dry run)      : {grand_succeeded}")
     else:
-        print(f"  Chunks uploaded OK    : {grand_succeeded}")
-        print(f"  Chunks failed         : {grand_failed}")
-    print("=" * 52)
+        logger.info(f"  Chunks uploaded OK    : {grand_succeeded}")
+        logger.info(f"  Chunks failed         : {grand_failed}")
+    logger.info("=" * 52)
 
 
 if __name__ == "__main__":

@@ -19,6 +19,7 @@ Usage
 from __future__ import annotations
 
 import asyncio
+import logging
 import sys
 
 from dotenv import load_dotenv
@@ -26,6 +27,8 @@ from dotenv import load_dotenv
 from pipeline.config import load_settings
 
 DEFAULT_QUESTION = "מה הרייטינג הממוצע של חתונה ממבט ראשון?"
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -47,15 +50,15 @@ async def run_pipeline(question: str, settings) -> None:
         project_endpoint=settings.project_endpoint,
         credential=credential,
     ) as provider:
-        print("Registering agents in Foundry ...")
+        logger.info("Registering agents in Foundry ...")
         retriever = await create_retriever(provider, model=settings.model_deployment)
         answerer  = await create_answer_agent(provider, model=settings.model_deployment)
 
         pipeline = build_pipeline(retriever, answerer)
 
-        print(f"\n{'=' * 60}")
-        print(f"Question: {question}")
-        print(f"{'=' * 60}\n")
+        logger.info(f"\n{'=' * 60}")
+        logger.info(f"Question: {question}")
+        logger.info(f"{'=' * 60}\n")
 
         last_executor = None
         async for event in pipeline.run(question, stream=True):
@@ -63,16 +66,17 @@ async def run_pipeline(question: str, settings) -> None:
                 exec_id = getattr(event, "executor_id", None)
                 if exec_id and exec_id not in ("input-conversation", "end", None):
                     if last_executor:
-                        print(f"\n{'-' * 40}")
-                    print(f"\n[{exec_id}]:")
+                        logger.info(f"\n{'-' * 40}")
+                    logger.info(f"\n[{exec_id}]:")
                     last_executor = exec_id
 
             if event.type == "output" and isinstance(event.data, AgentResponseUpdate):
                 text = str(event.data)
                 if text:
-                    print(text, end="", flush=True)
+                    sys.stdout.write(text)
+                    sys.stdout.flush()
 
-        print(f"\n\n{'=' * 60}\nPipeline complete.")
+        logger.info(f"\n\n{'=' * 60}\nPipeline complete.")
 
     await credential.close()
 
@@ -85,10 +89,10 @@ def run_fallback(question: str) -> None:
     """Run the existing service.py pipeline (sync, no aiohttp required)."""
     from app.service import run_query
 
-    print(f"\n[Fallback mode — using service.py directly]\n")
+    logger.info("\n[Fallback mode — using service.py directly]\n")
     result = run_query(question)
-    print(f"Answer:\n{result.answer}")
-    print(f"\n[route={result.route}  confidence={result.confidence}  sources={len(result.sources)}]")
+    logger.info(f"Answer:\n{result.answer}")
+    logger.info(f"\n[route={result.route}  confidence={result.confidence}  sources={len(result.sources)}]")
 
 
 # ---------------------------------------------------------------------------
@@ -115,11 +119,11 @@ def main() -> None:
     try:
         asyncio.run(run_pipeline(question, settings))
     except ImportError as exc:
-        print(f"\naiohttp or agent-framework-foundry not available: {exc}")
-        print("Falling back to service.py (sync mode)...\n")
+        logger.error(f"\naiohttp or agent-framework-foundry not available: {exc}")
+        logger.info("Falling back to service.py (sync mode)...\n")
         run_fallback(question)
     except KeyboardInterrupt:
-        print("\nInterrupted.")
+        logger.info("\nInterrupted.")
         sys.exit(0)
 
 

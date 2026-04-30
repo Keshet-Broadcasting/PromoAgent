@@ -13,11 +13,14 @@ Usage:
 
 import os
 import warnings
+import logging
 
 import requests
 from dotenv import load_dotenv
 
 load_dotenv()
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 AZURE_SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
 AZURE_SEARCH_KEY = os.getenv("AZURE_SEARCH_KEY")
@@ -80,22 +83,22 @@ def main() -> None:
     }
 
     body = build_datasource_body()
-    print(f"Creating/updating datasource '{DATASOURCE_NAME}' ...")
+    logger.info(f"Creating/updating datasource '{DATASOURCE_NAME}' ...")
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         response = requests.put(url, json=body, headers=headers, timeout=30)
 
     if response.status_code == 201:
-        print(f"Datasource '{DATASOURCE_NAME}' created successfully (HTTP 201).")
+        logger.info(f"Datasource '{DATASOURCE_NAME}' created successfully (HTTP 201).")
     elif response.status_code in (200, 204):
-        print(
+        logger.info(
             f"Datasource '{DATASOURCE_NAME}' updated successfully "
             f"(HTTP {response.status_code})."
         )
     else:
-        print(f"ERROR {response.status_code}:")
-        print(response.text)
+        logger.error(f"ERROR {response.status_code}:")
+        logger.error(response.text)
         response.raise_for_status()
 
 

@@ -21,11 +21,14 @@ Usage:
 
 import os
 import warnings
+import logging
 
 import requests
 from dotenv import load_dotenv
 
 load_dotenv()
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 AZURE_SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
 AZURE_SEARCH_KEY = os.getenv("AZURE_SEARCH_KEY")
@@ -181,7 +184,7 @@ def main() -> None:
 
     body = build_skillset_body()
 
-    print(f"Creating/updating skillset '{SKILLSET_NAME}' ...")
+    logger.info(f"Creating/updating skillset '{SKILLSET_NAME}' ...")
 
     # Suppress the charset_normalizer warning — Azure APIs always return UTF-8
     with warnings.catch_warnings():
@@ -189,12 +192,12 @@ def main() -> None:
         response = requests.put(url, json=body, headers=headers, timeout=30)
 
     if response.status_code == 201:
-        print(f"Skillset '{SKILLSET_NAME}' created successfully.")
+        logger.info(f"Skillset '{SKILLSET_NAME}' created successfully.")
     elif response.status_code in (200, 204):
-        print(f"Skillset '{SKILLSET_NAME}' updated successfully (HTTP {response.status_code}).")
+        logger.info(f"Skillset '{SKILLSET_NAME}' updated successfully (HTTP {response.status_code}).")
     else:
-        print(f"ERROR {response.status_code}:")
-        print(response.text)
+        logger.error(f"ERROR {response.status_code}:")
+        logger.error(response.text)
         response.raise_for_status()
 
 
