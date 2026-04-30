@@ -61,6 +61,7 @@ stages:
               environment: 'stage'
               containerRegistry: 'keshetacr-chevbpakg6b0gxfb.azurecr.io'
               azureServiceConnection: 'Azure-ServiceConnection'
+              resourceGroup: 'AI-Resource-Group'
 
 - stage: DeployProd
   displayName: 'Deploy to Production'
@@ -80,3 +81,4 @@ stages:
               environment: 'prod'
               containerRegistry: 'keshetacr-chevbpakg6b0gxfb.azurecr.io'
               azureServiceConnection: 'Azure-ServiceConnection'
+              resourceGroup: 'AI-Resource-Group'
