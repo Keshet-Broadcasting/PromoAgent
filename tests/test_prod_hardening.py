@@ -162,6 +162,7 @@ _DEFAULT_ENV = {
     "ENVIRONMENT": "dev",
     "ALLOW_DEBUG": "false",
     "RATE_LIMIT": "100/minute",
+    "AUTH_ENABLED": "false",
 }
 
 
