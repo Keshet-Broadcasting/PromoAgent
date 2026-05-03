@@ -76,6 +76,9 @@ class ChatProvider(ABC):
 # ---------------------------------------------------------------------------
 
 
+_LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT_SECONDS", "60"))
+
+
 class AzureOpenAIProvider(ChatProvider):
     """Azure OpenAI via the openai SDK — key-based auth, no changes to existing logic."""
 
@@ -93,16 +96,21 @@ class AzureOpenAIProvider(ChatProvider):
         self.api_key    = os.environ["AZURE_OPENAI_CHAT_KEY"]
         self.deployment = os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"]
 
+        from openai import OpenAI
+        self._client = OpenAI(base_url=self.endpoint, api_key=self.api_key)
+
     def complete(self, messages: list[dict]) -> str:
-        from openai import OpenAI  # already in requirements.txt
-        client = OpenAI(base_url=self.endpoint, api_key=self.api_key)
-        resp = client.chat.completions.create(
+        resp = self._client.chat.completions.create(
             model=self.deployment,
             messages=messages,
             temperature=0,
             max_tokens=1500,
+            timeout=_LLM_TIMEOUT,
         )
-        return resp.choices[0].message.content.strip()
+        content = resp.choices[0].message.content
+        if not content:
+            return "התשובה סוננה על ידי מערכת הבטיחות. נסה לנסח מחדש את השאלה."
+        return content.strip()
 
 
 # ---------------------------------------------------------------------------
@@ -203,8 +211,12 @@ class FoundryProvider(ChatProvider):
             messages=messages,
             temperature=0,
             max_tokens=1500,
+            timeout=_LLM_TIMEOUT,
         )
-        return resp.choices[0].message.content.strip()
+        content = resp.choices[0].message.content
+        if not content:
+            return "התשובה סוננה על ידי מערכת הבטיחות. נסה לנסח מחדש את השאלה."
+        return content.strip()
 
 
 # ---------------------------------------------------------------------------
@@ -212,12 +224,21 @@ class FoundryProvider(ChatProvider):
 # ---------------------------------------------------------------------------
 
 
-def get_provider() -> ChatProvider:
-    """Read CHAT_PROVIDER and return the configured provider instance.
+_provider_cache: ChatProvider | None = None
 
-    Called once per request in service.run_query().
+
+def get_provider() -> ChatProvider:
+    """Return the configured provider instance (singleton).
+
+    The instance is created on first call and reused for all subsequent
+    requests, keeping the underlying HTTP connection pool alive.
     """
-    name = os.getenv("CHAT_PROVIDER", "azure_openai").lower()
-    if name == "foundry":
-        return FoundryProvider()
-    return AzureOpenAIProvider()
+    global _provider_cache
+    if _provider_cache is None:
+        name = os.getenv("CHAT_PROVIDER", "azure_openai").lower()
+        if name == "foundry":
+            _provider_cache = FoundryProvider()
+        else:
+            _provider_cache = AzureOpenAIProvider()
+        log.info("Chat provider initialized: %s", type(_provider_cache).__name__)
+    return _provider_cache

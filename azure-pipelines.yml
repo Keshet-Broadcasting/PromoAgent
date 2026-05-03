@@ -1,3 +1,18 @@
+# ---------------------------------------------------------------------------
+# azure-pipelines.yml — PromoAgent CI/CD
+#
+# Consumes the shared platform templates from kst.ai_pipelines.
+# Secrets are fetched at runtime from Azure Key Vault via linked
+# variable groups — no secret values in this file.
+#
+# Variable groups required (linked to Key Vault):
+#   kst-ai-shared   — org-wide shared secrets
+#   kst-ai-stage    — staging-specific secrets
+#   kst-ai-prod     — production-specific secrets
+#
+# See docs/ONBOARDING.md for setup instructions.
+# ---------------------------------------------------------------------------
+
 trigger:
   branches:
     include: [main]
@@ -10,75 +25,98 @@ resources:
       endpoint: 'Keshet-Broadcasting'
       ref: refs/heads/main
 
-variables:
-  appName: 'promo-agent'
-  language: 'python'
-  azureServiceConnection: 'Azure-ServiceConnection'
-  containerRegistry: 'keshetacr-chevbpakg6b0gxfb.azurecr.io'
-
 stages:
-- stage: Test
-  displayName: 'Run Tests'
-  jobs:
-  - job: RunTests
-    pool:
-      vmImage: 'ubuntu-latest'
-    steps:
-    - template: templates/tests.yml@pipelines
-      parameters:
-        language: $(language)
+- template: templates/stages/ci-cd.yml@pipelines
+  parameters:
+    appName: 'promo-agent'
+    language: 'python'
 
-- stage: Build
-  displayName: 'Build Docker Image'
-  dependsOn: Test
-  jobs:
-  - job: BuildImage
-    pool:
-      vmImage: 'ubuntu-latest'
-    steps:
-    - template: templates/build.yml@pipelines
-      parameters:
-        appName: 'promo-agent'
-        containerRegistry: 'keshetacr-chevbpakg6b0gxfb.azurecr.io'
-        azureServiceConnection: 'Azure-ServiceConnection'
-        dockerfilePath: 'Dockerfile'
+    # Variable groups (Key Vault linked)
+    sharedVariableGroup: 'kst-ai-shared'
+    stagingVariableGroup: 'kst-ai-stage'
+    prodVariableGroup: 'kst-ai-prod'
 
-- stage: DeployStaging
-  displayName: 'Deploy to Staging'
-  dependsOn: Build
-  jobs:
-  - deployment: Deploy
-    environment: 'stage'
-    pool:
-      vmImage: 'ubuntu-latest'
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - template: templates/deploy.yml@pipelines
-            parameters:
-              appName: 'promo-agent'
-              environment: 'stage'
-              containerRegistry: 'keshetacr-chevbpakg6b0gxfb.azurecr.io'
-              azureServiceConnection: 'Azure-ServiceConnection'
-              resourceGroup: 'AI-Resource-Group'
+    # Azure infrastructure
+    azureServiceConnection: 'Azure-ServiceConnection'
+    containerRegistry: 'keshetacr-chevbpakg6b0gxfb.azurecr.io'
+    registryName: 'keshetacr'
+    resourceGroup: 'AI-Resource-Group'
+    location: 'northeurope'
 
-- stage: DeployProd
-  displayName: 'Deploy to Production'
-  dependsOn: DeployStaging
-  jobs:
-  - deployment: Deploy
-    environment: 'prod'
-    pool:
-      vmImage: 'ubuntu-latest'
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - template: templates/deploy.yml@pipelines
-            parameters:
-              appName: 'promo-agent'
-              environment: 'prod'
-              containerRegistry: 'keshetacr-chevbpakg6b0gxfb.azurecr.io'
-              azureServiceConnection: 'Azure-ServiceConnection'
-              resourceGroup: 'AI-Resource-Group'
+    # Container App settings
+    targetPort: 8000
+    minReplicas: 0
+    maxReplicas: 3
+    cpu: '0.5'
+    memory: '1.0Gi'
+
+    # CORS — allowed origin for SharePoint integration
+    corsOrigins: 'https://keshettv.sharepoint.com'
+
+    # Smoke tests
+    healthPath: '/health'
+    queryPath: '/query'
+    smokeTestWait: 45
+
+    # -----------------------------------------------------------------------
+    # Staging: non-secret env vars
+    # Secrets come from the kst-ai-shared + kst-ai-stage variable groups
+    # -----------------------------------------------------------------------
+    stagingEnvVars:
+      AZURE_SEARCH_ENDPOINT: 'https://ai-search-keshet.search.windows.net'
+      AZURE_SEARCH_INDEX_NAME: 'tv-promos'
+      AZURE_OPENAI_ENDPOINT: 'https://azureopenaipilot.openai.azure.com/'
+      AZURE_OPENAI_EMBEDDING_DEPLOYMENT: 'text-embedding-3-small'
+      AZURE_OPENAI_API_VERSION: '2024-02-01'
+      AZURE_OPENAI_CHAT_ENDPOINT: 'https://keshet-foundry.openai.azure.com/openai/v1'
+      AZURE_OPENAI_CHAT_DEPLOYMENT: 'gpt-4o-1'
+      CHAT_PROVIDER: 'foundry'
+      AZURE_CREDENTIAL_TYPE: 'managed_identity'
+      AZURE_AI_PROJECT_ENDPOINT: 'https://Keshet-Foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry'
+      AZURE_AI_MODEL_DEPLOYMENT_NAME: 'gpt-4o-1'
+      AZURE_STORAGE_CONTAINER_NAME: 'promo-docs-poc'
+      AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT: 'https://documentintelegencepilot.cognitiveservices.azure.com/'
+      ENTRA_TENANT_ID: '94c43ca5-8a89-42a8-b6d6-f1a37cdff68f'
+      ENTRA_API_CLIENT_ID: 'ef12944c-913a-473c-90db-7428fc3523f5'
+      AUTH_ENABLED: 'true'
+      ALLOW_DEBUG: 'false'
+      RATE_LIMIT: '20/minute'
+
+    # Staging: secret vars (references to variable group variables)
+    stagingSecretVars:
+      AZURE_SEARCH_KEY: '$(AZURE-SEARCH-KEY)'
+      AZURE_OPENAI_KEY: '$(AZURE-OPENAI-KEY)'
+      AZURE_OPENAI_CHAT_KEY: '$(AZURE-OPENAI-CHAT-KEY)'
+      AZURE_STORAGE_CONNECTION_STRING: '$(AZURE-STORAGE-CONN-STRING)'
+      AZURE_DOCUMENT_INTELLIGENCE_KEY: '$(AZURE-DOC-INTEL-KEY)'
+
+    # -----------------------------------------------------------------------
+    # Production: non-secret env vars (same as staging unless overridden)
+    # -----------------------------------------------------------------------
+    prodEnvVars:
+      AZURE_SEARCH_ENDPOINT: 'https://ai-search-keshet.search.windows.net'
+      AZURE_SEARCH_INDEX_NAME: 'tv-promos'
+      AZURE_OPENAI_ENDPOINT: 'https://azureopenaipilot.openai.azure.com/'
+      AZURE_OPENAI_EMBEDDING_DEPLOYMENT: 'text-embedding-3-small'
+      AZURE_OPENAI_API_VERSION: '2024-02-01'
+      AZURE_OPENAI_CHAT_ENDPOINT: 'https://keshet-foundry.openai.azure.com/openai/v1'
+      AZURE_OPENAI_CHAT_DEPLOYMENT: 'gpt-4o-1'
+      CHAT_PROVIDER: 'foundry'
+      AZURE_CREDENTIAL_TYPE: 'managed_identity'
+      AZURE_AI_PROJECT_ENDPOINT: 'https://Keshet-Foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry'
+      AZURE_AI_MODEL_DEPLOYMENT_NAME: 'gpt-4o-1'
+      AZURE_STORAGE_CONTAINER_NAME: 'promo-docs-poc'
+      AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT: 'https://documentintelegencepilot.cognitiveservices.azure.com/'
+      ENTRA_TENANT_ID: '94c43ca5-8a89-42a8-b6d6-f1a37cdff68f'
+      ENTRA_API_CLIENT_ID: 'ef12944c-913a-473c-90db-7428fc3523f5'
+      AUTH_ENABLED: 'true'
+      ALLOW_DEBUG: 'false'
+      RATE_LIMIT: '10/minute'
+
+    # Production: secret vars
+    prodSecretVars:
+      AZURE_SEARCH_KEY: '$(AZURE-SEARCH-KEY)'
+      AZURE_OPENAI_KEY: '$(AZURE-OPENAI-KEY)'
+      AZURE_OPENAI_CHAT_KEY: '$(AZURE-OPENAI-CHAT-KEY)'
+      AZURE_STORAGE_CONNECTION_STRING: '$(AZURE-STORAGE-CONN-STRING)'
+      AZURE_DOCUMENT_INTELLIGENCE_KEY: '$(AZURE-DOC-INTEL-KEY)'

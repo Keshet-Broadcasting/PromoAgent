@@ -39,16 +39,27 @@ import os
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
+from .auth import require_auth
 from .models import ErrorResponse, QueryRequest, QueryResponse
 from .service import run_query
 
 load_dotenv()
 
 log = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Environment
+# ---------------------------------------------------------------------------
+
+_ENVIRONMENT = os.getenv("ENVIRONMENT", "dev").lower()
+_ALLOW_DEBUG = os.getenv("ALLOW_DEBUG", "false").lower() in ("true", "1", "yes")
 
 # ---------------------------------------------------------------------------
 # CORS — read allowed origins from env so nothing is hard-coded
@@ -60,6 +71,21 @@ _CORS_ORIGINS: list[str] = (
     else [o.strip() for o in _raw_origins.split(",") if o.strip()]
 )
 
+if _CORS_ORIGINS == ["*"] and _ENVIRONMENT != "dev":
+    log.warning(
+        "CORS_ORIGINS is set to '*' in a non-dev environment (%s). "
+        "Set CORS_ORIGINS to your SharePoint domain(s) for production.",
+        _ENVIRONMENT,
+    )
+
+# ---------------------------------------------------------------------------
+# Rate limiter
+# ---------------------------------------------------------------------------
+
+_RATE_LIMIT = os.getenv("RATE_LIMIT", "10/minute")
+
+limiter = Limiter(key_func=get_remote_address)
+
 # ---------------------------------------------------------------------------
 # App factory
 # ---------------------------------------------------------------------------
@@ -67,17 +93,25 @@ _CORS_ORIGINS: list[str] = (
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
-    log.info("Promo Agent API starting — CORS origins: %s", _CORS_ORIGINS)
+    log.info("Promo Agent API starting — env=%s  CORS origins: %s", _ENVIRONMENT, _CORS_ORIGINS)
     yield
     log.info("Promo Agent API shutting down")
 
+
+_docs_kwargs: dict = {}
+if _ENVIRONMENT != "dev":
+    _docs_kwargs = dict(docs_url=None, redoc_url=None, openapi_url=None)
 
 app = FastAPI(
     title="Promo Agent API",
     version="1.0.0",
     description="Internal RAG agent for the Promo department. Answers questions from Excel and Word sources.",
     lifespan=_lifespan,
+    **_docs_kwargs,
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -89,21 +123,7 @@ app.add_middleware(
 
 
 # ---------------------------------------------------------------------------
-# Auth placeholder
-# ---------------------------------------------------------------------------
-# TODO: Replace this stub with real Entra ID token validation when ready.
-#
-# Pattern to follow:
-#   from fastapi import Security
-#   from fastapi.security import OAuth2AuthorizationCodeBearer
-#   oauth2_scheme = OAuth2AuthorizationCodeBearer(...)
-#
-#   async def verify_token(token: str = Security(oauth2_scheme)):
-#       # validate token with azure-identity or msal
-#       ...
-#
-#   Then add   dependencies=[Security(verify_token)]
-#   to the @app.post("/query") decorator below.
+# Auth — Entra ID bearer-token validation (see app/auth.py)
 # ---------------------------------------------------------------------------
 
 
@@ -163,28 +183,18 @@ async def health() -> dict:
     tags=["agent"],
     summary="Ask the Promo Agent a question",
     response_description="Grounded answer with source citations and routing metadata",
+    dependencies=[Depends(require_auth)],
 )
-def query(req: QueryRequest) -> QueryResponse:
+@limiter.limit(_RATE_LIMIT)
+def query(request: Request, req: QueryRequest) -> QueryResponse:
     """Run the full RAG pipeline and return a structured answer.
 
     Declared as a plain ``def`` (not ``async def``) so FastAPI automatically
     runs it in a thread-pool via ``run_in_executor``.  This prevents the
     synchronous LLM call from blocking the uvicorn event loop.
-
-    - `question` — the user's question in Hebrew (or any language)
-    - `debug`    — when true, `debug_trace` in the response contains the full
-                   retrieved context that was sent to the LLM
-
-    **Response fields**
-
-    | Field         | Description |
-    |---------------|-------------|
-    | `answer`      | Grounded Hebrew answer |
-    | `route`       | Router classification (`excel_numeric` / `word_quote` / `hybrid` / `unknown`) |
-    | `confidence`  | `high` / `medium` / `low` based on retrieval scores |
-    | `sources`     | List of cited documents with type, title, reference, and score |
-    | `trace_id`    | UUID — correlate with server logs |
-    | `debug_trace` | Full retrieval context (only when `debug=true`) |
     """
-    log.info("POST /query  question=%r  debug=%s", req.question[:80], req.debug)
-    return run_query(req.question, debug=req.debug)
+    effective_debug = req.debug and _ALLOW_DEBUG
+    if req.debug and not _ALLOW_DEBUG:
+        log.info("POST /query  debug requested but ALLOW_DEBUG is off — ignoring")
+    log.info("POST /query  question=%r  debug=%s", req.question[:80], effective_debug)
+    return run_query(req.question, debug=effective_debug)
