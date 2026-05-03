@@ -31,6 +31,11 @@ stages:
     appName: 'promo-agent'
     language: 'python'
 
+    # Docker build — paths relative to repo root
+    dockerfilePath: 'Dockerfile'
+    dockerContext: '.'
+    appModule: 'app'
+
     # Variable groups (Key Vault linked)
     sharedVariableGroup: 'kst-ai-shared'
     stagingVariableGroup: 'kst-ai-stage'
