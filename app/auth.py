@@ -104,12 +104,26 @@ def _validate_token(token: str) -> dict:
             )
 
     try:
+        # Entra ID v1 tokens use api://{client_id} or {client_id} as audience
+        # Entra ID v2 tokens use {client_id} as audience
+        # We accept both to be safe
+        valid_audiences = [
+            _API_CLIENT_ID,
+            f"api://{_API_CLIENT_ID}"
+        ]
+        
+        # Also handle v2.0 issuer if needed
+        valid_issuers = [
+            _ISSUER,
+            f"https://login.microsoftonline.com/{_TENANT_ID}/v2.0"
+        ]
+
         payload = jwt.decode(
             token,
             signing_keys[kid],
             algorithms=["RS256"],
-            audience=_API_CLIENT_ID,
-            issuer=_ISSUER,
+            audience=valid_audiences,
+            issuer=valid_issuers,
             options={"verify_exp": True, "verify_aud": True, "verify_iss": True},
         )
         return payload
