@@ -1,6 +1,12 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useCallback, useEffect, useState } from 'react';
+import {
+  PublicClientApplication,
+  InteractionRequiredAuthError,
+  type AccountInfo,
+} from '@azure/msal-browser';
+import { msalConfig, loginRequest, API_SCOPE } from '../../config/msal';
 import { User } from '../../types/chat';
 
 interface AuthContextType {
@@ -14,50 +20,92 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const msalInstance = new PublicClientApplication(msalConfig);
+
+function accountToUser(account: AccountInfo): User {
+  return {
+    id: account.localAccountId,
+    name: account.name ?? account.username,
+    email: account.username,
+    roles: (account.idTokenClaims?.roles as string[]) ?? [],
+  };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Mock state for Entra ID authentication
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate checking for existing session
-    const checkSession = async () => {
-      setTimeout(() => {
-        // For development, auto-login
-        setUser({
-          id: '1',
-          name: 'משתמש פרומו',
-          email: 'promo.user@company.com',
-          roles: ['PromoTeam'],
-        });
+    const init = async () => {
+      try {
+        await msalInstance.initialize();
+        const response = await msalInstance.handleRedirectPromise();
+        if (response?.account) {
+          msalInstance.setActiveAccount(response.account);
+          setUser(accountToUser(response.account));
+        } else {
+          const accounts = msalInstance.getAllAccounts();
+          if (accounts.length > 0) {
+            msalInstance.setActiveAccount(accounts[0]);
+            setUser(accountToUser(accounts[0]));
+          }
+        }
+      } catch (err) {
+        console.error('MSAL init error:', err);
+      } finally {
         setIsLoading(false);
-      }, 500);
+      }
     };
-
-    checkSession();
+    init();
   }, []);
 
-  const login = () => {
+  const login = useCallback(async () => {
     setIsLoading(true);
-    setTimeout(() => {
-      setUser({
-        id: '1',
-        name: 'משתמש פרומו',
-        email: 'promo.user@company.com',
-        roles: ['PromoTeam'],
-      });
+    try {
+      const response = await msalInstance.loginPopup(loginRequest);
+      if (response?.account) {
+        msalInstance.setActiveAccount(response.account);
+        setUser(accountToUser(response.account));
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+    } finally {
       setIsLoading(false);
-    }, 1000);
-  };
+    }
+  }, []);
 
-  const logout = () => {
-    setUser(null);
-  };
+  const logout = useCallback(() => {
+    msalInstance.logoutPopup({
+      postLogoutRedirectUri: window.location.origin,
+      mainWindowRedirectUri: window.location.origin,
+    }).then(() => {
+      setUser(null);
+    }).catch(console.error);
+  }, []);
 
-  const getToken = async () => {
-    // In a real MSAL implementation, this would call acquireTokenSilent
-    return user ? 'mock-jwt-token' : null;
-  };
+  const getToken = useCallback(async (): Promise<string | null> => {
+    const account = msalInstance.getActiveAccount();
+    if (!account) return null;
+    try {
+      const response = await msalInstance.acquireTokenSilent({
+        scopes: [API_SCOPE],
+        account,
+      });
+      return response.accessToken;
+    } catch (err) {
+      if (err instanceof InteractionRequiredAuthError) {
+        try {
+          const response = await msalInstance.acquireTokenPopup({ scopes: [API_SCOPE] });
+          return response.accessToken;
+        } catch (popupErr) {
+          console.error('Popup token acquisition error:', popupErr);
+          return null;
+        }
+      }
+      console.error('Token acquisition error:', err);
+      return null;
+    }
+  }, []);
 
   return (
     <AuthContext.Provider

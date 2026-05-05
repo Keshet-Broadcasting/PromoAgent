@@ -31,6 +31,10 @@ stages:
     appName: 'promo-agent'
     language: 'python'
 
+    # Azure DevOps Environment names (avoid conflict with on-prem 'stage'/'prod')
+    stagingEnvironment: 'container-app-stage'
+    prodEnvironment: 'container-app-prod'
+
     # Docker build — paths relative to repo root
     dockerfilePath: 'Dockerfile'
     dockerContext: '.'
@@ -55,8 +59,8 @@ stages:
     cpu: '0.5'
     memory: '1.0Gi'
 
-    # CORS — allowed origin for SharePoint integration
-    corsOrigins: 'https://keshettv.sharepoint.com'
+    # CORS — allowed origin for SharePoint integration and the static web app
+    corsOrigins: 'https://keshettv.sharepoint.com,https://aistoragekeshet.z33.web.core.windows.net'
 
     # Smoke tests
     healthPath: '/health'

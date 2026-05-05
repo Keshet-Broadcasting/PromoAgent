@@ -34,8 +34,6 @@ EXCEL_NUMERIC_PATTERNS: list[re.Pattern] = [
         r"נקודות פתיחה",
         r"נקודות הפתיחה",
         r"נקודת הפתיחה",
-        r"כוונות צפי",
-        r"כוונות הצפי",
         r"ממוצע",
         r"אחוז",
         r"%",
@@ -58,6 +56,19 @@ EXCEL_NUMERIC_PATTERNS: list[re.Pattern] = [
         r"כמה צפו",
         r"כמה השלימו",
         r"ביצועים",
+    ]
+]
+
+# "כוונות צפייה" (viewing intentions) data lives in Word docs (research),
+# not in Excel promo tracking — force hybrid when these appear.
+HYBRID_FORCE_PATTERNS: list[re.Pattern] = [
+    re.compile(p)
+    for p in [
+        r"כוונות צפי",
+        r"כוונות הצפי",
+        r"מחקר כוונות",
+        r"בדיקת פרומו",
+        r"בדיקת שטח",
     ]
 ]
 
@@ -129,12 +140,15 @@ def classify(query: str) -> RouteResult:
     numeric_hits = [p.pattern for p in EXCEL_NUMERIC_PATTERNS if p.search(q)]
     quote_hits = [p.pattern for p in WORD_QUOTE_PATTERNS if p.search(q)]
     analysis_hits = [p.pattern for p in ANALYSIS_PATTERNS if p.search(q)]
+    hybrid_force = any(p.search(q) for p in HYBRID_FORCE_PATTERNS)
 
     has_numeric = bool(numeric_hits)
     has_quote = bool(quote_hits)
     has_analysis = bool(analysis_hits)
 
-    if has_numeric and has_quote:
+    if hybrid_force:
+        route = ROUTE_HYBRID
+    elif has_numeric and has_quote:
         route = ROUTE_HYBRID
     elif (has_numeric or has_quote) and has_analysis:
         route = ROUTE_HYBRID
@@ -160,7 +174,7 @@ def classify(query: str) -> RouteResult:
 EXAMPLES: list[tuple[str, str]] = [
     ("צטט במדוייק את האסטרטגיות מכירה של כל הדרמות בשנה האחרונה", ROUTE_WORD),
     ("מה היה ריטינג ההשקה של נוטוק", ROUTE_EXCEL),
-    ("מה היו כוונות הצפיה לפני השקת הדרמה אור ראשון", ROUTE_EXCEL),
+    ("מה היו כוונות הצפיה לפני השקת הדרמה אור ראשון", ROUTE_HYBRID),
     ("מה היו הסלוגנים של קמפיין ההשקה של נינג'ה ישראל", ROUTE_WORD),
     ("איזו עונה השיקה הכי גבוה? סדר לי את הריטינג של ההשקות", ROUTE_EXCEL),
     ("צטט ספציפית ממסמך תובנות ריאליטי את התובנות המרכזיות", ROUTE_WORD),

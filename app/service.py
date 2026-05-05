@@ -76,12 +76,18 @@ def _fmt_excel(docs: list[dict]) -> str:
             parts.append(f"תוכנית: {d['show_name']}")
         if d.get("season"):
             parts.append(f"עונה: {d['season']}")
+        if d.get("episode_number"):
+            parts.append(f"פרק: {d['episode_number']}")
         if d.get("date"):
             parts.append(f"תאריך: {d['date']}")
+        if d.get("opening_point"):
+            parts.append(f"נקודת פתיחה: {d['opening_point']}%")
         if d.get("rating"):
-            parts.append(f"רייטינג: {d['rating']}")
+            parts.append(f"רייטינג ממוצע: {d['rating']}%")
+        if d.get("competition"):
+            parts.append(f"תחרות: {d['competition']}")
         if d.get("section"):
-            parts.append(f"נקודת פתיחה / קטגוריה: {d['section']}")
+            parts.append(f"קטגוריה: {d['section']}")
         header = " | ".join(parts)
         text = (d.get("promo_text") or "").strip()[:500]
         lines.append(f"{header}\nטקסט: {text}")

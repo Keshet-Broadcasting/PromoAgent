@@ -1,0 +1,1125 @@
+Loaded 25 cases from dataset.jsonl
+
+[1/25] id=1  category=quote
+  Q: צטט במדוייק את האסטרטגיות מכירה של כל הדרמות בשנה האחרונה
+[f57c32fa-ac36-4676-95d6-f6e0a8cd1c60] question='צטט במדוייק את האסטרטגיות מכירה של כל הדרמות בשנה האחרונה'  debug=False
+[f57c32fa-ac36-4676-95d6-f6e0a8cd1c60] Route: word_quote | numeric=— | quote=['צטט', 'במדוייק', 'אסטרטגי'] | analysis=—
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('word-docs')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '538'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': '75202162-4539-11f1-9c23-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': '75202162-4539-11f1-9c23-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:40:52 GMT'
+  Word hits: 5 | Excel hits: 0
+  Word sources: מסמך דרמות GPT.docx, מסמך ריאליטי GPT.docx, GPT מסמך בידור.docx, מסמך דרמות GPT.docx, מסמך דרמות GPT.docx
+[f57c32fa-ac36-4676-95d6-f6e0a8cd1c60] Context length: 6759 chars
+Chat provider initialized: FoundryProvider
+[f57c32fa-ac36-4676-95d6-f6e0a8cd1c60] Sending to provider: foundry
+Foundry auth: AzureCliCredential (run 'az login' if not authenticated)
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 200 OK"
+[f57c32fa-ac36-4676-95d6-f6e0a8cd1c60] Answer length: 2104 chars
+  NUM=1.00  KW=0.10  GND=1  REF=n/a  JDG=off  => 0.72  (18.4s)
+  A: להלן ציטוטים מדויקים מתוך המסמכים שנשלפו המתארים את אסטרטגיות המכירה של הדרמות בשנה האחרונה:
+
+---
+
+### 1. **"ביום שהאדמה רעדה"**  
+מקור: מסמך דרמות GPT.docx, קטע 0_12  
+> "הרגעים הכי זכורים מהפרומו הם…
+
+[2/25] id=2  category=numeric
+  Q: מה היו כוונות הצפיה לפני השקת הדרמה אור ראשון
+[4160ba9a-2dcf-4d4f-b92c-6b0e2700ca31] question='מה היו כוונות הצפיה לפני השקת הדרמה אור ראשון'  debug=False
+[4160ba9a-2dcf-4d4f-b92c-6b0e2700ca31] Route: excel_numeric | numeric=['כוונות הצפי'] | quote=— | analysis=—
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('tv-promos')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '487'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': '7fb7fb53-4539-11f1-b988-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': '7fb7fb53-4539-11f1-b988-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:41:10 GMT'
+  Excel hits: 5 | Word hits: 0
+[4160ba9a-2dcf-4d4f-b92c-6b0e2700ca31] Context length: 1352 chars
+[4160ba9a-2dcf-4d4f-b92c-6b0e2700ca31] Sending to provider: foundry
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 200 OK"
+[4160ba9a-2dcf-4d4f-b92c-6b0e2700ca31] Answer length: 55 chars
+  NUM=0.00  KW=0.04  GND=1  REF=n/a  JDG=off  => 0.26  (4.6s)
+  A: לא נמצאו נתונים עבור הדרמה "אור ראשון" בנתונים הזמינים.
+
+[3/25] id=3  category=comparison
+  Q: איך זה ביחס לדרמות אחרות. תשווה
+[4fbc788f-a297-4005-96a0-8b3196433eb9] question='איך זה ביחס לדרמות אחרות. תשווה'  debug=False
+[4fbc788f-a297-4005-96a0-8b3196433eb9] Route: excel_numeric | numeric=['ביחס ל'] | quote=— | analysis=—
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('tv-promos')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '413'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': '8277e2a7-4539-11f1-9ce9-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': '8277e2a7-4539-11f1-9ce9-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:41:14 GMT'
+  Excel hits: 5 | Word hits: 0
+[4fbc788f-a297-4005-96a0-8b3196433eb9] Context length: 1007 chars
+[4fbc788f-a297-4005-96a0-8b3196433eb9] Sending to provider: foundry
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 200 OK"
+[4fbc788f-a297-4005-96a0-8b3196433eb9] Answer length: 885 chars
+  NUM=0.00  KW=0.26  GND=1  REF=n/a  JDG=off  => 0.33  (7.3s)
+  A: כדי להשוות את נתוני הרייטינג בין התוכניות השונות, הנה הערכים שנמצאו בקובץ "מעקבי פרומו.xlsx":
+
+1. **נינג'ה ישראל, עונה 4** (4.1.2022) - רייטינג: **19**  
+2. **החיים הם תקופה קשה** (21.10.2024) - רייטי…
+
+[4/25] id=4  category=open_ended
+  Q: תנתח לי איך כוונות הצפיה לדרמות האלו נכונות ביחס לנקודת הפתיחה בפועל של השקת הדרמות האלו ו
+[3f86c1a5-f9f2-4a39-a7f2-c6d34bb2a664] question='תנתח לי איך כוונות הצפיה לדרמות האלו נכונות ביחס לנקודת הפתיחה בפועל של השקת הדר'  debug=False
+[3f86c1a5-f9f2-4a39-a7f2-c6d34bb2a664] Route: hybrid | numeric=['נקודת הפתיחה', 'כוונות הצפי', 'ביחס ל'] | quote=— | analysis=['תנתח', 'מה אפשר ללמוד']
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('tv-promos')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '829'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': '86d6c6ed-4539-11f1-9a6e-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': '86d6c6ed-4539-11f1-9a6e-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:41:22 GMT'
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('word-docs')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '813'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': '8755e96d-4539-11f1-a686-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': '8755e96d-4539-11f1-a686-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:41:22 GMT'
+  Excel hits: 4 | Word hits: 4
+  Word sources: מסמך דרמות GPT.docx, מסמך דרמות GPT.docx, מסמך דרמות GPT.docx, מסמך דרמות GPT.docx
+[3f86c1a5-f9f2-4a39-a7f2-c6d34bb2a664] Context length: 6608 chars
+[3f86c1a5-f9f2-4a39-a7f2-c6d34bb2a664] Sending to provider: foundry
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 200 OK"
+[3f86c1a5-f9f2-4a39-a7f2-c6d34bb2a664] Answer length: 2273 chars
+  NUM=0.11  KW=0.18  GND=1  REF=n/a  JDG=off  => 0.36  (18.2s)
+  A: ### ניתוח כוונות הצפייה ונקודות הפתיחה בפועל
+
+#### **נתוני Excel: רייטינג בפועל**
+1. **רוקדים עם כוכבים (עונה 2, 31.5.2023)**: רייטינג בפועל בערב הבכורה - **19.8**.
+2. **הבוגדים (26.4.2025)**: רייטינג…
+
+[5/25] id=5  category=numeric
+  Q: מה היה ריטינג ההשקה של נוטוק
+[d5ab457b-feba-46f8-8c11-9f9a0c12b795] question='מה היה ריטינג ההשקה של נוטוק'  debug=False
+[d5ab457b-feba-46f8-8c11-9f9a0c12b795] Route: excel_numeric | numeric=['ריטינג'] | quote=— | analysis=—
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('tv-promos')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '400'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': '91afd442-4539-11f1-8d1e-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': '91afd442-4539-11f1-8d1e-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:41:40 GMT'
+  Excel hits: 5 | Word hits: 0
+[d5ab457b-feba-46f8-8c11-9f9a0c12b795] Context length: 1138 chars
+[d5ab457b-feba-46f8-8c11-9f9a0c12b795] Sending to provider: foundry
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 200 OK"
+[d5ab457b-feba-46f8-8c11-9f9a0c12b795] Answer length: 92 chars
+  NUM=0.00  KW=0.40  GND=1  REF=n/a  JDG=off  => 0.38  (5.9s)
+  A: רייטינג ההשקה של התוכנית "נוטוק" היה **15.4**.  
+הנתון נשלף ישירות מקובץ "מעקבי פרומו.xlsx".
+
+[6/25] id=6  category=numeric
+  Q: מה היה ריטינג ההשקה של הראש
+[5ed5bf74-0317-469f-911f-a1dc026ee389] question='מה היה ריטינג ההשקה של הראש'  debug=False
+[5ed5bf74-0317-469f-911f-a1dc026ee389] Route: excel_numeric | numeric=['ריטינג'] | quote=— | analysis=—
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('tv-promos')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '394'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': '952f0ddf-4539-11f1-bd36-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': '952f0ddf-4539-11f1-bd36-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:41:46 GMT'
+  Excel hits: 5 | Word hits: 0
+[5ed5bf74-0317-469f-911f-a1dc026ee389] Context length: 1074 chars
+[5ed5bf74-0317-469f-911f-a1dc026ee389] Sending to provider: foundry
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 200 OK"
+[5ed5bf74-0317-469f-911f-a1dc026ee389] Answer length: 143 chars
+  NUM=0.33  KW=0.30  GND=1  REF=n/a  JDG=off  => 0.49  (5.9s)
+  A: רייטינג ההשקה של התוכנית "הראש" היה **16.2**.  
+הנתון נשלף ישירות מקובץ "מעקבי פרומו.xlsx", עבור עונה 1, תאריך 17.3.2025, עם ציון "השקה" בטקסט.
+
+[7/25] id=7  category=numeric
+  Q: תחזור אחורה ותבצע שוב את הניתוח להסקת מסקנות בין הכוונות צפיה לצפייה בפועל ותסיק שוב המסקנ
+[473990cf-3243-4863-9f66-45e727ea0740] question='תחזור אחורה ותבצע שוב את הניתוח להסקת מסקנות בין הכוונות צפיה לצפייה בפועל ותסיק'  debug=False
+[473990cf-3243-4863-9f66-45e727ea0740] Route: excel_numeric | numeric=['כוונות צפי'] | quote=— | analysis=—
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('tv-promos')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '734'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': '98b468fa-4539-11f1-a721-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': '98b468fa-4539-11f1-a721-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:41:52 GMT'
+  Excel hits: 5 | Word hits: 0
+[473990cf-3243-4863-9f66-45e727ea0740] Context length: 1218 chars
+[473990cf-3243-4863-9f66-45e727ea0740] Sending to provider: foundry
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 200 OK"
+[473990cf-3243-4863-9f66-45e727ea0740] Answer length: 222 chars
+  NUM=0.00  KW=0.08  GND=1  REF=n/a  JDG=off  => 0.27  (8.2s)
+  A: לא נמצאו נתונים במקור שהוצג על כוונות צפייה או השוואה בין כוונות צפייה לצפייה בפועל. המידע שנשלף מתמקד ברייטינג בפועל של פרקים מסוימים ובטקסטים של פרומואים. אם יש לך נתונים נוספים או שאלה ממוקדת יותר,…
+
+[8/25] id=8  category=numeric
+  Q: מה היו כוונות הצפיה של חולי אהבה
+[11fcff26-ac61-4bf8-abf2-f1f4504cd746] question='מה היו כוונות הצפיה של חולי אהבה'  debug=False
+[11fcff26-ac61-4bf8-abf2-f1f4504cd746] Route: excel_numeric | numeric=['כוונות הצפי'] | quote=— | analysis=—
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('tv-promos')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '419'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': '9d94742e-4539-11f1-85a2-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': '9d94742e-4539-11f1-85a2-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:42:00 GMT'
+  Excel hits: 5 | Word hits: 0
+[11fcff26-ac61-4bf8-abf2-f1f4504cd746] Context length: 1987 chars
+[11fcff26-ac61-4bf8-abf2-f1f4504cd746] Sending to provider: foundry
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 200 OK"
+[11fcff26-ac61-4bf8-abf2-f1f4504cd746] Answer length: 333 chars
+  NUM=0.00  KW=0.08  GND=1  REF=n/a  JDG=off  => 0.28  (6.9s)
+  A: הנתונים שנשלפו מציגים את הרייטינג של התוכנית "חולי אהבה" במספר תאריכים:
+
+1. **04.03.2024** - רייטינג: **14.7**  
+2. **06.03.2024** - רייטינג: **13.1**  
+3. **11.03.2024** - רייטינג: **16.1**  
+4. **01…
+
+[9/25] id=9  category=factual
+  Q: מה היו כוונות הצפייה של פאלו אלטו ומה היו כוונות הצפיה של גוף שלישי
+[854ac922-76d8-4cfc-997c-9aee37fd2790] question='מה היו כוונות הצפייה של פאלו אלטו ומה היו כוונות הצפיה של גוף שלישי'  debug=False
+[854ac922-76d8-4cfc-997c-9aee37fd2790] Route: excel_numeric | numeric=['כוונות הצפי'] | quote=— | analysis=—
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('tv-promos')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '594'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': 'a1b8c1aa-4539-11f1-93d3-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': 'a1b8c1aa-4539-11f1-93d3-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:42:07 GMT'
+  Excel hits: 5 | Word hits: 0
+[854ac922-76d8-4cfc-997c-9aee37fd2790] Context length: 1273 chars
+[854ac922-76d8-4cfc-997c-9aee37fd2790] Sending to provider: foundry
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 200 OK"
+[854ac922-76d8-4cfc-997c-9aee37fd2790] Answer length: 1340 chars
+  NUM=0.00  KW=0.33  GND=1  REF=n/a  JDG=off  => 0.35  (9.9s)
+  A: על פי הנתונים שנשלפו:
+
+### כוונות הצפייה של "אף אחד לא עוזב את פאלו אלטו":
+- **תאריך:** 6.06
+- **רייטינג:** 9
+- **טקסט פרומו:** "החיים של איריס מתפרקים (הגרוש מוציא צו בגלל הילדים, שולחים אותה מהמשטרה…
+
+[10/25] id=10  category=factual
+  Q: מה היו הסלוגנים של קמפיין ההשקה, קמפיין האמצע וקמפיין הגמר של נינג'ה ישראל בעונה האחרונה
+[dbad56cc-1eb0-4865-abd1-d8ccd342d370] question="מה היו הסלוגנים של קמפיין ההשקה, קמפיין האמצע וקמפיין הגמר של נינג'ה ישראל בעונה"  debug=False
+[dbad56cc-1eb0-4865-abd1-d8ccd342d370] Route: word_quote | numeric=— | quote=['סלוג[נן]'] | analysis=—
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('word-docs')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '689'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': 'a79cfbc0-4539-11f1-a71b-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': 'a79cfbc0-4539-11f1-a71b-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:42:16 GMT'
+  Word hits: 5 | Excel hits: 0
+  Word sources: מסמך ריאליטי GPT.docx, מסמך ריאליטי GPT.docx, מסמך ריאליטי GPT.docx, מסמך ריאליטי GPT.docx, מסמך ריאליטי GPT.docx
+[dbad56cc-1eb0-4865-abd1-d8ccd342d370] Context length: 6960 chars
+[dbad56cc-1eb0-4865-abd1-d8ccd342d370] Sending to provider: foundry
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 200 OK"
+[dbad56cc-1eb0-4865-abd1-d8ccd342d370] Answer length: 632 chars
+  NUM=-1.00  KW=0.35  GND=1  REF=n/a  JDG=off  => 0.64  (10.7s)
+  A: על פי הנתונים שנשלפו:
+
+1. **קמפיין ההשקה**:  
+   - הסלוגן המרכזי שהוביל את הקמפיין היה: **"העונה קורים דברים שלא קרו אף פעם"**.  
+   - מקור: [מסמך ריאליטי GPT.docx], קטע 1_34.
+
+2. **קמפיין האמצע**:  
+…
+
+[11/25] id=11  category=quote
+  Q: תנתח את קמפיין השמר וצטט תובנות משם
+[a244a7de-9f05-400d-8b2c-33e79366739b] question='תנתח את קמפיין השמר וצטט תובנות משם'  debug=False
+[a244a7de-9f05-400d-8b2c-33e79366739b] Route: hybrid | numeric=— | quote=['צטט', 'תובנות'] | analysis=['תנתח']
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('tv-promos')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '437'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': 'adfd2428-4539-11f1-ba42-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': 'adfd2428-4539-11f1-ba42-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:42:27 GMT'
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('word-docs')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '421'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': 'ae7c9b10-4539-11f1-aa5a-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': 'ae7c9b10-4539-11f1-aa5a-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:42:28 GMT'
+  Excel hits: 4 | Word hits: 4
+  Word sources: מסמך דרמות GPT.docx, מסמך דרמות GPT.docx, מסמך ריאליטי GPT.docx, GPT מסמך תוכניות נוספות.docx
+[a244a7de-9f05-400d-8b2c-33e79366739b] Context length: 6880 chars
+[a244a7de-9f05-400d-8b2c-33e79366739b] Sending to provider: foundry
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 200 OK"
+[a244a7de-9f05-400d-8b2c-33e79366739b] Answer length: 125 chars
+  NUM=0.00  KW=0.03  GND=1  REF=n/a  JDG=off  => 0.26  (7.0s)
+  A: לא נמצאו נתונים עבור קמפיין בשם "השמר" בנתונים הזמינים. אם יש לך מידע נוסף או שם מדויק יותר של הקמפיין, אנא עדכן ואנסה לעזור.
+
+[12/25] id=12  category=open_ended
+  Q: תנתח את קמפיין הגמר של העונה האחרונה (נינג'ה)
+[825d550f-604e-41da-9098-b63cdbdba038] question="תנתח את קמפיין הגמר של העונה האחרונה (נינג'ה)"  debug=False
+[825d550f-604e-41da-9098-b63cdbdba038] Route: unknown | numeric=— | quote=— | analysis=['תנתח']
+Route unknown — shallow retrieval from both indexes (top=3 each)
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('tv-promos')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '477'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': 'b226dc74-4539-11f1-87c4-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': 'b226dc74-4539-11f1-87c4-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:42:34 GMT'
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('word-docs')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '461'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': 'b2a114c6-4539-11f1-9040-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': 'b2a114c6-4539-11f1-9040-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:42:35 GMT'
+  Excel hits: 3 | Word hits: 3
+[825d550f-604e-41da-9098-b63cdbdba038] Context length: 5317 chars
+[825d550f-604e-41da-9098-b63cdbdba038] Sending to provider: foundry
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 200 OK"
+[825d550f-604e-41da-9098-b63cdbdba038] Answer length: 1711 chars
+  NUM=0.00  KW=0.39  GND=1  REF=n/a  JDG=off  => 0.37  (12.5s)
+  A: הנתונים שנשלפו מספקים תובנות על קמפיין הגמר של "נינג'ה ישראל" בעונה האחרונה (עונה 5). להלן הניתוח:
+
+### אסטרטגיית הקמפיין:
+1. **מיצוב האירוע כאירוע לאומי**:
+   - הקמפיין נבנה סביב התחושה של הישג לאומי…
+
+[13/25] id=13  category=ranking
+  Q: בעונה 1 של המירוץ למליון מה היה הפרומו שהביא הכי הרבה לנקודת הפתיחה. בלי השקות ובלי גמרים
+[4b8e694f-2728-4865-b582-2e2274c64eeb] question='בעונה 1 של המירוץ למליון מה היה הפרומו שהביא הכי הרבה לנקודת הפתיחה. בלי השקות ו'  debug=False
+[4b8e694f-2728-4865-b582-2e2274c64eeb] Route: excel_numeric | numeric=['נקודת הפתיחה', 'הכי הרבה'] | quote=— | analysis=—
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('tv-promos')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '701'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': 'b997e1f7-4539-11f1-82f2-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': 'b997e1f7-4539-11f1-82f2-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:42:46 GMT'
+  Excel hits: 5 | Word hits: 0
+[4b8e694f-2728-4865-b582-2e2274c64eeb] Context length: 1827 chars
+[4b8e694f-2728-4865-b582-2e2274c64eeb] Sending to provider: foundry
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 200 OK"
+[4b8e694f-2728-4865-b582-2e2274c64eeb] Answer length: 134 chars
+  NUM=0.00  KW=0.00  GND=1  REF=n/a  JDG=off  => 0.25  (5.9s)
+  A: לא נמצאו נתונים עבור עונה 1 של "המירוץ למיליון" בנתונים הזמינים. הנתונים שנשלפו מתייחסים לעונה אחרת (2024) ולכן אינם רלוונטיים לשאלתך.
+
+[14/25] id=14  category=ranking
+  Q: תן את טופ 5 נקודות הפתיחה בעונה 1 (המירוץ למיליון) להשוואה מלאה ונתח אותן
+[ce805063-ac12-44be-b5cb-34f1668a2efa] question='תן את טופ 5 נקודות הפתיחה בעונה 1 (המירוץ למיליון) להשוואה מלאה ונתח אותן'  debug=False
+[ce805063-ac12-44be-b5cb-34f1668a2efa] Route: excel_numeric | numeric=['נקודות הפתיחה', '\\bטופ\\b', 'השוואה'] | quote=— | analysis=—
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('tv-promos')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '610'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': 'bd23afb2-4539-11f1-a0ff-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': 'bd23afb2-4539-11f1-a0ff-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:42:53 GMT'
+  Excel hits: 5 | Word hits: 0
+[ce805063-ac12-44be-b5cb-34f1668a2efa] Context length: 2030 chars
+[ce805063-ac12-44be-b5cb-34f1668a2efa] Sending to provider: foundry
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 200 OK"
+[ce805063-ac12-44be-b5cb-34f1668a2efa] Answer length: 154 chars
+  NUM=0.00  KW=0.00  GND=1  REF=n/a  JDG=off  => 0.25  (6.4s)
+  A: לא נמצאו נתונים עבור עונה 1 של "המירוץ למיליון" בנתונים הזמינים. כל המידע שנשלף מתייחס לעונה אחרת (2024). אם יש לך שאלה אחרת או נתונים נוספים, אשמח לעזור!
+
+[15/25] id=15  category=ranking
+  Q: איזו עונה של התכנית חתונה ממבט ראשון השיקה הכי גבוה? סדר לי את הריטינג של ההשקות
+[cd16a254-8924-4fb6-8d7f-c9aa4d7d0ef1] question='איזו עונה של התכנית חתונה ממבט ראשון השיקה הכי גבוה? סדר לי את הריטינג של ההשקות'  debug=False
+[cd16a254-8924-4fb6-8d7f-c9aa4d7d0ef1] Route: excel_numeric | numeric=['ריטינג', 'הכי גבוה', 'השיק.? הכי', 'סדר לי'] | quote=— | analysis=—
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('tv-promos')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '657'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': 'c0ef317d-4539-11f1-b69f-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': 'c0ef317d-4539-11f1-b69f-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:42:59 GMT'
+  Excel hits: 5 | Word hits: 0
+[cd16a254-8924-4fb6-8d7f-c9aa4d7d0ef1] Context length: 1030 chars
+[cd16a254-8924-4fb6-8d7f-c9aa4d7d0ef1] Sending to provider: foundry
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 200 OK"
+[cd16a254-8924-4fb6-8d7f-c9aa4d7d0ef1] Answer length: 852 chars
+  NUM=1.00  KW=0.35  GND=1  REF=n/a  JDG=off  => 0.80  (7.9s)
+  A: להלן נתוני הרייטינג של השקות העונות של התוכנית "חתונה ממבט ראשון" שנמצאו בקובץ **"מעקבי פרומו.xlsx"**:
+
+1. **עונה 5** - רייטינג: **21.7** (תאריך: 9.5.2022)  
+   טקסט: "השקה- כללי 'עונה אחרת', טונייט מ…
+
+[16/25] id=16  category=open_ended
+  Q: מהם החוקים של עשה ואל תעשה בטונייטים של חתונה ממבט ראשון
+[09c5d2a9-9c06-4910-b588-ae400b8d6d2a] question='מהם החוקים של עשה ואל תעשה בטונייטים של חתונה ממבט ראשון'  debug=False
+[09c5d2a9-9c06-4910-b588-ae400b8d6d2a] Route: word_quote | numeric=— | quote=['עשה ואל תעשה', 'חוקים של'] | analysis=—
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('word-docs')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '527'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': 'c5a30f26-4539-11f1-a34a-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': 'c5a30f26-4539-11f1-a34a-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:43:07 GMT'
+  Word hits: 5 | Excel hits: 0
+  Word sources: מסמך ריאליטי GPT.docx, מסמך ריאליטי GPT.docx, מסמך ריאליטי GPT.docx, מסמך ריאליטי GPT.docx, מסמך ריאליטי GPT.docx
+[09c5d2a9-9c06-4910-b588-ae400b8d6d2a] Context length: 6778 chars
+[09c5d2a9-9c06-4910-b588-ae400b8d6d2a] Sending to provider: foundry
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 200 OK"
+[09c5d2a9-9c06-4910-b588-ae400b8d6d2a] Answer length: 1416 chars
+  NUM=-1.00  KW=0.20  GND=1  REF=n/a  JDG=off  => 0.56  (11.3s)
+  A: החוקים של "עשה ואל תעשה" בקידום העונה השוטף (בטונייטים) של **חתונה ממבט ראשון** מופיעים בכמה מקטעי הטקסט שנשלפו:
+
+### מתוך [מקור: מסמך ריאליטי GPT.docx], קטע 0_130:
+1. **עשה**:
+   - להתמקד בזוגות שמבי…
+
+[17/25] id=17  category=ranking
+  Q: איזה טונייטים ספציפיים בעונות 6 ו 7 (חתונמי) הביאו את המספרים הכי גבוהים לנקודת הפתיחה ולמ
+[1df8466a-bb92-48fa-9aec-6e3581ad660a] question='איזה טונייטים ספציפיים בעונות 6 ו 7 (חתונמי) הביאו את המספרים הכי גבוהים לנקודת '  debug=False
+[1df8466a-bb92-48fa-9aec-6e3581ad660a] Route: hybrid | numeric=['נקודת הפתיחה', 'הכי גבוה'] | quote=— | analysis=['ולמה']
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('tv-promos')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '708'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': 'cc634d8e-4539-11f1-9a8b-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': 'cc634d8e-4539-11f1-9a8b-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:43:18 GMT'
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('word-docs')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '692'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': 'cce71e11-4539-11f1-a49e-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': 'cce71e11-4539-11f1-a49e-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:43:18 GMT'
+  Excel hits: 4 | Word hits: 4
+  Word sources: מסמך ריאליטי GPT.docx, מסמך ריאליטי GPT.docx, מסמך ריאליטי GPT.docx, מסמך ריאליטי GPT.docx
+[1df8466a-bb92-48fa-9aec-6e3581ad660a] Context length: 6499 chars
+[1df8466a-bb92-48fa-9aec-6e3581ad660a] Sending to provider: foundry
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 200 OK"
+[1df8466a-bb92-48fa-9aec-6e3581ad660a] Answer length: 1500 chars
+  NUM=0.00  KW=0.24  GND=1  REF=n/a  JDG=off  => 0.32  (16.4s)
+  A: ### עונה 7:
+1. **טונייט מינדי (26.1.2025)**:
+   - **רייטינג**: 20.7% (מקור: "מעקבי פרומו.xlsx").
+   - **תוכן**: "הזוגות החדשים + טונייט מינדי + בוגרי חתונמי מברכים" (מקור: "מעקבי פרומו.xlsx").
+   - **…
+
+[18/25] id=18  category=factual
+  Q: בחתונמי בעונה 7 האם יש תיאור במסמכים של אימאג' שנוצר במיוחד עבור אחד הפרקים שצויין כאימאג'
+[4fc9e7e0-36d6-463e-a576-8898a99db760] question="בחתונמי בעונה 7 האם יש תיאור במסמכים של אימאג' שנוצר במיוחד עבור אחד הפרקים שצוי"  debug=False
+[4fc9e7e0-36d6-463e-a576-8898a99db760] Route: word_quote | numeric=— | quote=["אימאג'"] | analysis=—
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('word-docs')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '766'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': 'd62a8393-4539-11f1-b7a1-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': 'd62a8393-4539-11f1-b7a1-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:43:35 GMT'
+  Word hits: 5 | Excel hits: 0
+  Word sources: GPT מסמך בידור.docx, מסמך ריאליטי GPT.docx, מסמך ריאליטי GPT.docx, מסמך ריאליטי GPT.docx, מסמך ריאליטי GPT.docx
+[4fc9e7e0-36d6-463e-a576-8898a99db760] Context length: 6762 chars
+[4fc9e7e0-36d6-463e-a576-8898a99db760] Sending to provider: foundry
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 200 OK"
+[4fc9e7e0-36d6-463e-a576-8898a99db760] Answer length: 478 chars
+  NUM=-1.00  KW=0.39  GND=1  REF=n/a  JDG=off  => 0.66  (8.4s)
+  A: כן, במסמך "מסמך ריאליטי GPT.docx" (קטע 0_128), יש תיאור של אימאג' יוצא דופן שנוצר במיוחד עבור פרק ההחלטות של "חתונה ממבט ראשון" עונה 7. 
+
+האימאג' מתואר כך: 
+
+> "פרומו צונאמי: ידענו מהרגע הראשון שאנחנו…
+
+[19/25] id=19  category=open_ended
+  Q: מה ההמלצות שלך עבור טונייט טיפוסי בהכוכב הבא מה לחפש בחומרים
+[da871e13-1275-4131-9ef5-6d2121216580] question='מה ההמלצות שלך עבור טונייט טיפוסי בהכוכב הבא מה לחפש בחומרים'  debug=False
+[da871e13-1275-4131-9ef5-6d2121216580] Route: word_quote | numeric=— | quote=['המלצ'] | analysis=—
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('word-docs')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '551'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': 'db266c4e-4539-11f1-85e9-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': 'db266c4e-4539-11f1-85e9-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:43:43 GMT'
+  Word hits: 5 | Excel hits: 0
+  Word sources: מסמך ריאליטי GPT.docx, GPT מסמך תוכניות נוספות.docx, GPT מסמך תוכניות נוספות.docx, GPT מסמך תוכניות נוספות.docx, מסמך ריאליטי GPT.docx
+[da871e13-1275-4131-9ef5-6d2121216580] Context length: 6778 chars
+[da871e13-1275-4131-9ef5-6d2121216580] Sending to provider: foundry
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 400 Bad Request"
+[da871e13-1275-4131-9ef5-6d2121216580] LLM call failed: Error code: 400 - {'error': {'message': "The response was filtered due to the prompt triggering Azure OpenAI's content management policy. Please modify your prompt and retry. To learn more about our content filtering policies please read our documentation: https://go.microsoft.com/fwlink/?linkid=2198766", 'type': None, 'param': 'prompt', 'code': 'content_filter', 'status': 400, 'innererror': {'code': 'ResponsibleAIPolicyViolation', 'content_filter_result': {'hate': {'filtered': False, 'severity': 'safe'}, 'jailbreak': {'detected': False, 'filtered': False}, 'self_harm': {'filtered': False, 'severity': 'safe'}, 'sexual': {'filtered': True, 'severity': 'high'}, 'violence': {'filtered': False, 'severity': 'safe'}}}}}
+Traceback (most recent call last):
+  File "c:\Users\amit.rosen\AzureAIpilot\app\service.py", line 253, in run_query
+    answer = provider.complete(messages)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\amit.rosen\AzureAIpilot\app\chat_provider.py", line 209, in complete
+    resp = openai_client.chat.completions.create(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\amit.rosen\AppData\Local\Programs\Python\Python312\Lib\site-packages\openai\_utils\_utils.py", line 286, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\amit.rosen\AppData\Local\Programs\Python\Python312\Lib\site-packages\openai\resources\chat\completions\completions.py", line 1211, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "C:\Users\amit.rosen\AppData\Local\Programs\Python\Python312\Lib\site-packages\openai\_base_client.py", line 1314, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\amit.rosen\AppData\Local\Programs\Python\Python312\Lib\site-packages\openai\_base_client.py", line 1087, in request
+    raise self._make_status_error_from_response(err.response) from None
+openai.BadRequestError: Error code: 400 - {'error': {'message': "The response was filtered due to the prompt triggering Azure OpenAI's content management policy. Please modify your prompt and retry. To learn more about our content filtering policies please read our documentation: https://go.microsoft.com/fwlink/?linkid=2198766", 'type': None, 'param': 'prompt', 'code': 'content_filter', 'status': 400, 'innererror': {'code': 'ResponsibleAIPolicyViolation', 'content_filter_result': {'hate': {'filtered': False, 'severity': 'safe'}, 'jailbreak': {'detected': False, 'filtered': False}, 'self_harm': {'filtered': False, 'severity': 'safe'}, 'sexual': {'filtered': True, 'severity': 'high'}, 'violence': {'filtered': False, 'severity': 'safe'}}}}}
+  ERROR: LLM error: BadRequestError (12.3s)
+
+[20/25] id=20  category=quote
+  Q: צטט ספציפית ממסמך תובנות ריאליטי את התובנות המרכזיות של הכוכב הבא גמר עונה 12
+[15b7f41c-5af7-426b-95f9-74e5edc55b27] question='צטט ספציפית ממסמך תובנות ריאליטי את התובנות המרכזיות של הכוכב הבא גמר עונה 12'  debug=False
+[15b7f41c-5af7-426b-95f9-74e5edc55b27] Route: word_quote | numeric=— | quote=['צטט', 'מסמך', 'תובנות'] | analysis=—
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('word-docs')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '628'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': 'e273aed3-4539-11f1-99c3-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': 'e273aed3-4539-11f1-99c3-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:43:55 GMT'
+  Word hits: 5 | Excel hits: 0
+  Word sources: מסמך ריאליטי GPT.docx, מסמך ריאליטי GPT.docx, מסמך ריאליטי GPT.docx, מסמך ריאליטי GPT.docx, מסמך ריאליטי GPT.docx
+[15b7f41c-5af7-426b-95f9-74e5edc55b27] Context length: 6764 chars
+[15b7f41c-5af7-426b-95f9-74e5edc55b27] Sending to provider: foundry
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 200 OK"
+[15b7f41c-5af7-426b-95f9-74e5edc55b27] Answer length: 737 chars
+  NUM=1.00  KW=0.25  GND=1  REF=n/a  JDG=off  => 0.77  (10.1s)
+  A: התובנות המרכזיות לגבי גמר עונה 12 של "הכוכב הבא לאירוויזיון" כפי שמופיעות במסמך "ריאליטי GPT.docx" הן:
+
+1. **הארד סייל**:  
+   "עשינו פרומו גדול שמבטיח גם את רביעיית הגמר, גם את אודיה כזמרת אורחת וגם …
+
+[21/25] id=21  category=no_answer
+  Q: כמה השלימו את החיים זה תקופה קשה של חנוך דאום בממוצע אחרי הצפייה בלייב
+[53de604d-9057-4b1d-aa13-2e302c5cdadd] question='כמה השלימו את החיים זה תקופה קשה של חנוך דאום בממוצע אחרי הצפייה בלייב'  debug=False
+[53de604d-9057-4b1d-aa13-2e302c5cdadd] Route: excel_numeric | numeric=['ממוצע', 'כמה השלימו'] | quote=— | analysis=—
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('tv-promos')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '612'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': 'e87da191-4539-11f1-be5d-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': 'e87da191-4539-11f1-be5d-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:44:05 GMT'
+  Excel hits: 5 | Word hits: 0
+[53de604d-9057-4b1d-aa13-2e302c5cdadd] Context length: 763 chars
+[53de604d-9057-4b1d-aa13-2e302c5cdadd] Sending to provider: foundry
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 200 OK"
+[53de604d-9057-4b1d-aa13-2e302c5cdadd] Answer length: 110 chars
+  NUM=-1.00  KW=0.12  GND=1  REF=1  JDG=off  => 0.66  (5.0s)
+  A: לא נמצאו נתונים בנתונים הזמינים לגבי השלמות צפייה בתוכנית "החיים הם תקופה קשה" של חנוך דאום לאחר הצפייה בלייב.
+
+[22/25] id=22  category=ranking
+  Q: מה הטונייט שעבד הכי טוב כדי להביא את הצופים לנקודת פתיחה גבוהה בתכנית הזו של חנוך דאום
+[dad2bba8-40c1-401c-8949-f020f5e93bd3] question='מה הטונייט שעבד הכי טוב כדי להביא את הצופים לנקודת פתיחה גבוהה בתכנית הזו של חנו'  debug=False
+[dad2bba8-40c1-401c-8949-f020f5e93bd3] Route: excel_numeric | numeric=['נקודת פתיחה', 'הכי טוב'] | quote=— | analysis=—
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('tv-promos')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '693'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': 'eb7aa276-4539-11f1-ad75-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': 'eb7aa276-4539-11f1-ad75-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:44:10 GMT'
+  Excel hits: 5 | Word hits: 0
+[dad2bba8-40c1-401c-8949-f020f5e93bd3] Context length: 1747 chars
+[dad2bba8-40c1-401c-8949-f020f5e93bd3] Sending to provider: foundry
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 200 OK"
+[dad2bba8-40c1-401c-8949-f020f5e93bd3] Answer length: 224 chars
+  NUM=0.00  KW=0.06  GND=1  REF=n/a  JDG=off  => 0.27  (5.5s)
+  A: לא נמצאו נתונים עבור התוכנית "החיים הם תקופה קשה" של חנוך דאום שמכילים טקסט טונייט מפורש או מידע על נקודת פתיחה גבוהה.  
+הנתונים הזמינים כוללים רק את הרייטינג של התוכנית (13.3) ואת תוכן הפרומו הכללי, …
+
+[23/25] id=23  category=open_ended
+  Q: מה המסקנה שלך לגבי קידום טונייטי בסדרה של חנוך דאום - מה הכי נכון להבטיח?
+[0d9de428-325c-411c-ac6f-e935cd6933bd] question='מה המסקנה שלך לגבי קידום טונייטי בסדרה של חנוך דאום - מה הכי נכון להבטיח?'  debug=False
+[0d9de428-325c-411c-ac6f-e935cd6933bd] Route: unknown | numeric=— | quote=— | analysis=—
+Route unknown — shallow retrieval from both indexes (top=3 each)
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('tv-promos')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '615'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': 'eec1f9d4-4539-11f1-87a5-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': 'eec1f9d4-4539-11f1-87a5-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:44:16 GMT'
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('word-docs')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '599'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': 'ef2df041-4539-11f1-9817-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': 'ef2df041-4539-11f1-9817-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:44:16 GMT'
+  Excel hits: 3 | Word hits: 3
+[0d9de428-325c-411c-ac6f-e935cd6933bd] Context length: 5120 chars
+[0d9de428-325c-411c-ac6f-e935cd6933bd] Sending to provider: foundry
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 200 OK"
+[0d9de428-325c-411c-ac6f-e935cd6933bd] Answer length: 751 chars
+  NUM=-1.00  KW=0.22  GND=1  REF=n/a  JDG=off  => 0.57  (8.7s)
+  A: על פי הנתונים שנשלפו, האסטרטגיה לקידום הסדרה "החיים הם תקופה קשה" של חנוך דאום מתמקדת בהצגת התוכנית כדרמה קומית שמחברת בין מצחיק ומרגש, תוך הצפת דילמות אמיתיות. בנוסף, יש דגש על כך שהסדרה מבוססת על הס…
+
+[24/25] id=24  category=open_ended
+  Q: מה היית מבטיח השנה בהשקת המירוץ למליון וממה היית נמנע?
+[e02d6b7f-bc92-4a23-91a2-608e2d5cc358] question='מה היית מבטיח השנה בהשקת המירוץ למליון וממה היית נמנע?'  debug=False
+[e02d6b7f-bc92-4a23-91a2-608e2d5cc358] Route: unknown | numeric=— | quote=— | analysis=—
+Route unknown — shallow retrieval from both indexes (top=3 each)
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('tv-promos')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '531'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': 'f3eea2de-4539-11f1-93eb-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': 'f3eea2de-4539-11f1-93eb-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:44:24 GMT'
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('word-docs')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '515'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': 'f459c40c-4539-11f1-99b2-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': 'f459c40c-4539-11f1-99b2-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:44:24 GMT'
+  Excel hits: 3 | Word hits: 3
+[e02d6b7f-bc92-4a23-91a2-608e2d5cc358] Context length: 5155 chars
+[e02d6b7f-bc92-4a23-91a2-608e2d5cc358] Sending to provider: foundry
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 200 OK"
+[e02d6b7f-bc92-4a23-91a2-608e2d5cc358] Answer length: 2081 chars
+  NUM=-1.00  KW=0.24  GND=1  REF=n/a  JDG=off  => 0.58  (13.4s)
+  A: על פי המידע שנשלף, ישנם מספר אלמנטים שהיו מומלצים להבטחה בקמפיין השקת "המירוץ למיליון" וכן כמה דברים שכדאי להימנע מהם:
+
+### מה להבטיח:
+1. **תחושת גודל וריבוי מדינות**:
+   - "תחושת גודל- ריבוי מדינות ו…
+
+[25/25] id=25  category=factual
+  Q: האם להראות את הזוגות ולדבר עליהם בקמפיין המירוץ למיליון? האם זה עבד?
+[1e594ee7-3cdc-4037-81f8-70d2aa6d89bd] question='האם להראות את הזוגות ולדבר עליהם בקמפיין המירוץ למיליון? האם זה עבד?'  debug=False
+[1e594ee7-3cdc-4037-81f8-70d2aa6d89bd] Route: unknown | numeric=— | quote=— | analysis=—
+Route unknown — shallow retrieval from both indexes (top=3 each)
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('tv-promos')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '600'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': 'fbf0c96a-4539-11f1-9ab0-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': 'fbf0c96a-4539-11f1-9ab0-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:44:38 GMT'
+Request URL: 'https://ai-search-keshet.search.windows.net/indexes('word-docs')/docs/search.post.search?api-version=REDACTED'
+Request method: 'POST'
+Request headers:
+    'Content-Type': 'application/json'
+    'Content-Length': '584'
+    'api-key': 'REDACTED'
+    'Accept': 'application/json;odata.metadata=none'
+    'x-ms-client-request-id': 'fc70355c-4539-11f1-843d-c4ff99fa1549'
+    'User-Agent': 'azsdk-python-search-documents/11.6.0b9 Python/3.12.10 (Windows-11-10.0.26100-SP0)'
+A body is sent with the request
+Response status: 200
+Response headers:
+    'Transfer-Encoding': 'chunked'
+    'Content-Type': 'application/json; odata.metadata=none; odata.streaming=true; charset=utf-8'
+    'Content-Encoding': 'REDACTED'
+    'Vary': 'REDACTED'
+    'Strict-Transport-Security': 'REDACTED'
+    'Preference-Applied': 'REDACTED'
+    'OData-Version': 'REDACTED'
+    'request-id': 'fc70355c-4539-11f1-843d-c4ff99fa1549'
+    'elapsed-time': 'REDACTED'
+    'Date': 'Fri, 01 May 2026 08:44:38 GMT'
+  Excel hits: 3 | Word hits: 3
+[1e594ee7-3cdc-4037-81f8-70d2aa6d89bd] Context length: 5021 chars
+[1e594ee7-3cdc-4037-81f8-70d2aa6d89bd] Sending to provider: foundry
+AzureCliCredential.get_token_info succeeded
+HTTP Request: POST https://keshet-foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry/openai/v1/chat/completions "HTTP/1.1 200 OK"
+[1e594ee7-3cdc-4037-81f8-70d2aa6d89bd] Answer length: 832 chars
+  NUM=1.00  KW=0.10  GND=1  REF=n/a  JDG=off  => 0.72  (10.0s)
+  A: על פי הנתונים שנשלפו, יש התייחסות לאסטרטגיה של הצגת הזוגות בקמפיין של "המירוץ למיליון". 
+
+1. **הצגת הזוגות בקמפיין**:
+   - במסמך [מסמך ריאליטי GPT.docx, קטע 0_77], נכתב כי נעשה שימוש בפרומואים שהציגו …

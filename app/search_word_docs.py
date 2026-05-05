@@ -109,7 +109,8 @@ def search_excel_promos(query: str, top: int = 5) -> list[dict]:
     """Query the 'tv-promos' index with Hebrew semantic search.
 
     Returns a list of dicts with keys:
-        show_name, season, date, promo_text, rating, section, tab_name, score
+        show_name, season, episode_number, date, promo_text,
+        opening_point, rating, competition, section, tab_name, score
     """
     client = _client(_PROMOS_INDEX)
 
@@ -121,20 +122,27 @@ def search_excel_promos(query: str, top: int = 5) -> list[dict]:
         query_caption="extractive",
         query_answer="extractive|count-3",
         top=top,
-        select=["show_name", "season", "date", "promo_text", "rating", "section", "source_file"],
+        select=[
+            "show_name", "season", "episode_number", "date",
+            "promo_text", "opening_point", "rating", "competition",
+            "section", "source_file",
+        ],
     )
 
     docs = []
     for r in results:
         docs.append({
-            "show_name":  r.get("show_name", ""),
-            "season":     r.get("season", ""),
-            "date":       r.get("date", ""),
-            "promo_text": r.get("promo_text", ""),
-            "rating":     r.get("rating", ""),
-            "section":    r.get("section", ""),
-            "tab_name":   r.get("source_file", ""),
-            "score":      r.get("@search.reranker_score") or r.get("@search.score", 0),
+            "show_name":      r.get("show_name", ""),
+            "season":         r.get("season", ""),
+            "episode_number": r.get("episode_number", ""),
+            "date":           r.get("date", ""),
+            "promo_text":     r.get("promo_text", ""),
+            "opening_point":  r.get("opening_point", ""),
+            "rating":         r.get("rating", ""),
+            "competition":    r.get("competition", ""),
+            "section":        r.get("section", ""),
+            "tab_name":       r.get("source_file", ""),
+            "score":          r.get("@search.reranker_score") or r.get("@search.score", 0),
         })
     return docs
 
