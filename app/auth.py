@@ -103,35 +103,27 @@ def _validate_token(token: str) -> dict:
                 detail="Token signing key not recognized",
             )
 
-    try:
-        # Entra ID v1 tokens use api://{client_id} or {client_id} as audience
-        # Entra ID v2 tokens use {client_id} as audience
-        # We accept both to be safe
-        valid_audiences = [
-            _API_CLIENT_ID,
-            f"api://{_API_CLIENT_ID}"
-        ]
-        
-        # Also handle v2.0 issuer if needed
-        valid_issuers = [
-            _ISSUER,
-            f"https://login.microsoftonline.com/{_TENANT_ID}/v2.0"
-        ]
+    # python-jose only accepts a single string for audience.
+    # Entra ID v1 tokens carry api://{client_id} as the audience,
+    # v2 tokens carry just {client_id}. Try both.
+    for aud in (f"api://{_API_CLIENT_ID}", _API_CLIENT_ID):
+        try:
+            payload = jwt.decode(
+                token,
+                signing_keys[kid],
+                algorithms=["RS256"],
+                audience=aud,
+                issuer=_ISSUER,
+                options={"verify_exp": True, "verify_aud": True, "verify_iss": True},
+            )
+            return payload
+        except JWTError:
+            continue
 
-        payload = jwt.decode(
-            token,
-            signing_keys[kid],
-            algorithms=["RS256"],
-            audience=valid_audiences,
-            issuer=valid_issuers,
-            options={"verify_exp": True, "verify_aud": True, "verify_iss": True},
-        )
-        return payload
-    except JWTError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid token: {exc}",
-        )
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid token: audience mismatch",
+    )
 
 
 async def require_auth(
