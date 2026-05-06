@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import uuid
 from dataclasses import dataclass, field
 
@@ -39,6 +40,49 @@ from .search_word_docs import search_excel_promos, search_word_docs
 load_dotenv()
 
 log = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Temporal qualifier detection
+# ---------------------------------------------------------------------------
+
+_LAST_SEASON_PATTERNS = re.compile(
+    r"עונה\s+האחרונה|האחרונה|עונה\s+אחרונה|עונה\s+הכי\s+אחרונה"
+    r"|עונה\s+אחרון|הכי\s+חדש|עונה\s+חדש|עונה\s+חדשה|עונה\s+עדכנית"
+    r"|last\s+season|latest\s+season"
+)
+_FIRST_SEASON_PATTERNS = re.compile(
+    r"עונה\s+הראשונה|הראשונה|עונה\s+ראשונה|עונה\s+1\b"
+    r"|ראשון|ראשונה|first\s+season"
+)
+
+
+def _season_as_int(season_val) -> int:
+    """Parse a season value (int, float, or string) to int for sorting. Returns -1 on failure."""
+    try:
+        return int(float(str(season_val).strip()))
+    except (ValueError, TypeError):
+        return -1
+
+
+def _filter_by_season_order(docs: list[dict], prefer: str) -> list[dict]:
+    """Filter excel docs to only keep those from the max (prefer='last') or min (prefer='first') season.
+
+    Fetches more results upstream (top=15) to ensure we have a representative
+    spread; this function then narrows to only the target season.
+    """
+    if not docs:
+        return docs
+
+    seasons = [_season_as_int(d.get("season")) for d in docs]
+    valid_seasons = [s for s in seasons if s >= 0]
+    if not valid_seasons:
+        return docs  # no parseable season numbers — return as-is
+
+    target = max(valid_seasons) if prefer == "last" else min(valid_seasons)
+    filtered = [d for d in docs if _season_as_int(d.get("season")) == target]
+    log.info("  Temporal filter '%s': keeping season %d (%d/%d docs)", prefer, target, len(filtered), len(docs))
+    return filtered if filtered else docs
 
 
 # ---------------------------------------------------------------------------
@@ -125,16 +169,35 @@ def _fmt_word(docs: list[dict]) -> str:
 # ---------------------------------------------------------------------------
 
 def _retrieve(route: str, query: str) -> _RetrievalResult:
-    """Fetch docs for each route; return context string + raw docs."""
+    """Fetch docs for each route; return context string + raw docs.
+
+    When the query contains a temporal qualifier ("last season", "first season"),
+    we fetch a wider result set (top=15) and then filter to only the max/min
+    season number found, so the LLM receives consistent, targeted evidence.
+    """
+    # Detect temporal ordering intent once, used by all routes below
+    if _LAST_SEASON_PATTERNS.search(query):
+        season_filter = "last"
+    elif _FIRST_SEASON_PATTERNS.search(query):
+        season_filter = "first"
+    else:
+        season_filter = None
+
+    # Use a wider fetch when we need to find the boundary season
+    excel_top = 15 if season_filter else 5
+    word_top  = 5  # word docs don't carry season metadata to filter on
+
     if route == "excel_numeric":
-        docs = search_excel_promos(query, top=5)
-        log.info("  Excel hits: %d | Word hits: 0", len(docs))
+        docs = search_excel_promos(query, top=excel_top)
+        if season_filter:
+            docs = _filter_by_season_order(docs, season_filter)
+        log.info("  Excel hits: %d | Word hits: 0 | season_filter=%s", len(docs), season_filter or "none")
         if not docs:
             log.warning("  *** No Excel hits — answer will have no numeric evidence ***")
         return _RetrievalResult(context=_fmt_excel(docs), excel_docs=docs)
 
     if route == "word_quote":
-        docs = search_word_docs(query, top=5)
+        docs = search_word_docs(query, top=word_top)
         log.info("  Word hits: %d | Excel hits: 0", len(docs))
         if not docs:
             log.warning("  *** No Word hits — answer will have no document evidence ***")
@@ -144,9 +207,12 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
         return _RetrievalResult(context=_fmt_word(docs), word_docs=docs)
 
     if route == "hybrid":
-        excel_docs = search_excel_promos(query, top=4)
-        word_docs  = search_word_docs(query, top=4)
-        log.info("  Excel hits: %d | Word hits: %d", len(excel_docs), len(word_docs))
+        excel_docs = search_excel_promos(query, top=excel_top)
+        if season_filter:
+            excel_docs = _filter_by_season_order(excel_docs, season_filter)
+        word_docs  = search_word_docs(query, top=word_top)
+        log.info("  Excel hits: %d | Word hits: %d | season_filter=%s",
+                 len(excel_docs), len(word_docs), season_filter or "none")
         if word_docs:
             titles = [d.get("title") or "(no title)" for d in word_docs]
             log.info("  Word sources: %s", ", ".join(titles))

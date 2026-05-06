@@ -40,6 +40,10 @@ _PROMO_SEMANTIC_CFG = os.getenv("AZURE_SEARCH_PROMO_SEMANTIC_CONFIG", "promo-sem
 _QUERY_LANGUAGE = "he-il"
 _SEARCH_TIMEOUT = int(os.getenv("AZURE_SEARCH_TIMEOUT_SECONDS", "30"))
 
+# SearchClient instances are reused across requests — creating a new client on
+# every call incurs unnecessary TLS handshake + connection overhead.
+_client_cache: dict[str, SearchClient] = {}
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -47,17 +51,19 @@ _SEARCH_TIMEOUT = int(os.getenv("AZURE_SEARCH_TIMEOUT_SECONDS", "30"))
 
 
 def _client(index_name: str) -> SearchClient:
-    if not _ENDPOINT or not _KEY:
-        raise EnvironmentError(
-            "AZURE_SEARCH_ENDPOINT and AZURE_SEARCH_KEY must be set in .env"
+    if index_name not in _client_cache:
+        if not _ENDPOINT or not _KEY:
+            raise EnvironmentError(
+                "AZURE_SEARCH_ENDPOINT and AZURE_SEARCH_KEY must be set in .env"
+            )
+        _client_cache[index_name] = SearchClient(
+            endpoint=_ENDPOINT,
+            index_name=index_name,
+            credential=AzureKeyCredential(_KEY),
+            connection_timeout=_SEARCH_TIMEOUT,
+            read_timeout=_SEARCH_TIMEOUT,
         )
-    return SearchClient(
-        endpoint=_ENDPOINT,
-        index_name=index_name,
-        credential=AzureKeyCredential(_KEY),
-        connection_timeout=_SEARCH_TIMEOUT,
-        read_timeout=_SEARCH_TIMEOUT,
-    )
+    return _client_cache[index_name]
 
 
 def _first_caption(result) -> str:

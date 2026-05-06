@@ -154,7 +154,8 @@ class FoundryProvider(ChatProvider):
                 "  AZURE_AI_PROJECT_ENDPOINT  (or FOUNDRY_PROJECT_ENDPOINT)\n"
                 "  AZURE_AI_MODEL_DEPLOYMENT_NAME  (or FOUNDRY_MODEL_DEPLOYMENT_NAME)"
             )
-        self._credential = None  # lazy init
+        self._credential = None   # lazy init
+        self._openai_client = None  # cached across requests — avoids per-call AIProjectClient overhead
 
     def _get_credential(self):
         """Return the Azure credential instance, created once per provider lifetime.
@@ -191,7 +192,16 @@ class FoundryProvider(ChatProvider):
 
         return self._credential
 
-    def complete(self, messages: list[dict]) -> str:
+    def _get_openai_client(self):
+        """Return the OpenAI-compatible client, created once and reused.
+
+        Building AIProjectClient + calling get_openai_client() on every request
+        adds ~2–5 s of overhead (HTTP handshake + endpoint discovery).  Caching
+        it here keeps that cost as a one-time startup payment.
+        """
+        if self._openai_client is not None:
+            return self._openai_client
+
         try:
             from azure.ai.projects import AIProjectClient
         except ImportError as exc:
@@ -205,7 +215,12 @@ class FoundryProvider(ChatProvider):
             endpoint=self.endpoint,
             credential=credential,
         )
-        openai_client = project_client.get_openai_client()
+        self._openai_client = project_client.get_openai_client()
+        log.info("Foundry OpenAI client initialized and cached")
+        return self._openai_client
+
+    def complete(self, messages: list[dict]) -> str:
+        openai_client = self._get_openai_client()
         resp = openai_client.chat.completions.create(
             model=self.model,
             messages=messages,
