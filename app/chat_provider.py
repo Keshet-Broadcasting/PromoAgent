@@ -76,7 +76,8 @@ class ChatProvider(ABC):
 # ---------------------------------------------------------------------------
 
 
-_LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT_SECONDS", "60"))
+_LLM_TIMEOUT   = int(os.getenv("LLM_TIMEOUT_SECONDS",  "60"))
+_MAX_TOKENS    = int(os.getenv("MAX_ANSWER_TOKENS",    "1000"))  # industry default for RAG: 800-1200
 
 
 class AzureOpenAIProvider(ChatProvider):
@@ -104,7 +105,7 @@ class AzureOpenAIProvider(ChatProvider):
             model=self.deployment,
             messages=messages,
             temperature=0,
-            max_tokens=1500,
+            max_tokens=_MAX_TOKENS,
             timeout=_LLM_TIMEOUT,
         )
         content = resp.choices[0].message.content
@@ -225,7 +226,7 @@ class FoundryProvider(ChatProvider):
             model=self.model,
             messages=messages,
             temperature=0,
-            max_tokens=1500,
+            max_tokens=_MAX_TOKENS,
             timeout=_LLM_TIMEOUT,
         )
         content = resp.choices[0].message.content

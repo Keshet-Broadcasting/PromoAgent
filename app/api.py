@@ -14,10 +14,13 @@ Running locally
 
 Environment variables
 ---------------------
-    CORS_ORIGINS   comma-separated allowed origins, default "*" (restrict in production)
-                   Example: https://yourtenant.sharepoint.com,https://yourtenant-admin.sharepoint.com
-    API_HOST       bind address (default 0.0.0.0)
-    API_PORT       port        (default 8000)
+    CORS_ORIGINS        comma-separated allowed origins, default "*"
+    API_HOST            bind address (default 0.0.0.0)
+    API_PORT            port (default 8000)
+    RATE_LIMIT          per-user per-minute limit (default "20/minute")
+    RATE_LIMIT_DAILY    per-user daily limit (default "200/day")
+    MAX_QUESTION_LENGTH max input characters per request (default 500)
+    MAX_ANSWER_TOKENS   max LLM output tokens per request (default 1000)
 
 Authentication
 --------------
@@ -50,6 +53,31 @@ from .auth import require_auth
 from .models import ErrorResponse, QueryRequest, QueryResponse
 from .service import run_query
 
+
+def _get_user_identity(request: Request) -> str:
+    """Rate-limit key: JWT 'oid' (object ID) if present, else fall back to IP.
+
+    Using the Entra ID object ID means each user has their own bucket —
+    all SharePoint users no longer share the same IP-based bucket.
+    """
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+        try:
+            # Decode without verification — only for key extraction.
+            # Full verification is done by require_auth; this is just for bucketing.
+            import base64, json as _json
+            payload_b64 = token.split(".")[1]
+            # Pad to a multiple of 4
+            payload_b64 += "=" * (4 - len(payload_b64) % 4)
+            payload = _json.loads(base64.b64decode(payload_b64))
+            oid = payload.get("oid") or payload.get("sub")
+            if oid:
+                return oid
+        except Exception:
+            pass
+    return get_remote_address(request)
+
 load_dotenv()
 
 log = logging.getLogger(__name__)
@@ -79,12 +107,13 @@ if _CORS_ORIGINS == ["*"] and _ENVIRONMENT != "dev":
     )
 
 # ---------------------------------------------------------------------------
-# Rate limiter
+# Rate limiter — per-user (JWT oid) with per-minute + daily limits
 # ---------------------------------------------------------------------------
 
-_RATE_LIMIT = os.getenv("RATE_LIMIT", "10/minute")
+_RATE_LIMIT_MINUTE = os.getenv("RATE_LIMIT",       "20/minute")  # burst protection
+_RATE_LIMIT_DAY    = os.getenv("RATE_LIMIT_DAILY",  "200/day")    # daily quota per user
 
-limiter = Limiter(key_func=get_remote_address)
+limiter = Limiter(key_func=_get_user_identity)
 
 # ---------------------------------------------------------------------------
 # App factory
@@ -185,7 +214,8 @@ async def health() -> dict:
     response_description="Grounded answer with source citations and routing metadata",
     dependencies=[Depends(require_auth)],
 )
-@limiter.limit(_RATE_LIMIT)
+@limiter.limit(_RATE_LIMIT_MINUTE)
+@limiter.limit(_RATE_LIMIT_DAY)
 def query(request: Request, req: QueryRequest) -> QueryResponse:
     """Run the full RAG pipeline and return a structured answer.
 

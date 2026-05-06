@@ -8,9 +8,15 @@ import api.py or service.py from here.
 
 from __future__ import annotations
 
-from typing import Literal
+import os
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+# Maximum question length — set via MAX_QUESTION_LENGTH env var (default 500).
+# 500 chars covers virtually all real user questions while preventing
+# prompt-injection payloads and runaway token costs.
+MAX_QUESTION_LENGTH: int = int(os.getenv("MAX_QUESTION_LENGTH", "500"))
 
 
 # ---------------------------------------------------------------------------
@@ -19,9 +25,17 @@ from pydantic import BaseModel, Field
 
 
 class QueryRequest(BaseModel):
-    question: str = Field(..., min_length=1, max_length=2000,
-                          description="User's question in Hebrew (or any language)")
+    question: str = Field(..., min_length=1, description="User's question in Hebrew (or any language)")
     debug: bool = Field(False, description="If true, include full retrieval trace in response")
+
+    @field_validator("question")
+    @classmethod
+    def check_question_length(cls, v: str) -> str:
+        if len(v) > MAX_QUESTION_LENGTH:
+            raise ValueError(
+                f"Question is too long ({len(v)} chars). Maximum allowed is {MAX_QUESTION_LENGTH} characters."
+            )
+        return v
 
 
 # ---------------------------------------------------------------------------
