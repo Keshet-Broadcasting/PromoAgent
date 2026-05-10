@@ -71,13 +71,25 @@ _TRAILING_NUMBER_RE = re.compile(r"^(.+?)\s+(\d+)\s*$", re.UNICODE)
 # Hebrew column header → document field name mapping
 COLUMN_MAP = {
     "מספר פרק": "episode_number",
+    "מס' פרק":   "episode_number",   # short form used in some tabs
     "יום בשבוע": "day_of_week",
+    "יום":       "day_of_week",       # short form
     "תאריך": "date",
     "בפרומו": "promo_text",
+    "אודישנים": "promo_text",         # some tabs use section title as the promo column name
     "נקודת פתיחה": "opening_point",
     "רייטינג פרק": "rating",
     "תחרות": "competition",
 }
+
+# Strip "עונה N- " or "עונה N– " prefix from column header text before COLUMN_MAP lookup.
+# Handles tabs like יצאת צדיק where the column is named "עונה 8- בפרומו" instead of "בפרומו".
+_SEASON_PREFIX_RE = re.compile(r"^עונה\s+\d+\s*[-–]\s*")
+
+
+def _normalize_header(text: str) -> str:
+    """Normalise an Excel column header before COLUMN_MAP lookup."""
+    return _SEASON_PREFIX_RE.sub("", text).strip()
 
 # Azure AI Search accepts at most 1000 documents per batch upload call
 BATCH_SIZE = 500
@@ -222,7 +234,7 @@ def parse_sheet(
     # --- Read column headers from row 2 to build a column-index → field-name map.
     header_map: dict[int, str] = {}  # 1-based column index → document field name
     for col_idx, cell in enumerate(sheet[2], start=1):
-        header_text = cell_value(cell)
+        header_text = _normalize_header(cell_value(cell))
         if header_text in COLUMN_MAP:
             header_map[col_idx] = COLUMN_MAP[header_text]
 

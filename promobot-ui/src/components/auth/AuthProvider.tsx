@@ -62,24 +62,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await msalInstance.loginPopup(loginRequest);
-      if (response?.account) {
-        msalInstance.setActiveAccount(response.account);
-        setUser(accountToUser(response.account));
-      }
+      // Use redirect instead of popup to avoid iframe sandbox restrictions
+      await msalInstance.loginRedirect(loginRequest);
     } catch (err) {
       console.error('Login error:', err);
-    } finally {
       setIsLoading(false);
     }
   }, []);
 
   const logout = useCallback(() => {
-    msalInstance.logoutPopup({
+    msalInstance.logoutRedirect({
       postLogoutRedirectUri: window.location.origin,
-      mainWindowRedirectUri: window.location.origin,
-    }).then(() => {
-      setUser(null);
     }).catch(console.error);
   }, []);
 

@@ -139,12 +139,24 @@ def _extract_numbers(text: str) -> set[str]:
 
 
 def score_numeric(gold: str, predicted: str) -> float:
-    """Fraction of gold-answer numbers found in the predicted answer."""
+    """Fraction of gold-answer numbers found in the predicted answer.
+
+    Uses a ±0.2 tolerance so that rounding differences (e.g. gold=22.5,
+    predicted=22.4) do not count as misses.
+    """
     gold_nums = _extract_numbers(gold)
     if not gold_nums:
         return 1.0
     pred_nums = _extract_numbers(predicted)
-    hits = sum(1 for n in gold_nums if n in pred_nums)
+    hits = 0
+    for gn in gold_nums:
+        try:
+            g = float(gn)
+            if any(abs(float(pn) - g) <= 0.2 for pn in pred_nums):
+                hits += 1
+        except ValueError:
+            if gn in pred_nums:
+                hits += 1
     return hits / len(gold_nums)
 
 
@@ -162,20 +174,35 @@ _STOP_WORDS = {
 
 _WORD_RE = re.compile(r"[\u05d0-\u05ea]{2,}")
 
+# Hebrew single-character prefixes that can be prepended to any word.
+# Stripping them before comparison avoids false misses like "רייטינג" vs "ברייטינג".
+_HE_PREFIXES = ("ה", "ב", "ל", "מ", "ו", "כ", "ש", "וה", "וב", "ול", "ומ")
+
+
+def _stem_hebrew(word: str) -> str:
+    """Strip a common Hebrew prefix so 'ברייטינג' matches 'רייטינג'."""
+    for prefix in sorted(_HE_PREFIXES, key=len, reverse=True):
+        if word.startswith(prefix) and len(word) > len(prefix) + 1:
+            return word[len(prefix):]
+    return word
+
 
 def _extract_keywords(text: str) -> set[str]:
-    """Extract meaningful Hebrew words (2+ chars, not stop words)."""
+    """Extract meaningful Hebrew words (2+ chars, not stop words), stemmed."""
     words = set(_WORD_RE.findall(text))
-    return words - _STOP_WORDS
+    return {_stem_hebrew(w) for w in words - _STOP_WORDS}
 
 
 def score_keyword(gold: str, predicted: str) -> float:
-    """Fraction of gold-answer Hebrew keywords found in the predicted answer."""
+    """Fraction of gold-answer Hebrew keywords found in the predicted answer.
+
+    Both sides are stemmed so 'ברייטינג' matches the gold keyword 'רייטינג'.
+    """
     gold_kw = _extract_keywords(gold)
     if not gold_kw:
         return 1.0
-    pred_text_lower = predicted
-    hits = sum(1 for kw in gold_kw if kw in pred_text_lower)
+    pred_kw = _extract_keywords(predicted)
+    hits = sum(1 for kw in gold_kw if kw in pred_kw)
     return hits / len(gold_kw)
 
 
@@ -191,6 +218,9 @@ _GROUNDING_MARKERS = [
 
 _NOT_FOUND_MARKERS = [
     "לא נמצא", "לא נמצאו", "אין מידע", "לא קיים", "לא נשלף",
+    "לא קיימים", "אין נתון", "אין נתונים", "לא מופיע", "לא זמין",
+    "לא נמצאו נתונים", "לא נמצא מידע", "לא ניתן למצוא",
+    "אין במסמך", "אין בנתונים", "לא מוזכר", "לא מוזכרת",
 ]
 
 
@@ -317,9 +347,16 @@ def run_eval(
         log.info("\n[%d/%d] id=%s  category=%s", i, total, gold.id, gold.category)
         log.info("  Q: %s", gold.query[:90])
 
+        # Use the cleaned_query (self-contained rephrasing) when available so
+        # that follow-up questions like "איך זה ביחס לדרמות אחרות" work as
+        # standalone queries.  Fall back to raw query when they are identical.
+        eval_query = gold.cleaned_query if gold.cleaned_query and gold.cleaned_query != gold.query else gold.query
+        if eval_query != gold.query:
+            log.info("  Q(clean): %s", eval_query[:90])
+
         t0 = time.time()
         try:
-            resp = run_query(gold.query)
+            resp = run_query(eval_query)
             answer = resp.answer
         except Exception as exc:
             elapsed = time.time() - t0
@@ -348,7 +385,7 @@ def run_eval(
         r.refusal_score = score_refusal(answer, gold.answerable)
 
         if use_judge:
-            r.judge_score = score_judge(gold.query, gold_text, answer)
+            r.judge_score = score_judge(eval_query, gold_text, answer)
 
         r.overall = compute_overall(r, use_judge)
         results.append(r)

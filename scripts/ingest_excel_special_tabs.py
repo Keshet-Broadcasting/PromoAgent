@@ -84,15 +84,42 @@ SKIP_TABS: frozenset[str] = frozenset({
 
 # Hebrew column header → document field name (must match ingest_excel.py)
 COLUMN_MAP: dict[str, str] = {
-    "מספר פרק":  "episode_number",
-    "יום בשבוע": "day_of_week",
-    "תאריך":     "date",
-    "בפרומו":    "promo_text",
+    "מספר פרק":    "episode_number",
+    "מס' פרק":     "episode_number",   # short form used in some tabs
+    "יום בשבוע":   "day_of_week",
+    "יום":         "day_of_week",       # short form
+    "תאריך":       "date",
+    "בפרומו":      "promo_text",
+    "אודישנים":    "promo_text",        # some tabs use section title as the promo column name
     "נקודת פתיחה": "opening_point",
     "רייטינג פרק":  "rating",
-    "תחרות":     "competition",
+    "תחרות":       "competition",
 }
 KNOWN_HEADERS: frozenset[str] = frozenset(COLUMN_MAP.keys())
+
+# Strip "עונה N- " prefix from column headers before COLUMN_MAP lookup.
+# Handles יצאת צדיק where the column is named "עונה 8- בפרומו" instead of "בפרומו".
+_SEASON_PREFIX_RE = re.compile(r"^עונה\s+\d+\s*[-–]\s*")
+
+
+def _normalize_header(text: str) -> str:
+    """Normalise an Excel column header before COLUMN_MAP lookup."""
+    return _SEASON_PREFIX_RE.sub("", text).strip()
+
+
+# Tabs that have NO column header row at all — data starts directly in row 2.
+# Column field names are mapped by position (1-based index).
+# None = ignore this column position.
+POSITIONAL_HEADERS: dict[str, list[str | None]] = {
+    "נוטוק": [
+        "episode_number", "day_of_week", "date",
+        "promo_text", "opening_point", "rating", "competition",
+    ],
+    "מאסטר שף עונה 11 VIP": [
+        "episode_number", "day_of_week", "date",
+        "promo_text", "opening_point", "rating", "competition",
+    ],
+}
 
 # ---------------------------------------------------------------------------
 # Tab-name parsing (identical to ingest_excel.py)
@@ -175,10 +202,16 @@ def _build_header_map(row) -> dict[int, str]:
     """Build col-index (1-based) → field-name map from a header row."""
     hmap: dict[int, str] = {}
     for col_idx, cell in enumerate(row, start=1):
-        text = cell_value(cell)
+        text = _normalize_header(cell_value(cell))
         if text in COLUMN_MAP:
             hmap[col_idx] = COLUMN_MAP[text]
     return hmap
+
+
+def _positional_header_map(tab_name: str) -> dict[int, str]:
+    """Return a col-index → field-name map for tabs with no header row."""
+    fields = POSITIONAL_HEADERS.get(tab_name, [])
+    return {i + 1: f for i, f in enumerate(fields) if f is not None}
 
 
 def _is_section_label(row, header_map: dict[int, str]) -> tuple[bool, str]:
@@ -311,7 +344,7 @@ def parse_sectioned_sheet(
     """
     Parse a sectioned-layout sheet.
 
-    Three confirmed layouts in the wild:
+    Four confirmed layouts in the wild:
         A  (headers in row 1, section label in row 2):
                row 1  — column headers (תאריך, בפרומו, …)
                row 2  — first section label  (e.g., "אודישנים")
@@ -328,6 +361,12 @@ def parse_sectioned_sheet(
                row 2  — first data row  (col A = episode number like "1")
                row 3+ — more data rows
 
+        D  (NO header row — tabs in POSITIONAL_HEADERS):
+               row 1  — merged show-title header  (skipped)
+               row 2  — first data row  (episode 1)
+               row 3+ — more data rows
+               Columns are mapped by position using POSITIONAL_HEADERS.
+
     _find_header_row() auto-detects the header row.
     _row2_section_info() determines whether row 2 is a section label or a data row.
     """
@@ -335,10 +374,18 @@ def parse_sectioned_sheet(
 
     header_row, header_map = _find_header_row(sheet)
     if not header_map:
-        logger.warning(f"    WARNING: no recognised headers in rows 1-5 — skipping '{sheet.title}'.")
-        return []
-
-    current_section, data_start = _row2_section_info(sheet, header_row)
+        # Layout D — no header row; use positional mapping if available
+        pos_map = _positional_header_map(sheet.title)
+        if not pos_map:
+            logger.warning(f"    WARNING: no recognised headers in rows 1-5 — skipping '{sheet.title}'.")
+            return []
+        logger.info(f"    Using positional column map for '{sheet.title}'.")
+        header_map = pos_map
+        header_row = 1   # merged title is row 1; data starts at row 2
+        current_section = ""
+        data_start = 2
+    else:
+        current_section, data_start = _row2_section_info(sheet, header_row)
 
     docs: list[dict] = []
     for row_idx, row in enumerate(sheet.iter_rows(min_row=data_start), start=data_start):
@@ -569,7 +616,7 @@ def upload_in_batches(search_client: SearchClient, docs: list[dict]) -> int:
 # ---------------------------------------------------------------------------
 
 
-def main(preview: bool = False, trace: bool = False) -> None:
+def main(preview: bool = False, trace: bool = False, retab: list[str] | None = None) -> None:
     required = {
         "AZURE_SEARCH_ENDPOINT":          AZURE_SEARCH_ENDPOINT,
         "AZURE_SEARCH_KEY":               AZURE_SEARCH_KEY,
@@ -616,16 +663,24 @@ def main(preview: bool = False, trace: bool = False) -> None:
     indexed_pairs = get_indexed_pairs(search_client)
     logger.info(f"  {len(indexed_pairs)} pair(s) already indexed.")
 
+    # Tabs explicitly requested for re-indexing (already in index but data needs refresh)
+    force_retab: set[str] = set(retab or [])
+    if force_retab:
+        missing = force_retab - set(wb.sheetnames)
+        if missing:
+            logger.warning(f"  WARNING: --retab tabs not found in workbook: {missing}")
+        logger.info(f"  Force re-index  : {sorted(force_retab)} tab(s)")
+
     tabs_to_process: list[str] = []
     tabs_skipped_list: list[str] = []
     tabs_already_indexed: list[str] = []
 
     for tab_name in wb.sheetnames:
-        if tab_name in SKIP_TABS:
+        if tab_name in SKIP_TABS and tab_name not in force_retab:
             tabs_skipped_list.append(tab_name)
             continue
         show_name, season = parse_tab_name(tab_name)
-        if (show_name, season) in indexed_pairs:
+        if (show_name, season) in indexed_pairs and tab_name not in force_retab:
             tabs_already_indexed.append(tab_name)
         else:
             tabs_to_process.append(tab_name)
@@ -636,7 +691,8 @@ def main(preview: bool = False, trace: bool = False) -> None:
     if tabs_to_process:
         for t in tabs_to_process:
             tab_type = _detect_tab_type(wb[t])
-            logger.info(f"    '{t}'  [{tab_type}]")
+            forced = " [FORCED RE-INDEX]" if t in force_retab else ""
+            logger.info(f"    '{t}'  [{tab_type}]{forced}")
 
     # ---- Trace mode: row-by-row classification for each tab-to-process ----
     if trace:
@@ -724,5 +780,16 @@ if __name__ == "__main__":
         action="store_true",
         help="Print row-by-row classification for each tab-to-process (no upload)",
     )
+    parser.add_argument(
+        "--retab",
+        metavar="TAB_NAME",
+        nargs="+",
+        help=(
+            "Force re-index one or more already-indexed tab(s). "
+            "Existing documents for the tab's (show_name, season) pair are NOT deleted first — "
+            "Azure AI Search upserts by document key so updated rows overwrite stale ones. "
+            "Example: --retab \"יצאת צדיק עונה 8\" \"יצאת צדיק עונה 9\""
+        ),
+    )
     args = parser.parse_args()
-    main(preview=args.preview, trace=args.trace)
+    main(preview=args.preview, trace=args.trace, retab=args.retab)

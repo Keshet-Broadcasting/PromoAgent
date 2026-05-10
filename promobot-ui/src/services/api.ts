@@ -33,7 +33,15 @@ export const chatService = {
       });
 
       if (!response.ok) {
-        throw new ApiError(response.status, `שגיאת שרת: ${response.statusText}`);
+        let errorBody = '';
+        try {
+          const errData = await response.json();
+          errorBody = errData.detail || errData.message || JSON.stringify(errData);
+        } catch (e) {
+          errorBody = await response.text().catch(() => '');
+        }
+        console.error('Backend error response:', response.status, errorBody);
+        throw new ApiError(response.status, `שגיאת שרת (${response.status}): ${errorBody || response.statusText}`);
       }
 
       const data = await response.json();

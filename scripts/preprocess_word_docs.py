@@ -75,8 +75,10 @@ CHUNK_MAX_CHARS = 3000
 HEADING_ROLES = {"sectionHeading", "title"}
 SKIP_ROLES    = {"pageHeader", "pageFooter", "pageNumber", "footnote"}
 
-# Word style IDs that represent headings (locale-independent English IDs)
-HEADING_STYLE_IDS = {f"Heading{i}" for i in range(1, 10)} | {"Title"}
+# Word style IDs that represent headings (locale-independent English IDs).
+# "HeadingBold" is a synthetic ID returned by _xml_para_style_id() for paragraphs
+# that use bold formatting instead of a formal heading style (common in Hebrew docs).
+HEADING_STYLE_IDS = {f"Heading{i}" for i in range(1, 10)} | {"Title", "HeadingBold"}
 
 # Word Open XML namespaces used in document.xml
 _W  = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"

@@ -153,6 +153,59 @@ def search_excel_promos(query: str, top: int = 5) -> list[dict]:
     return docs
 
 
+def fetch_show_promos(show_name: str, season: str | None = None, top: int = 500) -> list[dict]:
+    """Retrieve ALL promo rows for a specific show using an OData filter.
+
+    Unlike search_excel_promos() (which uses semantic ranking and returns only
+    the top-N most similar rows), this function returns every indexed row for
+    the requested show — guaranteed complete coverage, no semantic cutoff.
+
+    Used when ranking_intent is True and a show name is detected in the query,
+    so that "rank all seasons" questions see every data point, not just the
+    30 rows that happen to be semantically closest to the question text.
+
+    Parameters
+    ----------
+    show_name : exact show name as stored in the index (case-sensitive)
+    season    : optional exact season string (e.g. "5") — further filters to
+                that season only; omit for cross-season ranking
+    top       : max rows to return (default 500 — covers the largest shows)
+    """
+    client = _client(_PROMOS_INDEX)
+
+    filter_expr = f"show_name eq '{show_name}'"
+    if season:
+        filter_expr += f" and season eq '{season}'"
+
+    results = client.search(
+        search_text="*",
+        filter=filter_expr,
+        top=top,
+        select=[
+            "show_name", "season", "episode_number", "date",
+            "promo_text", "opening_point", "rating", "competition",
+            "section", "source_file",
+        ],
+    )
+
+    docs = []
+    for r in results:
+        docs.append({
+            "show_name":      r.get("show_name", ""),
+            "season":         r.get("season", ""),
+            "episode_number": r.get("episode_number", ""),
+            "date":           r.get("date", ""),
+            "promo_text":     r.get("promo_text", ""),
+            "opening_point":  r.get("opening_point", ""),
+            "rating":         r.get("rating", ""),
+            "competition":    r.get("competition", ""),
+            "section":        r.get("section", ""),
+            "tab_name":       r.get("source_file", ""),
+            "score":          1.0,  # filter-based — all rows are equally relevant
+        })
+    return docs
+
+
 def search_both(query: str, top: int = 5) -> dict:
     """Query both indexes and return combined results.
 

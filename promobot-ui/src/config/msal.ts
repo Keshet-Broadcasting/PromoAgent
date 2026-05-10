@@ -17,11 +17,16 @@ export const msalConfig: Configuration = {
     cacheLocation: 'sessionStorage',
   },
   system: {
+    allowNativeBroker: false, // Disable native broker to prevent iframe timeout issues
+    allowRedirectInIframe: true, // Crucial for SharePoint embedded iframes
     loggerOptions: {
       logLevel: LogLevel.Warning,
       piiLoggingEnabled: false,
     },
-  },
+    windowHashTimeout: 60000,
+    iframeHashTimeout: 6000,
+    loadFrameTimeout: 0
+  } as any,
 };
 
 export const loginRequest = {
