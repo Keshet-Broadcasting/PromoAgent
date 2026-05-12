@@ -290,6 +290,38 @@ CASES: list[Case] = [
     ),
 
     # =========================================================================
+    # WA — Word-Answers regression: @search.answers promotion
+    #
+    # Azure AI Search returns semantic answers in @search.answers separately
+    # from the standard @value ranked list. If the best answer chunk ranks
+    # outside the top-N by reranker score but is surfaced by @search.answers,
+    # the bot must still use it — otherwise it returns a false "no data found".
+    #
+    # Concrete case (May 12, 2026 investigation):
+    #   Query: "מה היו התובנות של העונה האחרונה של רוקדים?"
+    #   @search.answers[0] → chunk_332  score=0.965  contains:
+    #     "רוקדים עם כוכבים בעונה הראשונה בקשת- 44% כוונות בשלב הראשון של הקמפיין"
+    #   Bot's top-5 by reranker: chunk_622/247/354/1_21/697_1 — all about MasterChef
+    #   Bot conclusion: "לא נמצאו נתונים עבור התוכנית רוקדים עם כוכבים"  ← FALSE NEGATIVE
+    # =========================================================================
+
+    Case(
+        id="WA1",
+        query="מה היו התובנות של העונה האחרונה של רוקדים עם כוכבים?",
+        expected_route="word_quote",
+        keywords=["44", "כוונות", "רוקדים"],
+        source_markers=["docx", "מסמך", "מסמכי", "נשלף"],
+        must_not_include=["לא נמצאו נתונים עבור התוכנית"],
+        description=(
+            "@search.answers regression: chunk_332 contains 'רוקדים עם כוכבים — 44% כוונות' "
+            "but ranks outside the top-5 by reranker score. Without @search.answers promotion "
+            "the bot returns a false 'no data found'. After fix, chunk_332 must surface and "
+            "the answer must cite the 44% viewing-intention figure."
+        ),
+        live=True,
+    ),
+
+    # =========================================================================
     # N — Negative: fictional show / data not in index
     # =========================================================================
 

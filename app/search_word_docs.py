@@ -78,8 +78,23 @@ def _first_caption(result) -> str:
 # ---------------------------------------------------------------------------
 
 
+_ANSWER_SCORE_THRESHOLD = 0.85
+"""Minimum @search.answers confidence to promote a chunk to the front of the
+context list.  Answers below this score are still present in the value list if
+they ranked in the top-N; they just don't get promoted ahead of other results."""
+
+
 def search_word_docs(query: str, top: int = 5) -> list[dict]:
     """Query the 'word-docs' index with Hebrew semantic search.
+
+    In addition to the standard reranked result list, Azure AI Search returns
+    semantic answers in ``@search.answers``.  These are produced by a dedicated
+    extraction pipeline and often surface the most directly relevant chunk even
+    when it ranks outside the top-N by reranker score.
+
+    Any answer whose confidence score is >= _ANSWER_SCORE_THRESHOLD is promoted
+    to the front of the returned list so the LLM always sees the best direct-
+    answer chunk first, regardless of where it landed in the reranker ranking.
 
     Returns a list of dicts with keys:
         chunk_id, chunk, header, title, score, caption
@@ -97,18 +112,61 @@ def search_word_docs(query: str, top: int = 5) -> list[dict]:
         select=["chunk_id", "chunk", "header", "title", "source_file"],
     )
 
-    docs = []
+    # Collect all value results, keyed by chunk_id.  Iterating the response
+    # triggers the first-page fetch, which also populates @search.answers.
+    by_id: dict[str, dict] = {}
+    value_order: list[str] = []
     for r in results:
-        docs.append({
-            "chunk_id": r.get("chunk_id", ""),
-            "chunk":    r.get("chunk", ""),
-            "header":   r.get("header", ""),
-            "title":    r.get("title", ""),
+        chunk_id = r.get("chunk_id", "")
+        by_id[chunk_id] = {
+            "chunk_id":    chunk_id,
+            "chunk":       r.get("chunk", ""),
+            "header":      r.get("header", ""),
+            "title":       r.get("title", ""),
             "source_file": r.get("source_file", ""),
-            "score":    r.get("@search.reranker_score") or r.get("@search.score", 0),
-            "caption":  _first_caption(r),
-        })
-    return docs
+            "score":       r.get("@search.reranker_score") or r.get("@search.score", 0),
+            "caption":     _first_caption(r),
+        }
+        value_order.append(chunk_id)
+
+    # Promote high-confidence semantic answers to the front of the context list.
+    promoted_ids: list[str] = []
+    for answer in (results.get_answers() or []):
+        score = getattr(answer, "score", 0) or 0
+        if score < _ANSWER_SCORE_THRESHOLD:
+            continue
+        key = getattr(answer, "key", None)
+        if not key or key in promoted_ids:
+            continue
+        if key not in by_id:
+            # Chunk ranked outside top-N; synthesize a minimal doc from the
+            # answer text so the LLM still receives its content.
+            by_id[key] = {
+                "chunk_id":    key,
+                "chunk":       getattr(answer, "text", "") or "",
+                "header":      "",
+                "title":       "",
+                "source_file": "",
+                "score":       score,
+                "caption":     getattr(answer, "highlights", "") or "",
+            }
+            logger.debug(
+                "  @search.answers promoted (out-of-range): key=%s score=%.3f", key, score
+            )
+        else:
+            # Already in value results; boost its recorded score so the source
+            # confidence in the API response reflects the answer confidence.
+            by_id[key]["score"] = max(by_id[key]["score"], score)
+            logger.debug(
+                "  @search.answers promoted (in-range): key=%s score=%.3f", key, score
+            )
+        promoted_ids.append(key)
+
+    # Build final list: promoted chunks first, then remaining value docs in
+    # their original reranker order.  Truncate to the requested top-N.
+    promoted_set = set(promoted_ids)
+    remaining = [by_id[k] for k in value_order if k not in promoted_set]
+    return ([by_id[k] for k in promoted_ids if k in by_id] + remaining)[:top]
 
 
 def search_excel_promos(query: str, top: int = 5) -> list[dict]:

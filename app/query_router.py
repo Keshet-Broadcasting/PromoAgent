@@ -94,8 +94,11 @@ WORD_QUOTE_PATTERNS: list[re.Pattern] = [
         r"\bמסר\b",
         r"אימאג'",
         # Strategic / creative synthesis questions
+        # NOTE: r"מה היית" was intentionally removed — it is a prefix of
+        # "מה הייתה" (past-tense factual queries like "מה הייתה נקודת הפתיחה")
+        # and caused those queries to misroute to hybrid/word_quote.
+        # The specific phrases below cover all intended creative/strategy uses.
         r"מה הייתי",
-        r"מה היית",
         r"מה כדאי",
         r"מה לעשות",
         r"כיצד הייתי",

@@ -91,6 +91,33 @@ This is intentional but should be documented clearly.
 
 With 26 cases, one wrong answer shifts the overall score by ~4%. The category rankings (which type to fix first) can flip from run to run due to LLM non-determinism. Expanding to 50–60 cases is required before trusting category-level conclusions.
 
+### 4.4 Bug: `@search.answers` not consumed — false negatives in word_quote route
+
+**Discovered:** May 12, 2026 — live investigation against `word-docs` index  
+**Status:** Open
+
+**Problem:**  
+When querying the `word-docs` index with `queryType=semantic`, Azure AI Search returns **two ranked lists**:
+
+- `@search.answers` — a semantic answer extraction that pulls the single most directly relevant text span. This is computed by a separate pipeline and is often more accurate than the reranker for specific factual questions.
+- `value` — the standard ranked list scored by `@search.rerankerScore`.
+
+The bot's retrieval layer reads **only from `value`** (top-5 by reranker score) and ignores `@search.answers` entirely.
+
+**Concrete example observed:**  
+Query: "מה היו התובנות של העונה האחרונה של רוקדים?"  
+- `@search.answers[0]` → `chunk_332`, score **0.965**, content: "רוקדים עם כוכבים בעונה הראשונה בקשת — 44% כוונות בשלב הראשון של הקמפיין" ✅ directly answers the question  
+- Bot's top-5 from `value` → `chunk_622`, `chunk_247`, `chunk_354`, `chunk_1_21`, `chunk_697_1` — all about MasterChef/הכוכב הבא, zero content about "רוקדים עם כוכבים"  
+- Bot conclusion: "No data found for רוקדים עם כוכבים", confidence: **high** ❌ false negative
+
+**Root cause:**  
+The reranker ranked `chunk_332` below position 5 in the `value` list for this query, so it was never fed to the LLM. The semantic answer extractor correctly identified it, but its output is discarded.
+
+**Impact:**  
+Any `word_quote` or `factual` query where the best answer chunk ranks 6th or lower in the reranker but is surfaced by `@search.answers` will produce a false "no data found" — with **high** confidence, making it actively misleading.
+
+**Fix:** See Phase 1b below.
+
 ---
 
 ## 5. Implementation Plan
@@ -179,6 +206,61 @@ if ranking_intent:
 **Fix applied May 10, 2026.** The judge now receives `eval_query` (the cleaned, self-contained question) instead of `gold.query`. This ensures the judge evaluates the agent on the same question the agent actually answered.
 
 **Next step:** Re-run judge eval to get updated comparison scores.
+
+---
+
+### Phase 1b — Consume `@search.answers` in Word Doc Retrieval (2–3 hours) ⭐⭐⭐
+
+**Expected judge gain: +5–10% on quote and factual**
+
+**Problem:** See bug 4.4. The retrieval layer for Word documents ignores the `@search.answers` field returned by Azure AI Search's semantic pipeline, causing high-confidence false negatives when the best answer chunk doesn't rank in the top-5 by reranker score.
+
+**Fix:** In `app/search_word_docs.py`, after receiving the search response, extract `@search.answers` and inject those chunks at the front of the context list, deduplicating against the `value` results.
+
+```python
+def search_word_docs(query: str, top: int = 5) -> list[dict]:
+    response = client.search(
+        search_text=query,
+        query_type=QueryType.SEMANTIC,
+        semantic_configuration_name="word-docs-semantic-config",
+        query_caption=QueryCaptionType.EXTRACTIVE,
+        query_answer=QueryAnswerType.EXTRACTIVE,   # ← must be enabled
+        query_answer_count=3,
+        top=top,
+    )
+
+    # Collect semantic answers first — these are highest-confidence hits
+    answer_chunk_ids: set[str] = set()
+    priority_docs: list[dict] = []
+    for answer in (response.get_answers() or []):
+        if answer.score >= 0.85:                   # only high-confidence answers
+            answer_chunk_ids.add(answer.key)
+            priority_docs.append({
+                "chunk_id": answer.key,
+                "chunk": answer.text,
+                "score": answer.score,
+                "source": "semantic_answer",
+                # title/header filled in from value results below if available
+            })
+
+    # Add remaining value results, skipping chunks already in priority_docs
+    value_docs: list[dict] = []
+    for r in response:
+        if r["chunk_id"] not in answer_chunk_ids:
+            value_docs.append(_to_doc(r))
+
+    # Semantic answers lead; value results fill remaining slots
+    return (priority_docs + value_docs)[:top]
+```
+
+**Also fix confidence signalling:** When the agent concludes "no data found", that answer should never be `"confidence": "high"` if the underlying index has > 0 results (i.e., `@odata.count > 0`). Add a guard in `app/service.py`:
+
+```python
+if not docs and search_meta.get("total_count", 0) > 0:
+    confidence = "medium"   # index has docs — retrieval may have missed something
+```
+
+**Validation:** Re-run the query "מה היו התובנות של העונה האחרונה של רוקדים?" and verify `chunk_332` appears in sources and the answer quotes the 44% intentions data.
 
 ---
 
@@ -292,7 +374,8 @@ Key gaps in `promobot-ui` compared to the custom GPT experience:
 |---|---|---|
 | **Baseline** (May 10) | — | **37.5%** |
 | Phase 1 + 2 (show-complete retrieval + judge fix) | Data coverage fixed | **~52–55%** |
-| Phase 1–3 (+ few-shot examples) | Format alignment | **~58–62%** |
+| Phase 1 + 1b + 2 (+ semantic answers fix) | Eliminates false negatives in word_quote | **~55–58%** |
+| Phase 1–3 (+ few-shot examples) | Format alignment | **~60–64%** |
 | Phase 1–4 (+ conversation memory) | UX parity | **~60–65%** |
 | Phase 1–5 (+ 50+ eval cases) | Reliable measurement | **~60–65% (reliable)** |
 | Phase 1–7 (+ chunking + model) | Full quality stack | **~70–75%** |
@@ -317,8 +400,8 @@ These were considered and explicitly deferred:
 ## 8. Execution Order
 
 ```
-Week 1:  Phase 1 (fetch_show_promos) + Phase 3 (few-shot examples)
-         → Re-run judge eval to validate +15% gain
+Week 1:  Phase 1 (fetch_show_promos) + Phase 1b (@search.answers fix) + Phase 3 (few-shot examples)
+         → Re-run judge eval to validate +15–20% gain
 
 Week 2:  Phase 4 (conversation memory) + Phase 5 (expand dataset)
          → Validate multi-turn behavior with promo team
