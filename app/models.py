@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # Maximum question length — set via MAX_QUESTION_LENGTH env var (default 500).
 # 500 chars covers virtually all real user questions while preventing
@@ -24,9 +24,28 @@ MAX_QUESTION_LENGTH: int = int(os.getenv("MAX_QUESTION_LENGTH", "500"))
 # ---------------------------------------------------------------------------
 
 
+class HistoryMessage(BaseModel):
+    """A single turn in the conversation history sent by the client."""
+    role: Literal["user", "assistant"] = Field(..., description="Who sent this message")
+    content: str = Field(..., min_length=1, max_length=2000, description="Message text")
+
+
+MAX_HISTORY_TURNS: int = int(os.getenv("MAX_HISTORY_TURNS", "10"))
+
+
 class QueryRequest(BaseModel):
     question: str = Field(..., min_length=1, description="User's question in Hebrew (or any language)")
+    history: list[HistoryMessage] = Field(
+        default_factory=list,
+        description="Previous conversation turns (oldest first). Maximum 10 turns.",
+    )
     debug: bool = Field(False, description="If true, include full retrieval trace in response")
+
+    @model_validator(mode="after")
+    def cap_history(self) -> "QueryRequest":
+        if len(self.history) > MAX_HISTORY_TURNS:
+            self.history = self.history[-MAX_HISTORY_TURNS:]
+        return self
 
     @field_validator("question")
     @classmethod

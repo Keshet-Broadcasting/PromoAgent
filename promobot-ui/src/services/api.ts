@@ -16,8 +16,14 @@ export const chatService = {
    * Prepared for Entra ID token injection.
    */
   async sendMessage(messages: Message[], token?: string): Promise<Message> {
-    // The backend currently expects a single question, not full chat history
     const lastMessage = messages[messages.length - 1];
+
+    const MAX_HISTORY = 10;
+    const priorMessages = messages.slice(0, -1).slice(-MAX_HISTORY);
+    const history = priorMessages.map(m => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+    }));
     
     try {
       const response = await fetch(API_ENDPOINT, {
@@ -28,7 +34,8 @@ export const chatService = {
         },
         body: JSON.stringify({ 
           question: lastMessage.content,
-          debug: false 
+          history: history.length > 0 ? history : undefined,
+          debug: false,
         }),
       });
 

@@ -226,5 +226,7 @@ def query(request: Request, req: QueryRequest) -> QueryResponse:
     effective_debug = req.debug and _ALLOW_DEBUG
     if req.debug and not _ALLOW_DEBUG:
         log.info("POST /query  debug requested but ALLOW_DEBUG is off — ignoring")
-    log.info("POST /query  question=%r  debug=%s", req.question[:80], effective_debug)
-    return run_query(req.question, debug=effective_debug)
+    history_dicts = [{"role": h.role, "content": h.content} for h in req.history] if req.history else None
+    log.info("POST /query  question=%r  debug=%s  history_turns=%d",
+             req.question[:80], effective_debug, len(req.history))
+    return run_query(req.question, debug=effective_debug, history=history_dicts)

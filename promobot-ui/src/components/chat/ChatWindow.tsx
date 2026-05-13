@@ -1,12 +1,32 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Message, ChatState } from '../../types/chat';
 import { chatService, ApiError } from '../../services/api';
 import { useAuth } from '../auth/AuthProvider';
 import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
 import { EmptyState } from './EmptyState';
+
+const STORAGE_KEY = 'promobot-chat-history';
+
+function loadHistory(): Message[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as Message[];
+    return parsed.map(m => ({ ...m, timestamp: new Date(m.timestamp) }));
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(messages: Message[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+  } catch { /* quota exceeded — silently drop */ }
+}
 
 export function ChatWindow() {
   const { getToken } = useAuth();
@@ -15,6 +35,13 @@ export function ChatWindow() {
     isLoading: false,
     error: null,
   });
+
+  useEffect(() => {
+    const saved = loadHistory();
+    if (saved.length > 0) {
+      setState(prev => ({ ...prev, messages: saved }));
+    }
+  }, []);
 
   const sendToBackend = async (messagesToSend: Message[]) => {
     setState((prev) => ({
@@ -30,11 +57,11 @@ export function ChatWindow() {
         token || undefined
       );
 
-      setState((prev) => ({
-        ...prev,
-        messages: [...prev.messages, responseMessage],
-        isLoading: false,
-      }));
+      setState((prev) => {
+        const updated = [...prev.messages, responseMessage];
+        saveHistory(updated);
+        return { ...prev, messages: updated, isLoading: false };
+      });
     } catch (error) {
       console.error('Failed to send message:', error);
       let errorMessage = 'אירעה שגיאה לא צפויה. אנא נסו שוב.';
@@ -62,6 +89,7 @@ export function ChatWindow() {
     };
 
     const updatedMessages = [...state.messages, newUserMessage];
+    saveHistory(updatedMessages);
 
     setState((prev) => ({
       ...prev,
@@ -77,17 +105,32 @@ export function ChatWindow() {
     }
   };
 
+  const handleNewChat = useCallback(() => {
+    setState({ messages: [], isLoading: false, error: null });
+    localStorage.removeItem(STORAGE_KEY);
+  }, []);
+
   return (
     <div className="flex flex-col h-full bg-slate-50/50">
       {state.messages.length === 0 ? (
-        <EmptyState onSuggestionClick={handleSendMessage} />
+        <EmptyState />
       ) : (
-        <MessageList
-          messages={state.messages}
-          isLoading={state.isLoading}
-          error={state.error}
-          onRetry={handleRetry}
-        />
+        <>
+          <div className="flex justify-end p-2">
+            <button
+              onClick={handleNewChat}
+              className="text-xs text-slate-500 hover:text-slate-700 px-3 py-1.5 rounded-md hover:bg-slate-100 transition-colors"
+            >
+              שיחה חדשה
+            </button>
+          </div>
+          <MessageList
+            messages={state.messages}
+            isLoading={state.isLoading}
+            error={state.error}
+            onRetry={handleRetry}
+          />
+        </>
       )}
       <ChatInput onSend={handleSendMessage} isLoading={state.isLoading} />
     </div>

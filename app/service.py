@@ -437,13 +437,18 @@ def _confidence(sources: list[SourceDoc]) -> str:
 # Public API
 # ---------------------------------------------------------------------------
 
-def run_query(question: str, debug: bool = False) -> QueryResponse:
+def run_query(
+    question: str,
+    debug: bool = False,
+    history: list[dict] | None = None,
+) -> QueryResponse:
     """Full pipeline: classify → retrieve → prompt → LLM → structured response.
 
     Parameters
     ----------
     question : user question (any language, typically Hebrew)
     debug    : when True, the full retrieval context is included in the response
+    history  : previous conversation turns [{"role": ..., "content": ...}]
 
     Returns
     -------
@@ -478,8 +483,8 @@ def run_query(question: str, debug: bool = False) -> QueryResponse:
     log.info("[%s] Context length: %d chars", trace_id, len(retrieval.context))
     log.debug("[%s] === FULL CONTEXT ===\n%s\n=== END ===", trace_id, retrieval.context)
 
-    # Step 3 — build messages
-    messages = build_messages(route, retrieval.context, question)
+    # Step 3 — build messages (with conversation history if provided)
+    messages = build_messages(route, retrieval.context, question, history=history)
     log.debug("[%s] === USER MESSAGE ===\n%s\n=== END ===",
               trace_id, messages[-1]["content"])
 
@@ -497,7 +502,7 @@ def run_query(question: str, debug: bool = False) -> QueryResponse:
             log.warning("[%s] Context too large (%s) — retrying with trimmed context", trace_id, exc_name)
             try:
                 trimmed_ctx = retrieval.context[:len(retrieval.context) // 2]
-                messages_trimmed = build_messages(route, trimmed_ctx, question)
+                messages_trimmed = build_messages(route, trimmed_ctx, question, history=history)
                 answer = provider.complete(messages_trimmed)
                 log.info("[%s] Retry with trimmed context succeeded", trace_id)
             except Exception as exc2:

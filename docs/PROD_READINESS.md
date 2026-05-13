@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-30
 **Reviewer:** AI Code Review
-**Status:** In Progress — fixes being applied
+**Status:** Complete — all critical and high items resolved (May 2026)
 
 ---
 
@@ -13,7 +13,7 @@
 - **Issue:** The `/query` endpoint has no auth. Anyone who knows the Container App URL can call it, consume Azure OpenAI tokens, and read internal promo data.
 - **Impact:** Unlimited API abuse, token cost, data exfiltration.
 - **Fix:** Add Entra ID bearer token validation, or at minimum restrict via Container App IP rules / API key header.
-- **Status:** Manual — requires Entra ID app registration decisions.
+- **Status:** FIXED — Entra ID JWT validation via `app/auth.py` + `Depends(require_auth)` in `api.py`.
 
 ### 2. CORS defaults to `*` (allow all origins)
 - **File:** `app/api.py` line 57
@@ -116,7 +116,7 @@
 
 | # | Issue | Severity | Effort | Status |
 |---|-------|----------|--------|--------|
-| 1 | Add auth (Entra ID or API key) | CRITICAL | Medium | Manual |
+| 1 | Add auth (Entra ID or API key) | CRITICAL | Medium | FIXED |
 | 2 | CORS wildcard warning | CRITICAL | 5 min | FIXED |
 | 3 | Cache provider singleton | CRITICAL | 10 min | FIXED |
 | 4 | Add rate limiting | HIGH | 30 min | FIXED |

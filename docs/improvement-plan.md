@@ -94,7 +94,7 @@ With 26 cases, one wrong answer shifts the overall score by ~4%. The category ra
 ### 4.4 Bug: `@search.answers` not consumed — false negatives in word_quote route
 
 **Discovered:** May 12, 2026 — live investigation against `word-docs` index  
-**Status:** Open
+**Status:** FIXED (May 12, 2026) — `search_word_docs.py` now promotes `@search.answers` chunks with score >= 0.85; `system_prompt.txt` updated to allow citing cross-show comparative data.
 
 **Problem:**  
 When querying the `word-docs` index with `queryType=semantic`, Azure AI Search returns **two ranked lists**:
@@ -122,7 +122,7 @@ Any `word_quote` or `factual` query where the best answer chunk ranks 6th or low
 
 ## 5. Implementation Plan
 
-### Phase 1 — Show-Complete Retrieval (2–3 days) ⭐⭐⭐
+### Phase 1 — Show-Complete Retrieval (2–3 days) ✅ DONE
 
 **Expected judge gain: +15–20% on ranking, +10% on numeric/comparison**
 
@@ -209,7 +209,7 @@ if ranking_intent:
 
 ---
 
-### Phase 1b — Consume `@search.answers` in Word Doc Retrieval (2–3 hours) ⭐⭐⭐
+### Phase 1b — Consume `@search.answers` in Word Doc Retrieval (2–3 hours) ✅ DONE
 
 **Expected judge gain: +5–10% on quote and factual**
 

@@ -122,6 +122,7 @@ def build_messages(
     route: str,
     context: str,
     user_query: str,
+    history: list[dict] | None = None,
 ) -> list[dict]:
     """Build a messages list ready for the OpenAI chat completions API.
 
@@ -130,20 +131,27 @@ def build_messages(
     route       : one of "excel_numeric", "word_quote", "hybrid", "unknown"
     context     : pre-formatted retrieval results string (built by agent.py)
     user_query  : the original user question
+    history     : previous conversation turns as [{"role": ..., "content": ...}]
 
     Returns
     -------
     [
-        {"role": "system", "content": <base_policy + route_addendum>},
-        {"role": "user",   "content": <context_block + user_query>},
+        {"role": "system",    "content": <base_policy + route_addendum>},
+        {"role": "user",      "content": <prior turn 1>},        # ← history
+        {"role": "assistant", "content": <prior turn 2>},        # ← history
+        ...
+        {"role": "user",      "content": <context_block + user_query>},
     ]
     """
     addendum = _ROUTE_ADDENDUM.get(route, _ROUTE_ADDENDUM["unknown"])
     system_content = f"{SYSTEM_PROMPT}\n\n{addendum}"
 
-    user_content = f"{_format_context(context)}\n\n## שאלת המשתמש\n\n{user_query}"
+    messages: list[dict] = [{"role": "system", "content": system_content}]
 
-    return [
-        {"role": "system", "content": system_content},
-        {"role": "user",   "content": user_content},
-    ]
+    for turn in (history or []):
+        messages.append({"role": turn["role"], "content": turn["content"]})
+
+    user_content = f"{_format_context(context)}\n\n## שאלת המשתמש\n\n{user_query}"
+    messages.append({"role": "user", "content": user_content})
+
+    return messages

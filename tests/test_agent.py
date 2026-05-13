@@ -953,6 +953,74 @@ def run_live_checks() -> tuple[int, int]:
 
 
 # ---------------------------------------------------------------------------
+# Conversation history (multi-turn) tests — offline, no network
+# ---------------------------------------------------------------------------
+
+def run_history_checks() -> tuple[int, int]:
+    """Verify that conversation history is threaded through the prompt layer.
+
+    These are fast offline tests — they call build_messages() directly and
+    inspect the resulting messages list structure.
+    """
+    from app.prompts import build_messages
+
+    passed = failed = 0
+    logger.info("HISTORY CHECKS (offline — build_messages structure)\n" + "-" * 50)
+
+    # H1: empty history produces exactly 2 messages (system + user)
+    msgs = build_messages("excel_numeric", "test context", "test question", history=None)
+    ok = len(msgs) == 2 and msgs[0]["role"] == "system" and msgs[-1]["role"] == "user"
+    mark = "PASS" if ok else "FAIL"
+    passed += ok; failed += not ok
+    logger.info(f"  [{mark}] H1  No history → 2 messages (system + user): got {len(msgs)}")
+
+    # H2: history with 2 turns produces 4 messages (system + 2 history + user)
+    history = [
+        {"role": "user",      "content": "מה היה הרייטינג של נינגה?"},
+        {"role": "assistant", "content": "הרייטינג היה 15.3%."},
+    ]
+    msgs = build_messages("hybrid", "ctx", "ומה לגבי עונה 4?", history=history)
+    ok = (
+        len(msgs) == 4
+        and msgs[0]["role"] == "system"
+        and msgs[1]["role"] == "user"
+        and msgs[2]["role"] == "assistant"
+        and msgs[3]["role"] == "user"
+    )
+    mark = "PASS" if ok else "FAIL"
+    passed += ok; failed += not ok
+    logger.info(f"  [{mark}] H2  2-turn history → 4 messages: got {len(msgs)}")
+
+    # H3: history content is preserved verbatim
+    ok = (
+        "נינגה" in msgs[1]["content"]
+        and "15.3%" in msgs[2]["content"]
+        and "עונה 4" in msgs[3]["content"]
+    )
+    mark = "PASS" if ok else "FAIL"
+    passed += ok; failed += not ok
+    logger.info(f"  [{mark}] H3  History content preserved in messages")
+
+    # H4: current user message has the retrieval context block
+    ok = "ctx" in msgs[3]["content"] and "עונה 4" in msgs[3]["content"]
+    mark = "PASS" if ok else "FAIL"
+    passed += ok; failed += not ok
+    logger.info(f"  [{mark}] H4  Current user message includes context + question")
+
+    # H5: QueryRequest model caps history at MAX_HISTORY_TURNS
+    from app.models import QueryRequest, MAX_HISTORY_TURNS
+    long_history = [{"role": "user", "content": f"msg {i}"} for i in range(20)]
+    req = QueryRequest(question="test", history=long_history)
+    ok = len(req.history) <= MAX_HISTORY_TURNS
+    mark = "PASS" if ok else "FAIL"
+    passed += ok; failed += not ok
+    logger.info(f"  [{mark}] H5  History capped at {MAX_HISTORY_TURNS}: got {len(req.history)}")
+
+    logger.info("")
+    return passed, failed
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -966,6 +1034,10 @@ if __name__ == "__main__":
     rp, rf = run_route_checks()
     total_passed += rp
     total_failed += rf
+
+    hp, hf = run_history_checks()
+    total_passed += hp
+    total_failed += hf
 
     if live:
         lp, lf = run_live_checks()
