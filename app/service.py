@@ -53,9 +53,11 @@ _SHOW_ALIASES: list[tuple[re.Pattern, str]] = [
     # Nickname → official show name (longer/more-specific aliases first)
     (re.compile(r"חתונמי\s*2"),  "חתונה ממבט שני"),
     (re.compile(r"חתונמי"),      "חתונה ממבט ראשון"),
-    # Short name → full name as stored in the index
-    # "פאלו אלטו" is stored as "אף אחד לא עוזב את פאלו אלטו"
     (re.compile(r"פאלו אלטו"),   "אף אחד לא עוזב את פאלו אלטו"),
+    (re.compile(r"רוכדים"),       "רוקדים עם כוכבים"),
+    (re.compile(r"\bארץ\b"),      "ארץ נהדרת"),
+    (re.compile(r"\bזמר\b"),      "הזמר במסכה"),
+    (re.compile(r"\bכוכב\b"),     "הכוכב הבא"),
 ]
 
 

@@ -57,6 +57,10 @@ You MUST resolve nicknames to the exact official show name before answering, and
 | חתונמי | חתונה ממבט ראשון |
 | חתונמי 2 | חתונה ממבט שני |
 | פאלו אלטו | אף אחד לא עוזב את פאלו אלטו |
+| רוקדים | רוקדים עם כוכבים |
+| ארץ | ארץ נהדרת |
+| זמר | הזמר במסכה |
+| כוכב | הכוכב הבא |
 
 **Critical rule:** "חתונמי" alone always means **"חתונה ממבט ראשון"** — do NOT confuse it with "חתונה ממבט שני", which is a separate show.  
 When you see "חתונמי" in a user question, treat it as if the user wrote "חתונה ממבט ראשון" in full.

@@ -235,7 +235,7 @@ class TestDebugGating:
         resp = client.post("/query", json={"question": "מה הרייטינג?", "debug": True})
 
         assert resp.status_code == 200
-        mock_run_query.assert_called_once_with("מה הרייטינג?", debug=False)
+        mock_run_query.assert_called_once_with("מה הרייטינג?", debug=False, history=None)
 
     @patch("app.service.run_query")
     def test_debug_allowed_when_allow_debug_on(self, mock_run_query):
@@ -249,7 +249,7 @@ class TestDebugGating:
         resp = client.post("/query", json={"question": "מה הרייטינג?", "debug": True})
 
         assert resp.status_code == 200
-        mock_run_query.assert_called_once_with("מה הרייטינג?", debug=True)
+        mock_run_query.assert_called_once_with("מה הרייטינג?", debug=True, history=None)
 
 
 class TestInputValidation:
