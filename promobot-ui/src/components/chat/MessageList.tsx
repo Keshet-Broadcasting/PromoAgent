@@ -14,17 +14,17 @@ interface MessageListProps {
 }
 
 export function MessageList({ messages, isLoading, error, onRetry }: MessageListProps) {
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when messages change or loading state changes
   useEffect(() => {
-    if (bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: 'smooth' });
+    const el = containerRef.current;
+    if (el) {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
     }
   }, [messages, isLoading]);
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 bg-slate-50/50 scroll-smooth">
+    <div ref={containerRef} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 bg-slate-50/50 scroll-smooth">
       {messages.map((message) => (
         <MessageBubble key={message.id} message={message} />
       ))}
@@ -41,7 +41,7 @@ export function MessageList({ messages, isLoading, error, onRetry }: MessageList
         </div>
       )}
 
-      <div ref={bottomRef} className="h-4" />
+      <div className="h-4" />
     </div>
   );
 }

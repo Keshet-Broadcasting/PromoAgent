@@ -148,8 +148,12 @@ def build_messages(
 
     messages: list[dict] = [{"role": "system", "content": system_content}]
 
+    _MAX_HISTORY_CHARS = 600
     for turn in (history or []):
-        messages.append({"role": turn["role"], "content": turn["content"]})
+        content = turn["content"]
+        if len(content) > _MAX_HISTORY_CHARS:
+            content = content[:_MAX_HISTORY_CHARS] + "…"
+        messages.append({"role": turn["role"], "content": content})
 
     user_content = f"{_format_context(context)}\n\n## שאלת המשתמש\n\n{user_query}"
     messages.append({"role": "user", "content": user_content})

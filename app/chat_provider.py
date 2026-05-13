@@ -76,7 +76,7 @@ class ChatProvider(ABC):
 # ---------------------------------------------------------------------------
 
 
-_LLM_TIMEOUT   = int(os.getenv("LLM_TIMEOUT_SECONDS",  "60"))
+_LLM_TIMEOUT   = int(os.getenv("LLM_TIMEOUT_SECONDS",  "90"))
 _MAX_TOKENS    = int(os.getenv("MAX_ANSWER_TOKENS",    "1000"))  # industry default for RAG: 800-1200
 
 

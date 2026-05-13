@@ -54,7 +54,7 @@ _SHOW_ALIASES: list[tuple[re.Pattern, str]] = [
     (re.compile(r"חתונמי\s*2"),  "חתונה ממבט שני"),
     (re.compile(r"חתונמי"),      "חתונה ממבט ראשון"),
     (re.compile(r"פאלו אלטו"),   "אף אחד לא עוזב את פאלו אלטו"),
-    (re.compile(r"רוכדים"),       "רוקדים עם כוכבים"),
+    (re.compile(r"רוקדים"),       "רוקדים עם כוכבים"),
     (re.compile(r"\bארץ\b"),      "ארץ נהדרת"),
     (re.compile(r"\bזמר\b"),      "הזמר במסכה"),
     (re.compile(r"\bכוכב\b"),     "הכוכב הבא"),
@@ -335,10 +335,10 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
         excel_top = 30   # fallback when show name not detected
     else:
         excel_top = 5
-    # 15 Word chunks gives richer cross-show context for strategic synthesis.
-    # The retry mechanism in _call_llm handles the rare case where 15 chunks
-    # exceed the context window.
-    word_top = 15
+    # Strategic synthesis benefits from more chunks for cross-show context.
+    # Other routes use fewer chunks to stay within latency/token budgets.
+    strategic_intent = bool(re.search(r"מה הייתי|מה היית|תמליץ|הצע|מה כדאי|כיצד הייתי|תחשוב מה", query))
+    word_top = 15 if strategic_intent else 10
 
     def _fetch_excel() -> list[dict]:
         """Select the right Excel retrieval strategy for this query."""
