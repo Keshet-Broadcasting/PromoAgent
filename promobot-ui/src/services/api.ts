@@ -20,10 +20,13 @@ export const chatService = {
 
     const MAX_HISTORY = 10;
     const priorMessages = messages.slice(0, -1).slice(-MAX_HISTORY);
-    const history = priorMessages.map(m => ({
-      role: m.role as 'user' | 'assistant',
-      content: m.content,
-    }));
+    // Filter to only roles accepted by the backend (Literal["user", "assistant"]).
+    // The UI's Role type also includes 'system'; sending that causes a 422.
+    const history = priorMessages
+      .filter((m): m is typeof m & { role: 'user' | 'assistant' } =>
+        m.role === 'user' || m.role === 'assistant'
+      )
+      .map(m => ({ role: m.role, content: m.content }));
     
     try {
       const response = await fetch(API_ENDPOINT, {
@@ -43,8 +46,18 @@ export const chatService = {
         let errorBody = '';
         try {
           const errData = await response.json();
-          errorBody = errData.detail || errData.message || JSON.stringify(errData);
-        } catch (e) {
+          const detail = errData.detail;
+          if (typeof detail === 'string') {
+            errorBody = detail;
+          } else if (Array.isArray(detail)) {
+            // FastAPI validation errors: [{loc, msg, type}, ...]
+            errorBody = detail
+              .map((e: { msg?: string }) => e.msg ?? JSON.stringify(e))
+              .join('; ');
+          } else {
+            errorBody = errData.message || JSON.stringify(errData);
+          }
+        } catch {
           errorBody = await response.text().catch(() => '');
         }
         console.error('Backend error response:', response.status, errorBody);

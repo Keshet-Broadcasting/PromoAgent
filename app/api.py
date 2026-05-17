@@ -50,6 +50,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from .auth import require_auth
+from .fact_extractor import extract_and_store
 from .models import ErrorResponse, QueryRequest, QueryResponse
 from .service import run_query
 
@@ -212,11 +213,10 @@ async def health() -> dict:
     tags=["agent"],
     summary="Ask the Promo Agent a question",
     response_description="Grounded answer with source citations and routing metadata",
-    dependencies=[Depends(require_auth)],
 )
 @limiter.limit(_RATE_LIMIT_MINUTE)
 @limiter.limit(_RATE_LIMIT_DAY)
-def query(request: Request, req: QueryRequest) -> QueryResponse:
+def query(request: Request, req: QueryRequest, auth_payload: dict = Depends(require_auth)) -> QueryResponse:
     """Run the full RAG pipeline and return a structured answer.
 
     Declared as a plain ``def`` (not ``async def``) so FastAPI automatically
@@ -227,6 +227,9 @@ def query(request: Request, req: QueryRequest) -> QueryResponse:
     if req.debug and not _ALLOW_DEBUG:
         log.info("POST /query  debug requested but ALLOW_DEBUG is off — ignoring")
     history_dicts = [{"role": h.role, "content": h.content} for h in req.history] if req.history else None
-    log.info("POST /query  question=%r  debug=%s  history_turns=%d",
-             req.question[:80], effective_debug, len(req.history))
-    return run_query(req.question, debug=effective_debug, history=history_dicts)
+    user_oid = auth_payload.get("oid") or auth_payload.get("sub") or ""
+    log.info("POST /query  question=%r  debug=%s  history_turns=%d  user=%s",
+             req.question[:80], effective_debug, len(req.history), user_oid[:8] if user_oid else "anon")
+    response = run_query(req.question, debug=effective_debug, history=history_dicts)
+    extract_and_store(user_oid, history_dicts)
+    return response

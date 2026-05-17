@@ -214,8 +214,9 @@ class TestHealthEndpoint:
 
 class TestDebugGating:
 
+    @patch("app.fact_extractor.extract_and_store")
     @patch("app.service.run_query")
-    def test_debug_ignored_when_allow_debug_off(self, mock_run_query):
+    def test_debug_ignored_when_allow_debug_off(self, mock_run_query, _mock_extract):
         mock_run_query.return_value = MagicMock(
             answer="test",
             route="unknown",
@@ -224,7 +225,6 @@ class TestDebugGating:
             trace_id="abc",
             debug_trace=None,
         )
-        # Need to return a proper dict for response_model
         from app.models import QueryResponse
         mock_run_query.return_value = QueryResponse(
             answer="test", route="unknown", confidence="low",
@@ -237,8 +237,9 @@ class TestDebugGating:
         assert resp.status_code == 200
         mock_run_query.assert_called_once_with("מה הרייטינג?", debug=False, history=None)
 
+    @patch("app.fact_extractor.extract_and_store")
     @patch("app.service.run_query")
-    def test_debug_allowed_when_allow_debug_on(self, mock_run_query):
+    def test_debug_allowed_when_allow_debug_on(self, mock_run_query, _mock_extract):
         from app.models import QueryResponse
         mock_run_query.return_value = QueryResponse(
             answer="test", route="unknown", confidence="low",
@@ -254,20 +255,23 @@ class TestDebugGating:
 
 class TestInputValidation:
 
+    @patch("app.fact_extractor.extract_and_store")
     @patch("app.service.run_query")
-    def test_empty_question_rejected(self, mock_run_query):
+    def test_empty_question_rejected(self, mock_run_query, _mock_extract):
         client, _ = _make_test_app()
         resp = client.post("/query", json={"question": ""})
         assert resp.status_code == 422, "Empty question should fail validation"
 
+    @patch("app.fact_extractor.extract_and_store")
     @patch("app.service.run_query")
-    def test_too_long_question_rejected(self, mock_run_query):
+    def test_too_long_question_rejected(self, mock_run_query, _mock_extract):
         client, _ = _make_test_app()
         resp = client.post("/query", json={"question": "א" * 2001})
         assert resp.status_code == 422, "Question exceeding 2000 chars should fail"
 
+    @patch("app.fact_extractor.extract_and_store")
     @patch("app.service.run_query")
-    def test_valid_question_accepted(self, mock_run_query):
+    def test_valid_question_accepted(self, mock_run_query, _mock_extract):
         from app.models import QueryResponse
         mock_run_query.return_value = QueryResponse(
             answer="test", route="unknown", confidence="low",
@@ -278,11 +282,31 @@ class TestInputValidation:
         resp = client.post("/query", json={"question": "שאלה תקינה"})
         assert resp.status_code == 200
 
+    @patch("app.fact_extractor.extract_and_store")
+    @patch("app.service.run_query")
+    def test_system_role_in_history_rejected(self, mock_run_query, _mock_extract):
+        """A 'system' role in history must be rejected with 422.
+
+        The UI's Role type allows 'system', but the backend only accepts
+        'user' | 'assistant'.  Without a client-side filter the UI can
+        accidentally send system messages, which triggers this 422.
+        """
+        client, _ = _make_test_app()
+        resp = client.post("/query", json={
+            "question": "שאלה",
+            "history": [{"role": "system", "content": "you are helpful"}],
+        })
+        assert resp.status_code == 422, "system role in history must fail validation"
+        body = resp.json()
+        # FastAPI returns detail as a list — ensure it is present
+        assert "detail" in body
+
 
 class TestErrorEnvelope:
 
+    @patch("app.fact_extractor.extract_and_store")
     @patch("app.service.run_query", side_effect=RuntimeError("LLM exploded"))
-    def test_unhandled_error_returns_500_envelope(self, mock_run_query):
+    def test_unhandled_error_returns_500_envelope(self, mock_run_query, _mock_extract):
         client, _ = _make_test_app(raise_server_exceptions=False)
         resp = client.post("/query", json={"question": "שאלה כלשהי"})
         assert resp.status_code == 500
@@ -290,8 +314,9 @@ class TestErrorEnvelope:
         assert "error" in body
         assert "LLM exploded" not in body["error"], "Internal details must not leak"
 
+    @patch("app.fact_extractor.extract_and_store")
     @patch("app.service.run_query", side_effect=EnvironmentError("missing var"))
-    def test_env_error_returns_503_envelope(self, mock_run_query):
+    def test_env_error_returns_503_envelope(self, mock_run_query, _mock_extract):
         client, _ = _make_test_app(raise_server_exceptions=False)
         resp = client.post("/query", json={"question": "שאלה כלשהי"})
         assert resp.status_code == 503

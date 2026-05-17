@@ -1,5 +1,6 @@
 azure-search-documents==11.6.0b9
 azure-storage-blob==12.24.0
+azure-data-tables>=12.5.0
 azure-ai-documentintelligence>=1.0.0
 openai>=1.0.0
 openpyxl==3.1.5
