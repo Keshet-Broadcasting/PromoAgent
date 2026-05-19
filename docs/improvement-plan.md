@@ -1,8 +1,8 @@
 # PromoAgent — Improvement Plan
 ## Goal: Replace the Custom GPT on OpenAI Subscription
 
-**Written:** May 10, 2026  
-**Current judge score:** 37.5% (≈ 2.3 / 5 — "finds topic, gives incomplete answers")  
+**Written:** May 10, 2026 | **Last updated:** May 19, 2026  
+**Current judge score:** 43.4% (≈ 2.7 / 5) — Foundry gpt-4o after May 19 changes  
 **Target judge score:** ≥ 70% (≈ 3.5 / 5 — "correct, complete, well-phrased")
 
 ---
@@ -26,18 +26,20 @@ This is the fundamental gap. Every other improvement is secondary until data cov
 
 ## 2. Gap Analysis by Eval Category
 
-Based on `eval_judge_results.json` (26 cases, May 10 run):
+Based on `eval_judge_results.json` (54 cases, May 19 run — Foundry v2 after all improvements):
 
-| Category | N | Judge score | Primary failure |
-|---|---|---|---|
-| no_answer | 1 | **75%** ✅ | — |
-| numeric | 5 | **50%** | Missing rows; agent gets top-30 of ~100+ per show |
-| factual | 4 | **38%** | Chunk retrieval misses the exact quote |
-| quote | 3 | **33%** | Fixed-size chunks break multi-paragraph insights |
-| open_ended | 6 | **33%** | Limited cross-show synthesis; 10 chunks not enough |
-| strategy | 1 | **25%** | Incomplete synthesis; missing cross-show patterns |
-| comparison | 1 | **25%** | Comparison needs all values; semantic search misses some |
-| ranking | 5 | **30%** | Only 30 of potentially 100+ rows retrieved per show |
+| Category | N | Judge score | Δ vs May 10 | Primary remaining failure |
+|---|---|---|---|---|
+| no_answer | 4 | **100%** ✅ | +25% | — |
+| numeric | 10 | **48%** | -2% | Missing promo_text context in some rows |
+| factual | 4 | **25%** | -13% | Chunk retrieval still misses exact quotes |
+| quote | 6 | **50%** | +17% | Improved with `@search.answers` fix |
+| open_ended | 7 | **36%** | +3% | Cross-show synthesis needs more chunks |
+| strategy | 3 | **50%** | +25% | Significantly improved with chain-of-thought |
+| comparison | 1 | **0%** | -25% | Needs richer retrieved context |
+| ranking | 7 | **43%** | +13% | Markdown table format helped; still needs sorting reinforcement |
+| alias | 7 | **29%** | — | חתונמי rule enforced but judge scoring strict |
+| cross_show | 4 | **31%** | — | Multi-show data synthesis still incomplete |
 
 ---
 
@@ -373,12 +375,10 @@ Key gaps in `promobot-ui` compared to the custom GPT experience:
 | After phase | Change | Estimated judge score |
 |---|---|---|
 | **Baseline** (May 10) | — | **37.5%** |
-| Phase 1 + 2 (show-complete retrieval + judge fix) | Data coverage fixed | **~52–55%** |
-| Phase 1 + 1b + 2 (+ semantic answers fix) | Eliminates false negatives in word_quote | **~55–58%** |
-| Phase 1–3 (+ few-shot examples) | Format alignment | **~60–64%** |
-| Phase 1–4 (+ conversation memory) | UX parity | **~60–65%** |
-| Phase 1–5 (+ 50+ eval cases) | Reliable measurement | **~60–65% (reliable)** |
-| Phase 1–7 (+ chunking + model) | Full quality stack | **~70–75%** |
+| Phase 1–3 + May 19 changes | `<thinking>` block + Markdown table + prompt tuning | **43.4%** ✅ actual |
+| Phase 6 (word semantic chunking) | Fix quote/factual chunk splitting | **~50–55%** |
+| Phase 8 (UI parity) | Streaming, threads, mobile | **~50–55%** (UX, not score) |
+| Full quality stack | Re-chunking + alias reinforcement + cross-show retrieval | **~60–70%** |
 
 At **70% judge score** (≈ 3.5/5 average), the agent gives correct and complete answers with minor omissions. This is the threshold where the promo team would realistically consider switching from the custom GPT.
 

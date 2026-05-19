@@ -21,9 +21,15 @@ foundry
           ManagedIdentityCredential / DefaultAzureCredential on Azure).
     Requires: pip install azure-ai-projects azure-identity
 
+gemini
+    Wraps Google Gemini via the official google-genai SDK.
+    Auth: GEMINI_API_KEY env var (auto-read by the SDK).
+    Model: GEMINI_MODEL env var (default: gemini-2.0-flash).
+    Requires: pip install google-genai
+
 Environment variables
 ---------------------
-CHAT_PROVIDER                   azure_openai | foundry  (default: azure_openai)
+CHAT_PROVIDER                   azure_openai | foundry | gemini  (default: azure_openai)
 AZURE_CREDENTIAL_TYPE           cli | managed_identity | default
                                 (default: cli, Foundry only)
 
@@ -48,6 +54,14 @@ from __future__ import annotations
 import logging
 import os
 from abc import ABC, abstractmethod
+
+try:
+    from google import genai
+    from google.genai import types as genai_types
+    _GENAI_AVAILABLE = True
+except ImportError:
+    _GENAI_AVAILABLE = False
+
 
 log = logging.getLogger(__name__)
 
@@ -236,6 +250,64 @@ class FoundryProvider(ChatProvider):
 
 
 # ---------------------------------------------------------------------------
+# Google Gemini implementation  (google-genai SDK)
+# ---------------------------------------------------------------------------
+
+
+class GeminiProvider(ChatProvider):
+    """Google Gemini via the official google-genai SDK.
+
+    Auth: GEMINI_API_KEY environment variable (read automatically by the SDK).
+    Model: GEMINI_MODEL env var, defaults to 'gemini-2.0-flash'.
+    """
+
+    def __init__(self) -> None:
+        if not _GENAI_AVAILABLE:
+            raise ImportError(
+                "google-genai is required for the Gemini provider. "
+                "Run: pip install google-genai"
+            )
+        if not os.getenv("GEMINI_API_KEY"):
+            raise EnvironmentError(
+                "GeminiProvider requires GEMINI_API_KEY environment variable."
+            )
+        self.model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+        self._client = genai.Client()
+        log.info("Gemini client initialized (model=%s)", self.model)
+
+    def complete(self, messages: list[dict]) -> str:
+        system_prompt = ""
+        contents = []
+
+        for msg in messages:
+            if msg["role"] == "system":
+                system_prompt = msg["content"]
+            else:
+                role = "user" if msg["role"] == "user" else "model"
+                contents.append({
+                    "role": role,
+                    "parts": [{"text": msg["content"]}],
+                })
+
+        config = genai_types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            temperature=0.2,
+            max_output_tokens=_MAX_TOKENS,
+        )
+
+        response = self._client.models.generate_content(
+            model=self.model,
+            contents=contents,
+            config=config,
+        )
+
+        content = response.text
+        if not content:
+            return "התשובה סוננה על ידי מערכת הבטיחות. נסה לנסח מחדש את השאלה."
+        return content.strip()
+
+
+# ---------------------------------------------------------------------------
 # Factory
 # ---------------------------------------------------------------------------
 
@@ -254,6 +326,8 @@ def get_provider() -> ChatProvider:
         name = os.getenv("CHAT_PROVIDER", "azure_openai").lower()
         if name == "foundry":
             _provider_cache = FoundryProvider()
+        elif name == "gemini":
+            _provider_cache = GeminiProvider()
         else:
             _provider_cache = AzureOpenAIProvider()
         log.info("Chat provider initialized: %s", type(_provider_cache).__name__)

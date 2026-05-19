@@ -214,9 +214,65 @@ A judge score of **31.7%** (≈ 2.3/5 on average) means the agent usually finds 
 
 ### Score tracking
 
-| Date | Mode | Overall | Judge | Notes |
-|---|---|---|---|---|
-| May 7, 2026 | Automated | 48.2% | — | Baseline before fixes |
-| May 7, 2026 | Automated | **55.7%** | — | After 12 improvements |
-| May 10, 2026 | Judge | 44.7% | 31.7% | First judge run (26 cases, 0 errors) |
-| May 10, 2026 | Judge | **48.3%** | **37.5%** | After ranking fixes (+10% ranking judge, +7% numeric) |
+| Date | Mode | Provider | Overall | Judge | Notes |
+|---|---|---|---|---|---|
+| May 7, 2026 | Automated | Azure OpenAI | 48.2% | — | Baseline before fixes |
+| May 7, 2026 | Automated | Azure OpenAI | **55.7%** | — | After 12 improvements |
+| May 10, 2026 | Judge | Foundry gpt-4o | 44.7% | 31.7% | First judge run (26 cases, 0 errors) |
+| May 10, 2026 | Judge | Foundry gpt-4o | **48.3%** | **37.5%** | After ranking fixes (+10% ranking judge, +7% numeric) |
+| May 19, 2026 | Judge | Foundry gpt-4o | **51.3%** | **39.6%** | Foundry baseline — 54 cases; before today's changes |
+| May 19, 2026 | Judge | Gemini 2.5 Flash | 39.3% | 31.6% | Gemini provider comparison (3x faster, weaker on ranking/strategy) |
+| May 19, 2026 | Judge | Foundry gpt-4o | **53.8%** | **43.4%** | After `<thinking>` block + Markdown table context + prompt updates |
+
+---
+
+## Session Changes — May 19, 2026
+
+### 1. `app/service.py` — Strip `<thinking>` block from LLM response
+
+**Problem:** The new mandatory chain-of-thought block in the system prompt causes the model to output internal reasoning wrapped in `<thinking>...</thinking>` tags before the final answer. This must not be shown to the user.
+
+**Fix:** Added post-processing step after the LLM call:
+```python
+answer = re.sub(r'<thinking>.*?</thinking>\s*', '', answer, flags=re.DOTALL).strip()
+```
+
+### 2. `app/service.py` — Excel context as Markdown table (`_fmt_excel`)
+
+**Problem:** Excel chunks were formatted as a flat text blob (`[1] תוכנית: X | עונה: Y | ...`). The model struggled to parse rows for sorting/ranking.
+
+**Fix:** `_fmt_excel()` now renders retrieved rows as a structured Markdown table with clearly labeled columns (תוכנית, עונה, פרק, תאריך, נקודת פתיחה, רייטינג ממוצע, מקור). Promo texts are appended below the table in a dedicated section.
+
+**Impact: Ranking category jumped from 40%/J:18% → 54%/J:43% (+14% overall, +25% judge)**
+
+### 3. `app/system_prompt.txt` — Mandatory Chain of Thought (`<thinking>` block)
+
+Added a required 4-step internal reasoning block before every response:
+1. **Alias Resolution** — resolve חתונמי/רוקדים/etc. explicitly
+2. **Data Extraction** — list raw numbers/episodes from context
+3. **Math & Sorting** — perform ranking/comparison math explicitly
+4. **Completeness Check** — verify all chunks were scanned
+
+### 4. `app/system_prompt.txt` — Tone, Style and Formatting rules
+
+Added explicit rules: no filler phrases ("אשמח לעזור"), no preamble ("על פי המסמכים"), bold key metrics, managerial/concise tone.
+
+### 5. `app/system_prompt.txt` — Nickname table updated
+
+Added `נוטוק → נו טוק (No Talk)`. Upgraded חתונמי rule to **CRITICAL ENTITY RULE** with explicit `<thinking>` step enforcement.
+
+### 6. `app/chat_provider.py` — Gemini provider added
+
+New `GeminiProvider` class using `google-genai` SDK with structured `role`/`parts` message format. Activated via `CHAT_PROVIDER=gemini`. See comparison table above for performance results.
+
+### 7. `scripts/convert_excel_to_json.py` — New script
+
+Parses `מעקבי פרומו.xlsx` (all 79 sheets) into a flat `processed_promos.json` (1,462 records). Handles Hebrew headers, section-only sheets, no-header sheets, and date normalization.
+
+### 8. `scripts/ingest_json_to_azure.py` — New script
+
+Reads `processed_promos.json`, builds rich Hebrew text chunks, embeds via `text-embedding-3-small`, and uploads to `tv-promos` index in batches. All 1,462 records ingested successfully.
+
+### 9. `scripts/debug_retrieval.py` — New script
+
+Standalone retrieval debugger: bypasses the LLM and prints raw Azure AI Search chunks for any query to inspect retrieval quality directly.
