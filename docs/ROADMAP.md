@@ -1,6 +1,6 @@
 # PromoAgent — Roadmap
 
-**Last updated:** May 13, 2026
+**Last updated:** May 19, 2026
 
 ---
 
@@ -22,6 +22,9 @@ PromoAgent is a RAG-based chatbot for Keshet TV's promo department, replacing a 
 | 3 | Few-shot examples in system prompt | **DONE** | +5–10% all categories |
 | 4 | Conversation memory (multi-turn) | **DONE** | UX parity |
 | 5 | Expand eval dataset to 54 cases | **DONE** | Reliable metrics |
+| 5b | Chain-of-thought (`<thinking>`) + Markdown table context | **DONE** | +2.5% overall, +14% ranking |
+| 5c | Gemini provider alternative | **DONE** | 3x faster, weaker quality — not for prod |
+| 5d | Full Excel → JSON → Azure ingest pipeline | **DONE** | 1,462 records re-ingested with rich text chunks |
 | 6 | Word document semantic chunking | TODO | +5–10% quote/factual |
 | 7 | Model verification (GPT-4o) | **DONE** | Confirmed GPT-4o deployed |
 | 8 | UI parity (streaming, threads, mobile) | TODO | UX |
@@ -111,6 +114,37 @@ PromoAgent is a RAG-based chatbot for Keshet TV's promo department, replacing a 
 | Hebrew prefix stemming in keyword scorer | DONE |
 | Judge uses cleaned query (not raw context-dependent form) | DONE |
 
+### Prompt Engineering (May 19, 2026)
+
+| Item | Status |
+|------|--------|
+| Mandatory `<thinking>` chain-of-thought block in system prompt | DONE |
+| Tone, Style and Formatting rules (no filler, bold metrics, managerial tone) | DONE |
+| Updated few-shot examples with `<thinking>` block | DONE |
+| Nickname table: added `נוטוק`, upgraded חתונמי to CRITICAL ENTITY RULE | DONE |
+
+### Context Formatting (May 19, 2026)
+
+| Item | Status |
+|------|--------|
+| `_fmt_excel()` — Excel rows as structured Markdown table | DONE |
+| `<thinking>` block stripping before returning answer to user | DONE |
+
+### LLM Provider Alternatives (May 19, 2026)
+
+| Item | Status |
+|------|--------|
+| `GeminiProvider` via `google-genai` SDK (CHAT_PROVIDER=gemini) | DONE — not for prod |
+| Eval comparison: Foundry 53.8% vs Gemini 39.3% (Foundry wins) | DONE |
+
+### Data Pipeline (May 19, 2026)
+
+| Item | Status |
+|------|--------|
+| `scripts/convert_excel_to_json.py` — parse all 79 Excel sheets → JSON | DONE |
+| `scripts/ingest_json_to_azure.py` — embed + upload 1,462 records to tv-promos | DONE |
+| `scripts/debug_retrieval.py` — standalone retrieval debugger (no LLM) | DONE |
+
 ### Tools & Integrations
 
 | Item | Status |
@@ -167,12 +201,15 @@ The MCP client is implemented. For production:
 
 ## Score Tracking
 
-| Date | Mode | Overall | Judge | Notes |
-|------|------|---------|-------|-------|
-| May 7, 2026 | Automated | 48.2% | — | Baseline |
-| May 7, 2026 | Automated | 55.7% | — | After 12 improvements |
-| May 10, 2026 | Judge | 44.7% | 31.7% | First judge run |
-| May 10, 2026 | Judge | 48.3% | 37.5% | After ranking fixes |
+| Date | Provider | Overall | Judge | Notes |
+|------|----------|---------|-------|-------|
+| May 7, 2026 | Azure OpenAI | 48.2% | — | Baseline (26 cases) |
+| May 7, 2026 | Azure OpenAI | 55.7% | — | After 12 improvements |
+| May 10, 2026 | Foundry gpt-4o | 44.7% | 31.7% | First judge run (26 cases) |
+| May 10, 2026 | Foundry gpt-4o | 48.3% | 37.5% | After ranking fixes |
+| May 19, 2026 | Foundry gpt-4o | 51.3% | 39.6% | Baseline before today's changes (54 cases) |
+| May 19, 2026 | Gemini 2.5 Flash | 39.3% | 31.6% | Provider comparison — 3x faster, weaker quality |
+| May 19, 2026 | Foundry gpt-4o | **53.8%** | **43.4%** | After `<thinking>` + Markdown table + prompt updates |
 
 **Target:** ≥ 70% judge score (≈ 3.5/5) — threshold for replacing the custom GPT.
 

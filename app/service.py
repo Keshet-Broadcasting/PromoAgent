@@ -245,31 +245,34 @@ def _chunk_pos(chunk_id: str) -> str:
 def _fmt_excel(docs: list[dict]) -> str:
     if not docs:
         return "לא נמצאו תוצאות רלוונטיות ב-Excel."
-    lines = []
+
+    # Build a structured Markdown table so the LLM can parse rows logically.
+    header = "| # | תוכנית | עונה | פרק | תאריך | נקודת פתיחה (%) | רייטינג ממוצע (%) | מקור |"
+    separator = "|---|---|---|---|---|---|---|---|"
+    rows = []
+    promo_texts = []
+
     for i, d in enumerate(docs, 1):
-        parts = [f"[{i}]"]
-        if d.get("tab_name"):
-            parts.append(f"[מקור: {d['tab_name']}]")
-        if d.get("show_name"):
-            parts.append(f"תוכנית: {d['show_name']}")
-        if d.get("season"):
-            parts.append(f"עונה: {d['season']}")
-        if d.get("episode_number"):
-            parts.append(f"פרק: {d['episode_number']}")
-        if d.get("date"):
-            parts.append(f"תאריך: {d['date']}")
-        if d.get("opening_point"):
-            parts.append(f"נקודת פתיחה: {d['opening_point']}%")
-        if d.get("rating"):
-            parts.append(f"רייטינג ממוצע: {d['rating']}%")
-        if d.get("competition"):
-            parts.append(f"תחרות: {d['competition']}")
-        if d.get("section"):
-            parts.append(f"קטגוריה: {d['section']}")
-        header = " | ".join(parts)
+        show = d.get("show_name") or "—"
+        season = d.get("season") or "—"
+        episode = d.get("episode_number") or "—"
+        date = d.get("date") or "—"
+        opening = f"{d['opening_point']}" if d.get("opening_point") else "—"
+        rating = f"{d['rating']}" if d.get("rating") else "—"
+        source = d.get("tab_name") or d.get("source_file") or "—"
+
+        rows.append(f"| {i} | {show} | {season} | {episode} | {date} | {opening} | {rating} | {source} |")
+
         text = (d.get("promo_text") or "").strip()[:500]
-        lines.append(f"{header}\nטקסט: {text}")
-    return "\n\n".join(lines)
+        if text:
+            promo_texts.append(f"**[{i}]** {text}")
+
+    table = "\n".join([header, separator] + rows)
+
+    if promo_texts:
+        table += "\n\n### טקסטי פרומו\n\n" + "\n\n".join(promo_texts)
+
+    return table
 
 
 def _fmt_word(docs: list[dict]) -> str:
@@ -513,6 +516,9 @@ def run_query(
         else:
             log.error("[%s] LLM call failed: %s", trace_id, exc, exc_info=True)
             raise RuntimeError(f"LLM error: {type(exc).__name__}") from exc
+    # Step 4b — strip internal <thinking> block before returning to user
+    answer = re.sub(r'<thinking>.*?</thinking>\s*', '', answer, flags=re.DOTALL).strip()
+
     log.info("[%s] Answer length: %d chars", trace_id, len(answer))
 
     # Step 5 — assemble response

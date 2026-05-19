@@ -100,6 +100,24 @@
 
 ---
 
+## May 19, 2026 — New Components
+
+### 13. Gemini provider (`GeminiProvider`) — not for production
+- `CHAT_PROVIDER=gemini` activates the Google Gemini path via `google-genai` SDK.
+- Eval results: 39.3% overall / 31.6% judge vs. 53.8% / 43.4% for Foundry gpt-4o.
+- **Status:** Available but not recommended for production — use `CHAT_PROVIDER=foundry`.
+
+### 14. `scripts/ingest_json_to_azure.py` — requires protected credentials
+- Reads `processed_promos.json` and uploads to `tv-promos` index with embeddings.
+- Requires `AZURE_OPENAI_KEY` and `AZURE_SEARCH_KEY` — run locally only, never in CI without secret management.
+- **Status:** Local tooling only.
+
+### 15. `<thinking>` block stripping in `service.py`
+- `re.sub(r'<thinking>.*?</thinking>\s*', '', answer, flags=re.DOTALL)` ensures internal reasoning is never returned to users.
+- **Status:** DONE — verified in eval.
+
+---
+
 ## What's Already Good (no changes needed)
 
 - Input validation — `QueryRequest` has `min_length=1, max_length=2000`
