@@ -116,6 +116,14 @@
 - `re.sub(r'<thinking>.*?</thinking>\s*', '', answer, flags=re.DOTALL)` ensures internal reasoning is never returned to users.
 - **Status:** DONE — verified in eval.
 
+### 16. Phase 6 — Word Document Semantic Chunking (May 20, 2026)
+- `scripts/preprocess_word_docs.py`: GPT-template detection + two-level semantic split. Single-doc `--doc` flag and dry-run `--preview-doc` flag added.
+- `scripts/ingest_word_chunks.py`: Single-doc `--doc` flag with paginated delete-first. Pending-schema fields stripped before upload.
+- `scripts/diagnose_word_docs.py`: `--source json` flag for pre-ingest validation.
+- **All 4 GPT Word docs re-ingested:** 667 semantic chunks, ~86% with populated `header`, ~98% with `show_name`.
+- **Note:** `show_name`, `season`, `doc_type`, `question_type` metadata fields are in JSON blobs but NOT yet in the `word-docs` index schema. Schema migration (Phase 6b) required to enable filter-based retrieval on these fields.
+- **Status:** DONE — no production risk; additive change to index content only.
+
 ---
 
 ## What's Already Good (no changes needed)

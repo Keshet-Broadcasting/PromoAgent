@@ -42,6 +42,7 @@ import io
 import json
 import logging
 import os
+import re
 
 import xml.etree.ElementTree as ET            # stdlib XML parser for .docx fallback
 import zipfile                                 # stdlib ZIP reader for .docx files
@@ -83,6 +84,64 @@ HEADING_STYLE_IDS = {f"Heading{i}" for i in range(1, 10)} | {"Title", "HeadingBo
 # Word Open XML namespaces used in document.xml
 _W  = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 _wn = lambda tag: f"{{{_W}}}{tag}"   # shorthand: _wn('p') → '{...}p'
+
+# ---------------------------------------------------------------------------
+# Semantic chunking constants (GPT-template documents only)
+# ---------------------------------------------------------------------------
+
+# How many chars of the document to scan when probing for the GPT template
+GPT_TEMPLATE_PROBE_CHARS = 5000
+# Max/min char limits for semantic chunks (~800 / ~3 short Hebrew sentences)
+SEMANTIC_CHUNK_MAX_CHARS = 3200
+SEMANTIC_CHUNK_MIN_CHARS = 150
+
+# Paragraphs that open a new show/season block (ריאליטי and דרמות docs)
+_PRIMARY_TEXT_SIGNALS = (
+    "המסמכים הבאים יעסקו בתוכנית",
+    "המסמכים הבאים יעסקו בסדרה",
+)
+
+# Bold+underline paragraph anchors that open a Q&A section (all 3 docs)
+_SECONDARY_ANCHORS = (
+    "מה האסטרטגיה",
+    "מה הסלוגן",
+    "מה השיקול שעמד מאחורי",
+    "התלבטויות מיוחדות",
+    "האימאג'",
+    "חידושים והמצאות",
+    "תוצאות המחקר",
+    "מה חשבנו על הרייטינג",
+    "תובנות מהקמפיין",
+    "נקודות של עשה ואל תעשה",
+    "מעקב פרומו",
+    "התייחסות לפרקי",
+    "בדיקת כוונות",
+    "תכנית מדיה",
+)
+
+# Sections whose table content must NOT be split across sub-chunks
+_ATOMIC_SECTION_KEYS = ("תכנית מדיה", "מעקב פרומו")
+
+_DATE_LINE_RE  = re.compile(r"\b\d{1,2}[./]\d{1,2}[./]\d{2,4}\b")
+_SEASON_RE     = re.compile(r"עונה\s+(\d+)")
+_SHOW_RE       = re.compile(r"(?:תובנות\s+|אסטרטגיה\S*\s+)(.+?)\s*[-\u2013\u2014]")
+_DOCTYPE_KEYS  = {"השקה": "השקה", "גמר": "גמר", "מחקר": "מחקר", "אסטרטגיה": "אסטרטגיה"}
+_QTYPE_MAP     = {
+    "מה האסטרטגיה":              "אסטרטגיה",
+    "מה הסלוגן":                 "סלוגן",
+    "מה השיקול":                  "שיקול",
+    "התלבטויות":                  "התלבטויות",
+    "האימאג'":                    "אימאג",
+    "חידושים":                    "חידושים",
+    "תוצאות המחקר":               "מחקר",
+    "מה חשבנו על הרייטינג":      "רייטינג",
+    "תובנות מהקמפיין":            "תובנות",
+    "נקודות של עשה":              "עשה_ואל_תעשה",
+    "מעקב פרומו":                 "מעקב",
+    "התייחסות לפרקי":             "פרקים",
+    "בדיקת כוונות":               "כוונות",
+    "תכנית מדיה":                 "תכנית_מדיה",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -199,10 +258,25 @@ def _di_build_event_stream(result: AnalyzeResult) -> list[tuple]:
 
 
 def extract_chunks_di(result: AnalyzeResult, title: str, source_url: str) -> list[dict]:
-    """Convert a DI AnalyzeResult into semantic chunks."""
+    """Convert a DI AnalyzeResult into semantic chunks.
+
+    If the document matches the GPT question template, the semantic chunking
+    path is used (split_semantic).  Otherwise falls back to the existing
+    heading-based fixed-size chunking.
+    """
     doc_hash = _doc_hash(title)
     events   = _di_build_event_stream(result)
 
+    # Probe for GPT template using joined non-table text
+    probe_text = " ".join(
+        payload[0] for kind, *payload in events
+        if kind in ("heading", "text")
+    )
+    if detect_gpt_template(probe_text):
+        logger.info("    GPT template detected — using semantic chunking.")
+        return split_semantic(_to_para_stream_di(events), title, source_url)
+
+    # --- Legacy fixed-size chunking (unchanged) ---
     chunks: list[dict] = []
     current_header = ""
     current_lines:  list[str] = []
@@ -309,6 +383,387 @@ def _xml_para_style_id(p_elem: ET.Element) -> str:
     return ""
 
 
+def _xml_para_bold(p_elem: ET.Element) -> bool:
+    """Return True if the first run of the paragraph has w:b set."""
+    for r in p_elem.iter(_wn("r")):
+        rPr = r.find(_wn("rPr"))
+        if rPr is not None and rPr.find(_wn("b")) is not None:
+            return True
+        break
+    return False
+
+
+def _xml_para_underline(p_elem: ET.Element) -> bool:
+    """Return True if the first run of the paragraph has w:u (non-none value)."""
+    for r in p_elem.iter(_wn("r")):
+        rPr = r.find(_wn("rPr"))
+        if rPr is not None:
+            u = rPr.find(_wn("u"))
+            if u is not None:
+                val = u.get(_wn("val"), "")
+                if val and val.lower() not in ("none", ""):
+                    return True
+        break
+    return False
+
+
+def _xml_para_font_size(p_elem: ET.Element) -> int:
+    """Return the font size in points for the first run (w:sz is in half-points)."""
+    for r in p_elem.iter(_wn("r")):
+        rPr = r.find(_wn("rPr"))
+        if rPr is not None:
+            sz = rPr.find(_wn("sz"))
+            if sz is not None:
+                try:
+                    return int(sz.get(_wn("val"), "0")) // 2
+                except (ValueError, TypeError):
+                    pass
+        break
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Paragraph stream abstraction (used by semantic chunking path only)
+# ---------------------------------------------------------------------------
+
+
+def _to_para_stream_di(events: list[tuple]) -> list[dict]:
+    """
+    Convert a DI event list into a normalised paragraph stream.
+    Font size and underline are unavailable from DI — left at defaults.
+
+    Each item: {text, is_heading, is_bold, is_uline, font_size, is_table, table_lines}
+    """
+    stream: list[dict] = []
+    for kind, *payload in events:
+        if kind == "heading":
+            stream.append({
+                "text": payload[0], "is_heading": True,
+                "is_bold": False, "is_uline": False, "font_size": 0,
+                "is_table": False, "table_lines": None,
+            })
+        elif kind == "text":
+            stream.append({
+                "text": payload[0], "is_heading": False,
+                "is_bold": False, "is_uline": False, "font_size": 0,
+                "is_table": False, "table_lines": None,
+            })
+        elif kind == "table":
+            stream.append({
+                "text": "", "is_heading": False,
+                "is_bold": False, "is_uline": False, "font_size": 0,
+                "is_table": True, "table_lines": payload[0],
+            })
+    return stream
+
+
+def _to_para_stream_docx(body: ET.Element) -> list[dict]:
+    """
+    Walk an XML body element and convert paragraphs/tables to the normalised stream.
+    Extracts bold, underline, and font_size from XML run properties.
+    """
+    stream: list[dict] = []
+    for child in body:
+        tag = child.tag
+        if tag == _wn("p"):
+            text = "".join(
+                (node.text or "") for node in child.iter(_wn("t"))
+            ).strip()
+            if not text:
+                continue
+            style_id = _xml_para_style_id(child)
+            stream.append({
+                "text":       text,
+                "is_heading": style_id in HEADING_STYLE_IDS,
+                "is_bold":    _xml_para_bold(child),
+                "is_uline":   _xml_para_underline(child),
+                "font_size":  _xml_para_font_size(child),
+                "is_table":   False,
+                "table_lines": None,
+            })
+        elif tag == _wn("tbl"):
+            stream.append({
+                "text": "", "is_heading": False,
+                "is_bold": False, "is_uline": False, "font_size": 0,
+                "is_table": True, "table_lines": _xml_format_table(child),
+            })
+    return stream
+
+
+# ---------------------------------------------------------------------------
+# Semantic chunking — detection and metadata helpers
+# ---------------------------------------------------------------------------
+
+
+def detect_gpt_template(text: str) -> bool:
+    """Return True when the document uses the standard GPT question template.
+
+    Probes the first GPT_TEMPLATE_PROBE_CHARS characters for the canonical
+    opening anchor 'מה האסטרטגיה'.  All three GPT knowledge docs contain this
+    anchor in their first section.
+    """
+    return "מה האסטרטגיה" in text[:GPT_TEMPLATE_PROBE_CHARS]
+
+
+def _parse_block_title(title_text: str) -> dict:
+    """Extract show_name, season, and doc_type from a show-block heading.
+
+    Examples handled:
+      Pattern 1 — dash-separated strategy/insights titles:
+        'תובנות השקה – ארץ נהדרת עונה 23 22/10/2025'
+        'אסטרטגיה - חתונה ממבט ראשון – עונה 5 – גמר'
+      Pattern 2 — bridge sentence (primary signal text):
+        'המסמכים הבאים יעסקו בתוכנית "הזמר במסכה" עונה 1'
+        "המסמכים הבאים יעסקו בסדרה 'פאלו אלטו'"
+    """
+    season_match = _SEASON_RE.search(title_text)
+    season = int(season_match.group(1)) if season_match else None
+
+    # Pattern 2 — bridge sentence: quoted/unquoted show name after יעסקו ב(תוכנית|סדרה)
+    bridge_match = re.search(
+        r'יעסקו\s+ב(?:תוכנית|סדרה)\s*[\u0022\u201c\u2018\u2019\u0027\u201d]'
+        r'(.+?)'
+        r'[\u0022\u201c\u2018\u2019\u0027\u201d]',
+        title_text,
+    )
+    if bridge_match:
+        return {
+            "show_name": bridge_match.group(1).strip(),
+            "season":    season,
+            "doc_type":  "כללי",  # bridge sentences don't carry doc_type
+        }
+
+    # Pattern 1 — _SHOW_RE: "תובנות X – [show] –" or "אסטרטגיה X [show]"
+    show_match = _SHOW_RE.search(title_text)
+    show_name = show_match.group(1).strip() if show_match else ""
+
+    # Fallback: strip known prefixes and extract the first dash-separated segment
+    if not show_name:
+        for prefix in ("תובנות השקה", "תובנות גמר", "תובנות מחקר", "אסטרטגיה"):
+            if title_text.startswith(prefix):
+                rest = title_text[len(prefix):].lstrip(" \u2013\u2014-").strip()
+                # take up to the next dash or 'עונה'
+                part = re.split(r"\s*[-\u2013\u2014]\s*|\s+עונה", rest, maxsplit=1)[0].strip()
+                if part:
+                    show_name = part
+                break
+
+    doc_type = "כללי"
+    for kw, label in _DOCTYPE_KEYS.items():
+        if kw in title_text:
+            doc_type = label
+            break
+
+    return {"show_name": show_name, "season": season, "doc_type": doc_type}
+
+
+def _normalize_question_type(header: str) -> str:
+    """Map a Q&A heading to a canonical question_type label."""
+    for key, qtype in _QTYPE_MAP.items():
+        if key in header:
+            return qtype
+    return "כללי"
+
+
+def _is_primary_split(para: dict, next_para: dict | None) -> bool:
+    """True when this paragraph opens a new show/season block.
+
+    Criteria (any one sufficient):
+    1. Text starts with one of the Hebrew primary signals.
+    2. Paragraph is a heading with font_size >= 20 (בידור doc, docx path only)
+       AND the next paragraph looks like a date.
+    3. Paragraph is a heading AND the next paragraph looks like a date
+       (DI path: font_size unavailable; rely on heading role + date verification).
+    """
+    text = para["text"]
+
+    # Signal 1 — explicit text marker
+    for signal in _PRIMARY_TEXT_SIGNALS:
+        if signal in text:
+            return True
+
+    # Signal 2 / 3 — heading followed by a date line
+    if para["is_heading"] and next_para is not None:
+        next_text = next_para.get("text") or ""
+        if _DATE_LINE_RE.search(next_text):
+            # For docx path, require large font OR the text itself signals a show
+            if para["font_size"] >= 20:
+                return True
+            # For DI path (font_size == 0): accept any heading + date combination
+            # when it looks like a show/season title (contains 'עונה' or typical doc words)
+            if para["font_size"] == 0 and re.search(r"עונה|תובנות|אסטרטגיה|השקה|גמר", text):
+                return True
+
+    return False
+
+
+def _is_secondary_split(para: dict, inside_block: bool) -> bool:
+    """True when this paragraph opens a Q&A section within a show block.
+
+    Requires:
+    - We are inside a show block (inside_block=True)
+    - The paragraph is formatted as bold+underline OR is a DI heading
+    - The text starts with one of the canonical secondary anchors
+    """
+    if not inside_block:
+        return False
+    if not (para["is_heading"] or (para["is_bold"] and para["is_uline"])):
+        return False
+    text = para["text"]
+    return any(text.startswith(anchor) for anchor in _SECONDARY_ANCHORS)
+
+
+# ---------------------------------------------------------------------------
+# Semantic chunking — main splitter
+# ---------------------------------------------------------------------------
+
+
+def _apply_semantic_guardrails(
+    chunks: list[dict],
+) -> list[dict]:
+    """Apply min-size filter and max-size splitting with 1-line overlap.
+
+    - Chunks below SEMANTIC_CHUNK_MIN_CHARS are discarded (trivial 1-liners).
+    - Chunks above SEMANTIC_CHUNK_MAX_CHARS are split at paragraph boundaries;
+      the last line of sub-chunk N is prepended to sub-chunk N+1 (overlap).
+    - Sections flagged atomic=True (תכנית מדיה / מעקב פרומו) bypass the max
+      limit so tables are never split mid-row.
+    """
+    result: list[dict] = []
+    for chunk in chunks:
+        text = chunk["chunk"].strip()
+
+        # Min-size filter
+        if len(text) < SEMANTIC_CHUNK_MIN_CHARS:
+            continue
+
+        # Atomic sections (tables) — keep as-is regardless of size
+        if chunk.get("_atomic"):
+            c = chunk.copy()
+            c.pop("_atomic", None)
+            result.append(c)
+            continue
+
+        # Max-size split
+        if len(text) <= SEMANTIC_CHUNK_MAX_CHARS:
+            result.append(chunk)
+            continue
+
+        lines = [ln for ln in text.split("\n") if ln.strip()]
+        sub_idx = 0
+        current: list[str] = []
+        current_len = 0
+        overlap_line: str | None = None
+
+        def _flush_sub(buf: list[str]) -> None:
+            nonlocal sub_idx
+            sub_text = "\n".join(buf).strip()
+            if len(sub_text) >= SEMANTIC_CHUNK_MIN_CHARS:
+                sub = chunk.copy()
+                sub["chunk_id"] = f"{chunk['chunk_id']}s{sub_idx}"
+                sub["chunk"]    = sub_text
+                result.append(sub)
+                sub_idx += 1
+
+        for line in lines:
+            line_len = len(line)
+            if overlap_line and not current:
+                current.append(overlap_line)
+                current_len = len(overlap_line)
+                overlap_line = None
+            if current_len + line_len + 1 > SEMANTIC_CHUNK_MAX_CHARS:
+                overlap_line = current[-1] if current else None
+                _flush_sub(current)
+                current = [line]
+                current_len = line_len
+            else:
+                current.append(line)
+                current_len += line_len + 1
+        if current:
+            _flush_sub(current)
+
+    return result
+
+
+def split_semantic(
+    para_stream: list[dict],
+    title: str,
+    source_url: str,
+) -> list[dict]:
+    """Split a GPT-template document into Q&A-scoped semantic chunks.
+
+    Two-level split:
+      Level 1 (primary): show/season blocks detected by _is_primary_split.
+      Level 2 (secondary): Q&A sections detected by _is_secondary_split.
+
+    Each flush produces one chunk carrying show_name, season, doc_type, and
+    question_type metadata.  Tables under atomic section keys are kept whole.
+    """
+    doc_hash = _doc_hash(title)
+    chunks_raw: list[dict] = []
+
+    # Current show-block metadata
+    block_meta: dict = {"show_name": "", "season": None, "doc_type": "כללי"}
+    inside_block: bool = False
+
+    # Current Q&A section state
+    section_header: str = ""
+    section_lines:  list[str] = []
+    is_atomic: bool = False   # True for תכנית מדיה / מעקב פרומו sections
+
+    def _flush_section() -> None:
+        text = "\n".join(section_lines).strip()
+        if not text:
+            return
+        chunks_raw.append({
+            "chunk_id":      _chunk_id(doc_hash, len(chunks_raw)),
+            "header":        section_header,
+            "chunk":         text,
+            "title":         title,
+            "source_file":   source_url,
+            "parent_id":     doc_hash,
+            "show_name":     block_meta["show_name"],
+            "season":        block_meta["season"],
+            "doc_type":      block_meta["doc_type"],
+            "question_type": _normalize_question_type(section_header),
+            "_atomic":       is_atomic,
+        })
+
+    for idx, para in enumerate(para_stream):
+        next_para = para_stream[idx + 1] if idx + 1 < len(para_stream) else None
+
+        # --- Level-1: primary split → new show block ---
+        if _is_primary_split(para, next_para):
+            _flush_section()
+            section_header = ""
+            section_lines  = []
+            is_atomic      = False
+            inside_block   = True
+            block_meta     = _parse_block_title(para["text"])
+            # The primary heading itself becomes the section header for the
+            # introductory content that follows (before the first Q&A anchor)
+            section_header = para["text"]
+            continue
+
+        # --- Level-2: secondary split → new Q&A section ---
+        if _is_secondary_split(para, inside_block):
+            _flush_section()
+            section_header = para["text"]
+            section_lines  = []
+            is_atomic      = any(key in para["text"] for key in _ATOMIC_SECTION_KEYS)
+            continue
+
+        # --- Accumulate content ---
+        if para["is_table"]:
+            section_lines.extend(para["table_lines"] or [])
+        elif para["text"]:
+            section_lines.append(para["text"])
+
+    _flush_section()
+
+    return _apply_semantic_guardrails(chunks_raw)
+
+
 def _split_large_chunks(chunks: list[dict]) -> list[dict]:
     """
     Split any chunk exceeding CHUNK_MAX_CHARS into smaller sub-chunks.
@@ -389,9 +844,9 @@ def extract_chunks_docx(docx_bytes: bytes, title: str, source_url: str) -> list[
     """
     Fallback extractor using stdlib zipfile + xml.etree for large files.
 
-    Opens the .docx ZIP archive, parses word/document.xml, and walks the
-    document body in document order (preserving table/paragraph interleaving).
-    Heading paragraphs (Heading 1-9, Title styles) start new chunks.
+    If the document matches the GPT question template, the semantic chunking
+    path is used (split_semantic).  Otherwise falls back to the existing
+    heading-based fixed-size chunking.
     """
     doc_hash = _doc_hash(title)
 
@@ -403,6 +858,17 @@ def extract_chunks_docx(docx_bytes: bytes, title: str, source_url: str) -> list[
     if body is None:
         return []
 
+    # Probe for GPT template using joined paragraph text
+    probe_text = " ".join(
+        "".join((n.text or "") for n in p.iter(_wn("t"))).strip()
+        for p in body
+        if p.tag == _wn("p")
+    )[:GPT_TEMPLATE_PROBE_CHARS]
+    if detect_gpt_template(probe_text):
+        logger.info("    GPT template detected — using semantic chunking.")
+        return split_semantic(_to_para_stream_docx(body), title, source_url)
+
+    # --- Legacy fixed-size chunking (unchanged) ---
     chunks: list[dict] = []
     current_header = ""
     current_lines:  list[str] = []
@@ -467,7 +933,12 @@ def _json_blob_name(docx_blob_name: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def main(overwrite: bool = False) -> None:
+def main(overwrite: bool = False, doc_filter: str | None = None) -> None:
+    """Process all (or one) .docx blobs and save JSON chunks to promo-docs-json.
+
+    doc_filter: if set, only the blob whose filename matches (case-insensitive)
+                will be processed; all others are silently skipped.
+    """
     missing = []
     if not AZURE_STORAGE_CONNECTION_STRING:
         missing.append("AZURE_STORAGE_CONNECTION_STRING")
@@ -496,6 +967,16 @@ def main(overwrite: bool = False) -> None:
     blobs      = list(source_container.list_blobs())
     docx_blobs = [b for b in blobs if b.name.lower().endswith(".docx")]
     skipped_ext = len(blobs) - len(docx_blobs)
+
+    if doc_filter:
+        docx_blobs = [
+            b for b in docx_blobs
+            if os.path.basename(b.name).lower() == doc_filter.lower()
+        ]
+        if not docx_blobs:
+            logger.error(f"--doc filter '{doc_filter}' matched no blobs.")
+            return
+        logger.info(f"--doc filter active: processing only '{doc_filter}'")
 
     logger.info(f"Found {len(blobs)} blob(s) in '{SOURCE_CONTAINER}'.")
     logger.info(f"  {len(docx_blobs)} .docx file(s) to process.")
@@ -569,6 +1050,128 @@ def main(overwrite: bool = False) -> None:
     logger.info("=" * 52)
 
 
+def preview_doc(doc_name: str) -> None:  # noqa: C901
+    import sys as _sys
+    # Force UTF-8 output so Hebrew and special chars render correctly in all terminals.
+    if hasattr(_sys.stdout, "reconfigure"):
+        _sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    """Download one .docx blob, run chunking, and print every chunk to stdout.
+
+    Nothing is written to Azure Storage or any other destination.
+    Use this to verify semantic chunking output before running a full ingest.
+
+    Usage:
+        python scripts/preprocess_word_docs.py --preview-doc "מסמך ריאליטי GPT.docx"
+    """
+    required = {
+        "AZURE_STORAGE_CONNECTION_STRING": AZURE_STORAGE_CONNECTION_STRING,
+        "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT": AZURE_DI_ENDPOINT,
+        "AZURE_DOCUMENT_INTELLIGENCE_KEY": AZURE_DI_KEY,
+    }
+    missing = [k for k, v in required.items() if not v]
+    if missing:
+        raise EnvironmentError(
+            f"Missing required environment variables: {', '.join(missing)}"
+        )
+
+    blob_service     = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
+    source_container = blob_service.get_container_client(SOURCE_CONTAINER)
+
+    # Find the matching blob (case-insensitive filename comparison)
+    blobs = list(source_container.list_blobs())
+    target = next(
+        (b for b in blobs if os.path.basename(b.name).lower() == doc_name.lower()),
+        None,
+    )
+    if target is None:
+        available = [os.path.basename(b.name) for b in blobs if b.name.lower().endswith(".docx")]
+        logger.error(f"Document '{doc_name}' not found in '{SOURCE_CONTAINER}'.")
+        logger.error("Available .docx files:")
+        for name in available:
+            logger.error(f"  {name}")
+        return
+
+    blob_name  = target.name
+    size_bytes = target.size or 0
+    size_mb    = size_bytes / 1_048_576
+    logger.info(f"\nDownloading '{blob_name}' ({size_mb:.1f} MB) ...")
+
+    blob_client = source_container.get_blob_client(blob_name)
+    docx_bytes  = blob_client.download_blob().readall()
+    source_url  = blob_client.url
+    title       = os.path.basename(blob_name)
+
+    if size_bytes > DI_SIZE_LIMIT_BYTES:
+        logger.info("    Exceeds 4 MB — using python-docx fallback ...")
+        chunks = extract_chunks_docx(docx_bytes, title, source_url)
+    else:
+        di_client = DocumentIntelligenceClient(
+            endpoint=AZURE_DI_ENDPOINT,
+            credential=AzureKeyCredential(AZURE_DI_KEY),
+        )
+        logger.info(f"    Analyzing with Document Intelligence ({MODEL_ID}) ...")
+        poller = di_client.begin_analyze_document(
+            "prebuilt-layout",
+            {"base64Source": base64.b64encode(docx_bytes).decode()},
+        )
+        result = poller.result()
+        chunks = extract_chunks_di(result, title, source_url)
+
+    # ------------------------------------------------------------------
+    # Print every chunk — no upload
+    # ------------------------------------------------------------------
+    sep  = "=" * 72
+    dash = "-" * 72
+    print(f"\n{sep}")
+    print(f"  DOCUMENT : {title}")
+    print(f"  CHUNKS   : {len(chunks)}")
+    print(sep)
+
+    for i, c in enumerate(chunks, 1):
+        chunk_text = c.get("chunk", "").strip()
+        header     = c.get("header", "") or "(no header)"
+        show_name  = c.get("show_name", "") or ""
+        season     = c.get("season")
+        doc_type   = c.get("doc_type", "") or ""
+        qtype      = c.get("question_type", "") or ""
+        chunk_len  = len(chunk_text)
+
+        print(f"\n[{i:03d}]  {dash[:len(dash)-6]}")
+        print(f"  chunk_id    : {c.get('chunk_id', '')}")
+        print(f"  header      : {header}")
+        if show_name:
+            print(f"  show_name   : {show_name}")
+        if season is not None:
+            print(f"  season      : {season}")
+        if doc_type:
+            print(f"  doc_type    : {doc_type}")
+        if qtype:
+            print(f"  quest_type  : {qtype}")
+        print(f"  length      : {chunk_len} chars")
+        print()
+        # Print the first 600 chars of the chunk body; show ellipsis if truncated
+        preview = chunk_text[:600]
+        if len(chunk_text) > 600:
+            preview += "\n  [... truncated ...]"
+        for line in preview.splitlines():
+            print(f"    {line}")
+
+    print(f"\n{sep}")
+    print(f"  TOTAL CHUNKS : {len(chunks)}")
+
+    # Quality summary
+    short  = sum(1 for c in chunks if len(c.get("chunk", "").strip()) < SEMANTIC_CHUNK_MIN_CHARS)
+    long_  = sum(1 for c in chunks if len(c.get("chunk", "").strip()) > SEMANTIC_CHUNK_MAX_CHARS)
+    no_hdr = sum(1 for c in chunks if not c.get("header", "").strip())
+    no_show = sum(1 for c in chunks if not c.get("show_name", ""))
+    print(f"  Too short (<{SEMANTIC_CHUNK_MIN_CHARS} chars) : {short}")
+    print(f"  Too long  (>{SEMANTIC_CHUNK_MAX_CHARS} chars) : {long_}")
+    print(f"  No header                   : {no_hdr}")
+    print(f"  No show_name                : {no_show}")
+    print(sep)
+    print("\nNOTE: Nothing was written to Azure Storage.")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Chunk .docx blobs via Document Intelligence (or python-docx fallback) "
@@ -579,5 +1182,30 @@ if __name__ == "__main__":
         action="store_true",
         help="Re-process documents that already have a JSON file in the destination",
     )
+    parser.add_argument(
+        "--doc",
+        metavar="FILENAME",
+        default=None,
+        help=(
+            "Process only the named document (case-insensitive filename match). "
+            "Implies --overwrite for that single file. "
+            "Example: --doc \"מסמך ריאליטי GPT.docx\""
+        ),
+    )
+    parser.add_argument(
+        "--preview-doc",
+        metavar="FILENAME",
+        default=None,
+        help=(
+            "Dry-run mode: download and chunk ONE named document, print every chunk "
+            "to stdout, and exit WITHOUT writing anything to Azure Storage. "
+            "Example: --preview-doc \"מסמך ריאליטי GPT.docx\""
+        ),
+    )
     args = parser.parse_args()
-    main(overwrite=args.overwrite)
+    if args.preview_doc:
+        preview_doc(args.preview_doc)
+    elif args.doc:
+        main(overwrite=True, doc_filter=args.doc)
+    else:
+        main(overwrite=args.overwrite)

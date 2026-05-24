@@ -5,7 +5,8 @@ Standalone debugging script that bypasses the LLM and prints raw Azure AI Search
 chunks for a given query.  Use this to inspect retrieval quality directly.
 
 Usage:
-    python scripts/debug_retrieval.py
+    python scripts/debug_retrieval.py "מה הרייטינג של כוכב בעונה 11?"
+    python scripts/debug_retrieval.py          # uses the hardcoded default below
 """
 from __future__ import annotations
 
@@ -19,9 +20,10 @@ from dotenv import load_dotenv
 load_dotenv(BASE / ".env")
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# HARDCODE YOUR QUERY HERE
+# Default query — overridden by command-line argument if provided
 # ═══════════════════════════════════════════════════════════════════════════════
-QUERY = "מה היה הפרק עם הרייטינג הכי גבוה של נינג'ה ישראל עונה 5?"
+_DEFAULT_QUERY = "מה היה הפרק עם הרייטינג הכי גבוה של נינג'ה ישראל עונה 5?"
+QUERY = sys.argv[1] if len(sys.argv) > 1 else _DEFAULT_QUERY
 # ═══════════════════════════════════════════════════════════════════════════════
 
 from app.query_router import classify

@@ -1059,3 +1059,104 @@ if __name__ == "__main__":
         logger.info("  — all clear")
 
     sys.exit(0 if total_failed == 0 else 1)
+
+
+# ---------------------------------------------------------------------------
+# pytest — SharePoint enrichment unit tests (offline, no network)
+#
+# Score scale note (from addendum): Azure semantic reranker is 0–4.
+# Typical confident results: 2.1–2.5.  Default threshold: 2.5.
+# ---------------------------------------------------------------------------
+
+def test_sp_enrichment_disabled_by_default(monkeypatch):
+    """SP enrichment must not fire when SP_ENRICHMENT_ENABLED is not set."""
+    monkeypatch.delenv("SP_ENRICHMENT_ENABLED", raising=False)
+    from importlib import reload
+    import app.service as svc
+    reload(svc)
+    assert svc._needs_sharepoint_enrichment("word_quote", []) is False
+
+
+def test_sp_enrichment_fires_on_low_score(monkeypatch):
+    """Enrichment fires when word_docs top score is below threshold (0-4 scale)."""
+    monkeypatch.setenv("SP_ENRICHMENT_ENABLED", "true")
+    monkeypatch.setenv("SP_SCORE_THRESHOLD", "2.5")
+    from importlib import reload
+    import app.service as svc
+    reload(svc)
+    # score 1.8 < 2.5 → should trigger
+    low_score_doc = {"title": "test", "score": 1.8, "caption": ""}
+    assert svc._needs_sharepoint_enrichment("word_quote", [low_score_doc]) is True
+
+
+def test_sp_enrichment_skipped_on_high_caption(monkeypatch):
+    """Enrichment skipped when Azure returns caption AND score >= threshold."""
+    monkeypatch.setenv("SP_ENRICHMENT_ENABLED", "true")
+    monkeypatch.setenv("SP_SCORE_THRESHOLD", "2.5")
+    from importlib import reload
+    import app.service as svc
+    reload(svc)
+    # score 3.1 >= 2.5 AND caption present → should NOT trigger
+    high_conf_doc = {"title": "test", "score": 3.1, "caption": "תוכן רלוונטי"}
+    assert svc._needs_sharepoint_enrichment("word_quote", [high_conf_doc]) is False
+
+
+def test_sp_enrichment_never_fires_for_excel_numeric(monkeypatch):
+    """Enrichment must never trigger for excel_numeric route — SP has no numeric data."""
+    monkeypatch.setenv("SP_ENRICHMENT_ENABLED", "true")
+    from importlib import reload
+    import app.service as svc
+    reload(svc)
+    # Even with empty word_docs and flag enabled, excel_numeric must be skipped
+    assert svc._needs_sharepoint_enrichment("excel_numeric", []) is False
+
+
+# ---------------------------------------------------------------------------
+# Word temporal rerank tests
+# ---------------------------------------------------------------------------
+
+def _make_word_chunk(chunk_text: str, score: float = 2.0) -> dict:
+    return {"chunk": chunk_text, "caption": "", "score": score, "title": "GPT מסמך בידור.docx"}
+
+
+def test_word_rerank_last_season_puts_highest_first():
+    """When prefer='last', the chunk mentioning the highest עונה number must be first."""
+    import app.service as svc
+    docs = [
+        _make_word_chunk("ארץ נהדרת עונה 22 תוכנית מדיה", score=2.95),
+        _make_word_chunk("ארץ נהדרת עונה 20 השקה", score=2.80),
+        _make_word_chunk("ארץ נהדרת עונה 23 Make Eretz Nehederet Again", score=2.78),
+    ]
+    result = svc._rerank_word_docs_by_season(docs, prefer="last")
+    # season 23 must come first
+    assert svc._max_season_in_text(result[0]["chunk"]) == 23
+
+
+def test_word_rerank_first_season_puts_lowest_first():
+    """When prefer='first', the chunk mentioning the lowest עונה number must be first."""
+    import app.service as svc
+    docs = [
+        _make_word_chunk("ארץ נהדרת עונה 22", score=2.95),
+        _make_word_chunk("ארץ נהדרת עונה 19 ראשון", score=2.70),
+        _make_word_chunk("ארץ נהדרת עונה 23", score=2.78),
+    ]
+    result = svc._rerank_word_docs_by_season(docs, prefer="first")
+    assert svc._max_season_in_text(result[0]["chunk"]) == 19
+
+
+def test_word_rerank_no_season_chunk_at_end():
+    """Chunks with no season number in text are pushed after season-bearing ones."""
+    import app.service as svc
+    docs = [
+        _make_word_chunk("טקסט כללי ללא עונה", score=3.5),
+        _make_word_chunk("ארץ נהדרת עונה 22", score=2.0),
+    ]
+    result = svc._rerank_word_docs_by_season(docs, prefer="last")
+    assert svc._max_season_in_text(result[0]["chunk"]) == 22, "season chunk must precede no-season chunk"
+
+
+def test_max_season_in_text_returns_highest():
+    """_max_season_in_text should return the max when multiple עונה N appear."""
+    import app.service as svc
+    assert svc._max_season_in_text("עונה 5 ועוד עונה 12 כאן") == 12
+    assert svc._max_season_in_text("אין כאן מספר עונה") == -1

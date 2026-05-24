@@ -113,6 +113,11 @@ def aliases() -> list[tuple[str, str]]:
 def expand_aliases(query: str) -> str:
     expanded = query
     for alias, official in aliases():
+        # Skip if the official name is already in the query — avoids doubling
+        # like "נינג'ה ישראל" → "נינג'ה ישראל ישראל" when the alias "נינג'ה"
+        # matches as a substring of an already-official mention.
+        if official in expanded:
+            continue
         expanded = re.sub(re.escape(alias), official, expanded)
     return expanded
 

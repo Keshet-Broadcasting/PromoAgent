@@ -110,6 +110,34 @@ def get_index_definition() -> SearchIndex:
             retrievable=True,
             filterable=True,
         ),
+        # Phase 6b metadata emitted by semantic chunking. These fields enable
+        # deterministic retrieval for broad "all dramas", show, season, and
+        # question-type queries instead of relying only on top-N semantic hits.
+        SearchableField(
+            name="show_name",
+            type=SearchFieldDataType.String,
+            retrievable=True,
+            filterable=True,
+            analyzer_name="he.microsoft",
+        ),
+        SimpleField(
+            name="season",
+            type=SearchFieldDataType.String,
+            retrievable=True,
+            filterable=True,
+        ),
+        SimpleField(
+            name="doc_type",
+            type=SearchFieldDataType.String,
+            retrievable=True,
+            filterable=True,
+        ),
+        SimpleField(
+            name="question_type",
+            type=SearchFieldDataType.String,
+            retrievable=True,
+            filterable=True,
+        ),
     ]
 
     vector_search = VectorSearch(
@@ -130,6 +158,9 @@ def get_index_definition() -> SearchIndex:
             keywords_fields=[
                 SemanticField(field_name="header"),
                 SemanticField(field_name="title"),
+                SemanticField(field_name="show_name"),
+                SemanticField(field_name="doc_type"),
+                SemanticField(field_name="question_type"),
             ],
         ),
     )
