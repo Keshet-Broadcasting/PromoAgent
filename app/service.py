@@ -32,10 +32,35 @@ from dataclasses import dataclass, field
 from dotenv import load_dotenv
 
 from .chat_provider import get_provider
+
+try:
+    from langfuse.decorators import langfuse_context, observe as _lf_observe
+    _LF_AVAILABLE = True
+except Exception:
+    _LF_AVAILABLE = False
+    def _lf_observe(*args, **kwargs):  # no-op shim when langfuse is absent
+        def decorator(fn):
+            return fn
+        return decorator
 from .models import QueryResponse, SourceDoc
 from .prompts import build_messages
 from .query_router import classify
 from .search_word_docs import fetch_show_promos, search_excel_promos, search_word_docs
+
+# SharePoint fallback — optional; skipped gracefully when not configured.
+try:
+    from .tools.sharepoint_tool import get_sharepoint_client as _get_sp_client
+    _SP_AVAILABLE = True
+except ImportError:
+    _SP_AVAILABLE = False
+
+# SharePoint enrichment feature flags (all default OFF).
+# IMPORTANT: Azure semantic reranker scores are on 0–4 scale (verified from prod API).
+# 2.5 ≈ "reasonably confident" | 3.0+ = "high confidence" | typical range: 2.1–2.5
+_SP_ENRICHMENT       = os.getenv("SP_ENRICHMENT_ENABLED", "false").lower() == "true"
+_SP_SCORE_THRESHOLD  = float(os.getenv("SP_SCORE_THRESHOLD", "2.5"))
+_SP_ENRICHMENT_TOP   = int(os.getenv("SP_ENRICHMENT_TOP", "3"))
+_SP_ALLOWED_EXTENSIONS: list[str] = ["docx", "xlsx", "pdf"]
 
 load_dotenv()
 
@@ -184,6 +209,56 @@ def _season_as_int(season_val) -> int:
         return -1
 
 
+def _max_season_in_text(text: str) -> int:
+    """Extract the highest season number mentioned anywhere in a text chunk.
+
+    Scans for "עונה N" patterns and returns the largest N found.
+    Returns -1 when no season number is found (chunk is kept as-is in sort).
+    Used to temporally re-rank Word doc chunks when the query asks for
+    the last/first season and Azure's semantic score happens to rank an
+    older season chunk higher.
+    """
+    seasons = [int(m) for m in re.findall(r"עונה\s+(\d+)", text)]
+    return max(seasons) if seasons else -1
+
+
+def _rerank_word_docs_by_season(docs: list[dict], prefer: str) -> list[dict]:
+    """Re-sort Word doc chunks so the highest (prefer='last') or lowest
+    (prefer='first') season appears first, breaking ties by original score.
+
+    Chunks with no detectable season number keep their original relative order
+    at the end of the list, so they don't displace season-bearing chunks but
+    are still available to the LLM for context.
+    """
+    if not docs:
+        return docs
+
+    def sort_key(d: dict):
+        chunk_text = (d.get("chunk") or "") + " " + (d.get("caption") or "")
+        season = _max_season_in_text(chunk_text)
+        score = float(d.get("score") or 0)
+        if season < 0:
+            # No season found → push to end regardless of direction
+            return (1, 0, -score)
+        if prefer == "last":
+            return (0, -season, -score)   # highest season first
+        return (0, season, -score)         # lowest season first
+
+    reranked = sorted(docs, key=sort_key)
+    if reranked != docs:
+        top_before = _max_season_in_text(
+            (docs[0].get("chunk") or "") + " " + (docs[0].get("caption") or "")
+        )
+        top_after  = _max_season_in_text(
+            (reranked[0].get("chunk") or "") + " " + (reranked[0].get("caption") or "")
+        )
+        log.info(
+            "  Word temporal rerank (%s): top season before=%s → after=%s",
+            prefer, top_before if top_before >= 0 else "?", top_after if top_after >= 0 else "?",
+        )
+    return reranked
+
+
 def _filter_by_season_order(docs: list[dict], prefer: str) -> list[dict]:
     """Filter excel docs to only keep the max (prefer='last') or min (prefer='first') season,
     computed **per show**. Shows that have no parseable season field are kept as-is so
@@ -227,8 +302,9 @@ def _filter_by_season_order(docs: list[dict], prefer: str) -> list[dict]:
 class _RetrievalResult:
     """Raw retrieval output before formatting."""
     context: str
-    excel_docs: list[dict] = field(default_factory=list)
-    word_docs:  list[dict] = field(default_factory=list)
+    excel_docs:      list[dict] = field(default_factory=list)
+    word_docs:       list[dict] = field(default_factory=list)
+    sharepoint_docs: list[dict] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -301,6 +377,112 @@ def _fmt_word(docs: list[dict]) -> str:
     return "\n\n---\n\n".join(lines)
 
 
+def _fmt_sharepoint(docs: list[dict]) -> str:
+    if not docs:
+        return "לא נמצאו תוצאות ב-SharePoint."
+    lines = []
+    for i, d in enumerate(docs, 1):
+        title = d.get("title") or "(ללא שם)"
+        url   = d.get("url") or ""
+        text  = (d.get("text") or "").strip()[:600]
+        meta  = f"[{i}] {title}"
+        if url:
+            meta += f"  |  {url}"
+        parts = [meta]
+        if text:
+            parts.append(text)
+        lines.append("\n".join(parts))
+    return "\n\n---\n\n".join(lines)
+
+
+def _is_context_insufficient(retrieval: _RetrievalResult) -> bool:
+    """Return True when primary Azure Search retrieval returned no documents.
+
+    Used to decide whether to invoke the SharePoint fallback.
+    We only fall back when BOTH indexes came up empty — this avoids adding
+    SharePoint latency to the majority of queries that already have evidence.
+    """
+    return not retrieval.excel_docs and not retrieval.word_docs
+
+
+def _fetch_sharepoint_fallback(query: str, top: int = 5) -> list[dict]:
+    """Call SharePoint search and return normalised result dicts.
+
+    Returns an empty list (never raises) so callers need no error handling.
+    """
+    if not _SP_AVAILABLE:
+        return []
+    try:
+        client = _get_sp_client()
+        return client.search_in_library(query, top=top)
+    except EnvironmentError:
+        # SP credentials not configured — skip silently
+        log.debug("SharePoint fallback skipped: credentials not configured")
+        return []
+    except Exception as exc:
+        log.warning("SharePoint fallback failed: %s", exc)
+        return []
+
+
+def _needs_sharepoint_enrichment(route: str, word_docs: list[dict]) -> bool:
+    """Return True when SP enrichment should run for this query.
+
+    Decision logic (matches the handoff decision table):
+    - Always False when SP_ENRICHMENT_ENABLED is not set (feature flag).
+    - Always False for excel_numeric — SP has no numeric data.
+    - True when word_docs is empty (zero Azure results for this route).
+    - False when top doc has a caption AND score >= threshold (Azure is confident).
+    - True when top score is below threshold (low confidence).
+
+    Note: Azure reranker scores are on a 0–4 scale (verified from prod API).
+    SP_SCORE_THRESHOLD defaults to 2.5 — typical confident results score 2.1–2.5.
+    """
+    if not _SP_ENRICHMENT or not _SP_AVAILABLE:
+        return False
+    if route not in ("word_quote", "hybrid"):
+        return False
+    if not word_docs:
+        return True
+    top_doc   = word_docs[0]
+    caption   = (top_doc.get("caption") or "").strip()
+    top_score = float(top_doc.get("score") or 0)
+    # Azure confident: caption present AND high score → skip SP
+    if caption and top_score >= _SP_SCORE_THRESHOLD:
+        return False
+    # Low score (or no caption) → enrich
+    return top_score < _SP_SCORE_THRESHOLD
+
+
+def _fetch_sharepoint_enrichment(
+    query: str,
+    show_name: str | None,
+    top: int | None = None,
+) -> list[dict]:
+    """Targeted SP enrichment — scoped to show folder when show name is known.
+
+    Falls back to the generic 'עבודה ChatGPT' folder when no show is detected.
+    Never raises — returns empty list on any error or misconfiguration.
+    """
+    if not _SP_AVAILABLE:
+        return []
+    n = top if top is not None else _SP_ENRICHMENT_TOP
+    folder = show_name if show_name else "עבודה ChatGPT"
+    try:
+        client = _get_sp_client()
+        return client.search_in_library(
+            query,
+            folder_path=folder,
+            top=n,
+            file_types=_SP_ALLOWED_EXTENSIONS,
+        )
+    except EnvironmentError:
+        log.debug("SP enrichment skipped: credentials not configured")
+        return []
+    except Exception as exc:
+        log.warning("SP enrichment failed: %s", exc)
+        return []
+
+
 # ---------------------------------------------------------------------------
 # Retriever  (private)
 # ---------------------------------------------------------------------------
@@ -364,29 +546,83 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
 
     if route == "word_quote":
         docs = search_word_docs(query, top=word_top)
+        if season_filter:
+            docs = _rerank_word_docs_by_season(docs, season_filter)
         log.info("  Word hits: %d | Excel hits: 0", len(docs))
         if not docs:
             log.warning("  *** No Word hits — answer will have no document evidence ***")
         else:
             titles = [d.get("title") or "(no title)" for d in docs]
             log.info("  Word sources: %s", ", ".join(titles))
+
+        if _needs_sharepoint_enrichment(route, docs):
+            show_name = _extract_show_name(query)
+            top_score = float(docs[0].get("score") or 0) if docs else 0.0
+            caption   = (docs[0].get("caption") or "").strip() if docs else ""
+            log.info(
+                "  SP enrichment triggered: route=%s show=%r score=%.2f caption=%s",
+                route, show_name, top_score, bool(caption),
+            )
+            sp_docs = _fetch_sharepoint_enrichment(query, show_name)
+            # Dedup: drop SP docs whose title already appears in Azure word results
+            azure_titles = {(d.get("title") or "").lower() for d in docs if d.get("title")}
+            sp_docs = [d for d in sp_docs if (d.get("title") or "").lower() not in azure_titles]
+            if sp_docs:
+                sp_section = (
+                    "\n\n=== מסמכי SharePoint (תובנות ומחקר) ===\n\n"
+                    + _fmt_sharepoint(sp_docs)
+                )
+                log.info("  SP enrichment: %d doc(s) returned, folder=%r", len(sp_docs), show_name)
+                return _RetrievalResult(
+                    context=_fmt_word(docs) + sp_section,
+                    word_docs=docs,
+                    sharepoint_docs=sp_docs,
+                )
+            else:
+                log.info("  SP enrichment: 0 doc(s) after dedup/empty, folder=%r", show_name)
+
         return _RetrievalResult(context=_fmt_word(docs), word_docs=docs)
 
     if route == "hybrid":
         excel_docs = _fetch_excel()
         word_docs  = search_word_docs(query, top=word_top)
+        if season_filter:
+            word_docs = _rerank_word_docs_by_season(word_docs, season_filter)
         log.info("  Excel hits: %d | Word hits: %d | season_filter=%s | ranking_show=%s",
                  len(excel_docs), len(word_docs), season_filter or "none", ranking_show or "none")
         if word_docs:
             titles = [d.get("title") or "(no title)" for d in word_docs]
             log.info("  Word sources: %s", ", ".join(titles))
+
+        sp_docs: list[dict] = []
+        if _needs_sharepoint_enrichment(route, word_docs):
+            show_name = _extract_show_name(query)
+            top_score = float(word_docs[0].get("score") or 0) if word_docs else 0.0
+            caption   = (word_docs[0].get("caption") or "").strip() if word_docs else ""
+            log.info(
+                "  SP enrichment triggered: route=%s show=%r score=%.2f caption=%s",
+                route, show_name, top_score, bool(caption),
+            )
+            sp_docs = _fetch_sharepoint_enrichment(query, show_name)
+            azure_titles = {(d.get("title") or "").lower() for d in word_docs if d.get("title")}
+            sp_docs = [d for d in sp_docs if (d.get("title") or "").lower() not in azure_titles]
+            if sp_docs:
+                log.info("  SP enrichment: %d doc(s) returned, folder=%r", len(sp_docs), show_name)
+            else:
+                log.info("  SP enrichment: 0 doc(s) after dedup/empty, folder=%r", show_name)
+
+        sp_section = (
+            "\n\n=== מסמכי SharePoint (תובנות ומחקר) ===\n\n" + _fmt_sharepoint(sp_docs)
+            if sp_docs else ""
+        )
         ctx = (
             "=== נתוני Excel ===\n\n"
             f"{_fmt_excel(excel_docs)}\n\n"
             "=== מסמכי Word ===\n\n"
             f"{_fmt_word(word_docs)}"
+            f"{sp_section}"
         )
-        return _RetrievalResult(context=ctx, excel_docs=excel_docs, word_docs=word_docs)
+        return _RetrievalResult(context=ctx, excel_docs=excel_docs, word_docs=word_docs, sharepoint_docs=sp_docs)
 
     # unknown — shallow search on both, model instructed to be cautious
     log.info("Route unknown — shallow retrieval from both indexes (top=3 each)")
@@ -422,18 +658,26 @@ def _build_sources(retrieval: _RetrievalResult) -> list[SourceDoc]:
             reference=d.get("chunk_id") or "",
             score=float(d.get("score") or 0),
         ))
+    for d in retrieval.sharepoint_docs:
+        sources.append(SourceDoc(
+            type="sharepoint",
+            title=d.get("title") or "",
+            reference=d.get("url") or "",
+            score=float(d.get("score") or 1.0),
+        ))
     # Highest-scoring first
     sources.sort(key=lambda s: s.score, reverse=True)
     return sources
 
 
 def _confidence(sources: list[SourceDoc]) -> str:
+    # Azure reranker scores are on a 0–4 scale (not 0–1)
     if not sources:
         return "low"
     top_score = sources[0].score
-    if top_score >= 0.85:
+    if top_score >= 3.0:
         return "high"
-    if top_score >= 0.50:
+    if top_score >= 2.0:
         return "medium"
     return "low"
 
@@ -442,6 +686,7 @@ def _confidence(sources: list[SourceDoc]) -> str:
 # Public API
 # ---------------------------------------------------------------------------
 
+@_lf_observe(name="promobot-query", as_type="trace")
 def run_query(
     question: str,
     debug: bool = False,
@@ -477,7 +722,7 @@ def run_query(
              route_result.quote_hits    or "—",
              route_result.analysis_hits or "—")
 
-    # Step 2 — retrieve
+    # Step 2 — retrieve from primary sources (Azure AI Search)
     try:
         retrieval = _retrieve(route, question)
     except EnvironmentError:
@@ -485,6 +730,30 @@ def run_query(
     except Exception as exc:
         log.error("[%s] Retrieval failed: %s", trace_id, exc, exc_info=True)
         raise RuntimeError(f"Azure Search error: {type(exc).__name__}") from exc
+
+    # Step 2b — SharePoint fallback (complementary source)
+    # Only called when primary retrieval found nothing in either Azure Search index.
+    # This keeps latency impact zero for the vast majority of queries.
+    if _is_context_insufficient(retrieval):
+        log.info("[%s] Primary retrieval empty — trying SharePoint fallback", trace_id)
+        sp_docs = _fetch_sharepoint_fallback(question, top=5)
+        if sp_docs:
+            retrieval.sharepoint_docs = sp_docs
+            sp_section = (
+                "=== מסמכי SharePoint (DocLib4) ===\n\n"
+                f"{_fmt_sharepoint(sp_docs)}"
+            )
+            # Prepend SharePoint section; primary context already says "no results"
+            retrieval = _RetrievalResult(
+                context=sp_section,
+                excel_docs=retrieval.excel_docs,
+                word_docs=retrieval.word_docs,
+                sharepoint_docs=sp_docs,
+            )
+            log.info("[%s] SharePoint fallback: %d doc(s)", trace_id, len(sp_docs))
+        else:
+            log.info("[%s] SharePoint fallback returned no results", trace_id)
+
     log.info("[%s] Context length: %d chars", trace_id, len(retrieval.context))
     log.debug("[%s] === FULL CONTEXT ===\n%s\n=== END ===", trace_id, retrieval.context)
 
@@ -524,6 +793,18 @@ def run_query(
     # Step 5 — assemble response
     sources    = _build_sources(retrieval)
     confidence = _confidence(sources)
+
+    if _LF_AVAILABLE:
+        confidence_score = {"high": 1.0, "medium": 0.5, "low": 0.0}.get(confidence, 0.0)
+        langfuse_context.update_current_trace(
+            output=answer,
+            metadata={"route": route, "confidence": confidence},
+        )
+        langfuse_context.score_current_trace(
+            name="retrieval-confidence",
+            value=confidence_score,
+            comment=f"{confidence} — top source score: {sources[0].score:.2f}" if sources else confidence,
+        )
 
     return QueryResponse(
         answer=answer,

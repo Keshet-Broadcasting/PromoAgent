@@ -62,6 +62,12 @@ try:
 except ImportError:
     _GENAI_AVAILABLE = False
 
+try:
+    from langfuse.openai import register_tracing
+    register_tracing()
+except ImportError:
+    pass  # langfuse optional — tracing silently disabled
+
 
 log = logging.getLogger(__name__)
 
