@@ -19,6 +19,7 @@ from __future__ import annotations
 import os
 import sys
 import logging
+from collections.abc import Sequence
 
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents import SearchClient
@@ -39,6 +40,7 @@ _PROMO_SEMANTIC_CFG = os.getenv("AZURE_SEARCH_PROMO_SEMANTIC_CONFIG", "promo-sem
 
 _QUERY_LANGUAGE = "he-il"
 _SEARCH_TIMEOUT = int(os.getenv("AZURE_SEARCH_TIMEOUT_SECONDS", "30"))
+_WORD_METADATA_FILTERS_ENABLED = os.getenv("WORD_METADATA_FILTERS_ENABLED", "false").lower() in ("true", "1", "yes")
 
 # SearchClient instances are reused across requests — creating a new client on
 # every call incurs unnecessary TLS handshake + connection overhead.
@@ -73,6 +75,40 @@ def _first_caption(result) -> str:
     return ""
 
 
+def _escape_odata(value: str) -> str:
+    return value.replace("'", "''")
+
+
+def _or_filter(field: str, values: Sequence[str] | None) -> str:
+    if not values:
+        return ""
+    parts = [f"{field} eq '{_escape_odata(str(value))}'" for value in values if str(value).strip()]
+    return "(" + " or ".join(parts) + ")" if parts else ""
+
+
+def _build_word_filter(
+    show_names: Sequence[str] | None = None,
+    seasons: Sequence[str | int] | None = None,
+    doc_types: Sequence[str] | None = None,
+    question_types: Sequence[str] | None = None,
+    titles: Sequence[str] | None = None,
+) -> str | None:
+    """Build an OData filter for metadata fields added in the Phase 6b schema.
+
+    Returns None when no filter is needed. The caller is responsible for only
+    passing the filter to Azure Search when WORD_METADATA_FILTERS_ENABLED=true.
+    """
+    filters = [
+        _or_filter("show_name", show_names),
+        _or_filter("season", [str(s) for s in seasons] if seasons else None),
+        _or_filter("doc_type", doc_types),
+        _or_filter("question_type", question_types),
+        _or_filter("title", titles),
+    ]
+    filters = [f for f in filters if f]
+    return " and ".join(filters) if filters else None
+
+
 # ---------------------------------------------------------------------------
 # Public search functions
 # ---------------------------------------------------------------------------
@@ -84,7 +120,16 @@ context list.  Answers below this score are still present in the value list if
 they ranked in the top-N; they just don't get promoted ahead of other results."""
 
 
-def search_word_docs(query: str, top: int = 5) -> list[dict]:
+def search_word_docs(
+    query: str,
+    top: int = 5,
+    *,
+    show_names: Sequence[str] | None = None,
+    seasons: Sequence[str | int] | None = None,
+    doc_types: Sequence[str] | None = None,
+    question_types: Sequence[str] | None = None,
+    titles: Sequence[str] | None = None,
+) -> list[dict]:
     """Query the 'word-docs' index with Hebrew semantic search.
 
     In addition to the standard reranked result list, Azure AI Search returns
@@ -96,20 +141,40 @@ def search_word_docs(query: str, top: int = 5) -> list[dict]:
     to the front of the returned list so the LLM always sees the best direct-
     answer chunk first, regardless of where it landed in the reranker ranking.
 
+    Metadata filters require WORD_METADATA_FILTERS_ENABLED=true and the Phase 6b
+    word-docs schema fields to exist. When disabled, filter arguments are
+    ignored so production does not break before the schema migration.
+
     Returns a list of dicts with keys:
-        chunk_id, chunk, header, title, score, caption
+        chunk_id, chunk, header, title, source_file, score, caption,
+        show_name, season, doc_type, question_type
     """
     client = _client(_WORD_DOCS_INDEX)
+    word_filter = _build_word_filter(
+        show_names=show_names,
+        seasons=seasons,
+        doc_types=doc_types,
+        question_types=question_types,
+        titles=titles,
+    )
+    if word_filter and not _WORD_METADATA_FILTERS_ENABLED:
+        logger.info("  Word metadata filter requested but WORD_METADATA_FILTERS_ENABLED=false; using unfiltered search.")
+        word_filter = None
+
+    select_fields = ["chunk_id", "chunk", "header", "title", "source_file"]
+    if _WORD_METADATA_FILTERS_ENABLED:
+        select_fields.extend(["show_name", "season", "doc_type", "question_type"])
 
     results = client.search(
         search_text=query,
+        filter=word_filter,
         query_type=QueryType.SEMANTIC,
         semantic_configuration_name=_WORD_SEMANTIC_CFG,
         query_language=_QUERY_LANGUAGE,
         query_caption="extractive",
         query_answer="extractive|count-3",
         top=top,
-        select=["chunk_id", "chunk", "header", "title", "source_file"],
+        select=select_fields,
     )
 
     # Collect all value results, keyed by chunk_id.  Iterating the response
@@ -124,6 +189,10 @@ def search_word_docs(query: str, top: int = 5) -> list[dict]:
             "header":      r.get("header", ""),
             "title":       r.get("title", ""),
             "source_file": r.get("source_file", ""),
+            "show_name":   r.get("show_name", ""),
+            "season":      r.get("season", ""),
+            "doc_type":    r.get("doc_type", ""),
+            "question_type": r.get("question_type", ""),
             "score":       r.get("@search.reranker_score") or r.get("@search.score", 0),
             "caption":     _first_caption(r),
         }
@@ -147,6 +216,10 @@ def search_word_docs(query: str, top: int = 5) -> list[dict]:
                 "header":      "",
                 "title":       "",
                 "source_file": "",
+                "show_name":   "",
+                "season":      "",
+                "doc_type":    "",
+                "question_type": "",
                 "score":       score,
                 "caption":     getattr(answer, "highlights", "") or "",
             }
@@ -231,9 +304,9 @@ def fetch_show_promos(show_name: str, season: str | None = None, top: int = 500)
     """
     client = _client(_PROMOS_INDEX)
 
-    filter_expr = f"show_name eq '{show_name}'"
+    filter_expr = f"show_name eq '{_escape_odata(show_name)}'"
     if season:
-        filter_expr += f" and season eq '{season}'"
+        filter_expr += f" and season eq '{_escape_odata(season)}'"
 
     results = client.search(
         search_text="*",
@@ -261,6 +334,26 @@ def fetch_show_promos(show_name: str, season: str | None = None, top: int = 500)
             "tab_name":       r.get("source_file", ""),
             "score":          1.0,  # filter-based — all rows are equally relevant
         })
+    return docs
+
+
+def fetch_many_show_promos(show_names: Sequence[str], top_per_show: int = 500) -> list[dict]:
+    """Retrieve promo rows for multiple shows using exact show_name filters."""
+    docs: list[dict] = []
+    seen: set[tuple] = set()
+    for show_name in show_names:
+        for doc in fetch_show_promos(show_name, top=top_per_show):
+            key = (
+                doc.get("show_name"),
+                doc.get("season"),
+                doc.get("episode_number"),
+                doc.get("date"),
+                doc.get("promo_text"),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            docs.append(doc)
     return docs
 
 

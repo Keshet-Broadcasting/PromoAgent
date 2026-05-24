@@ -63,7 +63,7 @@ class QueryRequest(BaseModel):
 
 
 class SourceDoc(BaseModel):
-    type: Literal["excel", "word"]
+    type: Literal["excel", "word", "sharepoint"]
     title: str = Field("", description="File name or document title")
     reference: str = Field("", description="chunk_id for Word docs; 'show / season / date' for Excel")
     score: float = Field(0.0, description="Azure Search reranker score")

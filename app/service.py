@@ -739,6 +739,17 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
         season_filter = None
 
     plan = _build_retrieval_plan(route, query, ranking_intent, season_filter)
+
+    # Route upgrade: cross-show / multi-show / genre-broad questions can fall to
+    # the 'unknown' router branch (e.g. "דפוסים משותפים בכל התוכניות") even though
+    # the retrieval planner correctly detects broad_scope. Without this upgrade
+    # they take the shallow top=3 unknown branch and bypass the Phase 6b broad
+    # word/excel retrieval paths entirely.
+    if route == "unknown" and plan.broad_scope:
+        log.info("  Route upgrade: unknown → hybrid (broad_scope detected)")
+        route = "hybrid"
+        plan.route = "hybrid"
+
     if plan.broad_scope:
         log.info(
             "  Retrieval plan: broad=%s route=%s shows=%s genres=%s event=%s comparison=%s conversion=%s",
