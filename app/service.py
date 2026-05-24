@@ -31,6 +31,14 @@ from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
 
+# Inject the OS/Windows certificate store so Python trusts corporate proxies.
+# Must run before any HTTPS connection is opened (Langfuse, Azure SDKs, etc.).
+try:
+    import truststore
+    truststore.inject_into_ssl()
+except ImportError:
+    pass
+
 from .chat_provider import get_provider
 
 try:
@@ -45,7 +53,15 @@ except Exception:
 from .models import QueryResponse, SourceDoc
 from .prompts import build_messages
 from .query_router import classify
-from .search_word_docs import fetch_show_promos, search_excel_promos, search_word_docs
+from .domain_catalog import (
+    expand_aliases as _catalog_expand_aliases,
+    extract_show_names as _catalog_extract_show_names,
+    genre_label,
+    genres_for_query,
+    official_show_names,
+    shows_for_genres,
+)
+from .search_word_docs import fetch_many_show_promos, fetch_show_promos, search_excel_promos, search_word_docs
 
 # SharePoint fallback — optional; skipped gracefully when not configured.
 try:
@@ -61,6 +77,7 @@ _SP_ENRICHMENT       = os.getenv("SP_ENRICHMENT_ENABLED", "false").lower() == "t
 _SP_SCORE_THRESHOLD  = float(os.getenv("SP_SCORE_THRESHOLD", "2.5"))
 _SP_ENRICHMENT_TOP   = int(os.getenv("SP_ENRICHMENT_TOP", "3"))
 _SP_ALLOWED_EXTENSIONS: list[str] = ["docx", "xlsx", "pdf"]
+_BROAD_RETRIEVAL     = os.getenv("BROAD_RETRIEVAL_ENABLED", "false").lower() in ("true", "1", "yes")
 
 load_dotenv()
 
@@ -91,11 +108,9 @@ def _expand_aliases(query: str) -> str:
 
     This improves Azure Search recall — the index stores the full official
     show name, so searching for a nickname can miss exact-field matches.
-    The longer/more-specific alias must come first in _SHOW_ALIASES.
+    The domain catalog is the source of truth for alias mappings.
     """
-    for pattern, official in _SHOW_ALIASES:
-        query = pattern.sub(official, query)
-    return query
+    return _catalog_expand_aliases(query)
 
 
 # ---------------------------------------------------------------------------
@@ -165,10 +180,13 @@ _KNOWN_SHOWS: list[str] = [
 
 def _extract_show_name(query: str) -> str | None:
     """Return the first known show name found in the query (longest match wins)."""
-    for show in sorted(_KNOWN_SHOWS, key=len, reverse=True):
-        if show in query:
-            return show
-    return None
+    matches = _extract_show_names(query)
+    return matches[0] if matches else None
+
+
+def _extract_show_names(query: str) -> list[str]:
+    """Return all known show names found in the query."""
+    return _catalog_extract_show_names(query)
 
 
 # ---------------------------------------------------------------------------
@@ -307,6 +325,39 @@ class _RetrievalResult:
     sharepoint_docs: list[dict] = field(default_factory=list)
 
 
+@dataclass
+class _RetrievalPlan:
+    """Intent-level retrieval plan used before querying Azure Search."""
+    route: str
+    query: str
+    show_names: list[str] = field(default_factory=list)
+    genres: list[str] = field(default_factory=list)
+    event_intent: str | None = None
+    broad_scope: bool = False
+    comparison: bool = False
+    conversion: bool = False
+    ranking: bool = False
+    season_filter: str | None = None
+
+    @property
+    def broad_excel(self) -> bool:
+        return _BROAD_RETRIEVAL and self.broad_scope and self.route in ("excel_numeric", "hybrid")
+
+    @property
+    def broad_word(self) -> bool:
+        return _BROAD_RETRIEVAL and self.broad_scope and self.route in ("word_quote", "hybrid")
+
+    @property
+    def target_show_names(self) -> list[str]:
+        if self.show_names:
+            return self.show_names
+        if self.genres:
+            return shows_for_genres(self.genres)
+        if self.broad_scope and re.search(r"כל ה?תוכניות|כל ה?סדרות|כל ה", self.query):
+            return official_show_names()
+        return []
+
+
 # ---------------------------------------------------------------------------
 # Context formatters  (private)
 # ---------------------------------------------------------------------------
@@ -362,11 +413,20 @@ def _fmt_word(docs: list[dict]) -> str:
         chunk    = (d.get("chunk") or "").strip()[:900]
         score    = d.get("score") or 0
         chunk_id = d.get("chunk_id") or ""
+        show_name = d.get("show_name") or ""
+        season = d.get("season") or ""
+        qtype = d.get("question_type") or ""
         pos      = _chunk_pos(chunk_id) if chunk_id else "—"
 
         meta = f"[{i}] [מקור: {source}] | קטע מס': {pos}"
         if header:
             meta += f" | פרק: {header}"
+        if show_name:
+            meta += f" | תוכנית: {show_name}"
+        if season:
+            meta += f" | עונה: {season}"
+        if qtype:
+            meta += f" | סוג שאלה: {qtype}"
         meta += f" | רלוונטיות: {score:.2f}"
 
         parts = [meta]
@@ -484,6 +544,176 @@ def _fetch_sharepoint_enrichment(
 
 
 # ---------------------------------------------------------------------------
+# Retrieval planning and broad evidence packs
+# ---------------------------------------------------------------------------
+
+_BROAD_SCOPE_PATTERNS = re.compile(
+    r"כל ה|כל ה?תוכניות|כל ה?סדרות|כל הדרמות|כל הריאליטי|לעומת|השווה|השוואה"
+    r"|דפוסים|משותפים|רוחבי|מכפיל|יחס המרה|כוונות צפייה.*רייטינג|רייטינג.*כוונות צפייה"
+)
+_LAUNCH_PATTERNS = re.compile(r"השקה|השקת|פתיחה|פרק ראשון|פרק 1")
+_FINALE_PATTERNS = re.compile(r"גמר|סיום|פרק סיום|פינאל")
+_TONIGHT_PATTERNS = re.compile(r"טונייט|טונייטים|שוטף|פרומואים שוטפים")
+_CONVERSION_PATTERNS = re.compile(r"מכפיל|יחס המרה|כוונות צפייה.*רייטינג|רייטינג.*כוונות צפייה")
+
+
+def _detect_event_intent(query: str) -> str | None:
+    if _CONVERSION_PATTERNS.search(query):
+        return "conversion"
+    if _LAUNCH_PATTERNS.search(query):
+        return "launch"
+    if _FINALE_PATTERNS.search(query):
+        return "finale"
+    if _TONIGHT_PATTERNS.search(query):
+        return "tonight"
+    return None
+
+
+def _build_retrieval_plan(route: str, query: str, ranking: bool, season_filter: str | None) -> _RetrievalPlan:
+    show_names = _extract_show_names(query)
+    genres = genres_for_query(query)
+    event_intent = _detect_event_intent(query)
+    comparison = bool(re.search(r"לעומת|השווה|השוואה|ביחס ל|בין", query)) or len(show_names) > 1
+    conversion = bool(_CONVERSION_PATTERNS.search(query))
+    broad_scope = (
+        bool(_BROAD_SCOPE_PATTERNS.search(query))
+        or len(show_names) > 1
+        or bool(genres)
+        or conversion
+    )
+    # A single-show ranking is handled by fetch_show_promos; broad ranking uses
+    # a compact evidence pack so the model sees enough rows without token blowup.
+    if ranking and len(show_names) <= 1 and not genres:
+        broad_scope = False
+    return _RetrievalPlan(
+        route=route,
+        query=query,
+        show_names=show_names,
+        genres=genres,
+        event_intent=event_intent,
+        broad_scope=broad_scope,
+        comparison=comparison,
+        conversion=conversion,
+        ranking=ranking,
+        season_filter=season_filter,
+    )
+
+
+def _as_float(value) -> float | None:
+    try:
+        text = str(value).strip().replace("%", "")
+        if not text or text == "—":
+            return None
+        return float(text)
+    except (TypeError, ValueError):
+        return None
+
+
+def _episode_as_int(value) -> int:
+    try:
+        return int(float(str(value).strip()))
+    except (TypeError, ValueError):
+        return -1
+
+
+def _doc_text(doc: dict) -> str:
+    return " ".join(
+        str(doc.get(k) or "")
+        for k in ("promo_text", "section", "tab_name", "source_file")
+    )
+
+
+def _is_launch_row(doc: dict) -> bool:
+    episode = _episode_as_int(doc.get("episode_number") or doc.get("episode"))
+    return episode == 1 or "השק" in _doc_text(doc)
+
+
+def _is_finale_row(doc: dict) -> bool:
+    text = _doc_text(doc)
+    return "גמר" in text or "סיום" in text or "פינאל" in text
+
+
+def _sort_metric(doc: dict) -> float:
+    return (
+        _as_float(doc.get("opening_point"))
+        or _as_float(doc.get("opening_rating"))
+        or _as_float(doc.get("rating"))
+        or _as_float(doc.get("average_rating"))
+        or 0.0
+    )
+
+
+def _select_excel_rows_for_plan(docs: list[dict], plan: _RetrievalPlan, limit: int = 60) -> list[dict]:
+    if not docs:
+        return []
+
+    if plan.event_intent in ("launch", "conversion"):
+        selected = [d for d in docs if _is_launch_row(d)]
+    elif plan.event_intent == "finale":
+        selected = [d for d in docs if _is_finale_row(d)]
+    elif plan.event_intent == "tonight":
+        selected = [d for d in docs if not _is_launch_row(d)]
+    else:
+        selected = list(docs)
+
+    if not selected:
+        selected = list(docs)
+
+    selected.sort(key=_sort_metric, reverse=True)
+    return selected[:limit]
+
+
+def _fmt_plan_targets(plan: _RetrievalPlan) -> str:
+    parts: list[str] = []
+    if plan.show_names:
+        parts.append("תוכניות: " + ", ".join(plan.show_names))
+    if plan.genres:
+        parts.append("ז'אנרים: " + ", ".join(genre_label(g) for g in plan.genres))
+    if plan.event_intent:
+        parts.append(f"כוונה: {plan.event_intent}")
+    if plan.comparison:
+        parts.append("סוג: השוואה")
+    if plan.conversion:
+        parts.append("סוג: יחס המרה")
+    return " | ".join(parts) if parts else "שליפה כללית"
+
+
+def _fmt_broad_excel_evidence(docs: list[dict], selected: list[dict], plan: _RetrievalPlan) -> str:
+    if not docs:
+        return "לא נמצאו נתוני Excel בשליפה הרחבה."
+    coverage = (
+        "### כיסוי שליפה רחבה\n"
+        f"- {_fmt_plan_targets(plan)}\n"
+        f"- שורות שנשלפו לפני סינון: {len(docs)}\n"
+        f"- שורות שנכנסו לקונטקסט: {len(selected)}\n"
+        "- אם חסרה תוכנית או עונה מבוקשת, חובה לציין שהתשובה חלקית.\n"
+    )
+    return coverage + "\n" + _fmt_excel(selected)
+
+
+def _question_types_for_plan(plan: _RetrievalPlan) -> list[str]:
+    if plan.event_intent == "launch":
+        return ["אסטרטגיה", "תובנות", "מחקר", "כוונות"]
+    if plan.event_intent == "finale":
+        return ["אסטרטגיה", "תובנות", "סלוגן"]
+    if plan.event_intent == "tonight":
+        return ["עשה_ואל_תעשה", "פרקים", "תובנות"]
+    if plan.conversion:
+        return ["מחקר", "כוונות", "רייטינג", "תובנות"]
+    return []
+
+
+def _doc_types_for_plan(plan: _RetrievalPlan) -> list[str]:
+    if plan.event_intent == "launch":
+        return ["השקה", "מחקר", "אסטרטגיה"]
+    if plan.event_intent == "finale":
+        return ["גמר", "אסטרטגיה"]
+    if plan.conversion:
+        return ["מחקר", "השקה"]
+    return []
+
+
+# ---------------------------------------------------------------------------
 # Retriever  (private)
 # ---------------------------------------------------------------------------
 
@@ -508,9 +738,21 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
     else:
         season_filter = None
 
+    plan = _build_retrieval_plan(route, query, ranking_intent, season_filter)
+    if plan.broad_scope:
+        log.info(
+            "  Retrieval plan: broad=%s route=%s shows=%s genres=%s event=%s comparison=%s conversion=%s",
+            plan.broad_scope, route, plan.show_names or "—", plan.genres or "—",
+            plan.event_intent or "—", plan.comparison, plan.conversion,
+        )
+
     # For ranking queries, detect a show name so we can use a filter-based
     # fetch that returns ALL rows for that show (not just top-30 semantic hits).
-    ranking_show: str | None = _extract_show_name(query) if ranking_intent else None
+    ranking_show: str | None = (
+        plan.show_names[0]
+        if ranking_intent and len(plan.show_names) == 1 and not plan.genres
+        else None
+    )
 
     # Use a wider fetch when we need to find extremes or rank across many rows.
     # When ranking_show is set, fetch_show_promos() is used instead (no top limit needed).
@@ -527,6 +769,16 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
 
     def _fetch_excel() -> list[dict]:
         """Select the right Excel retrieval strategy for this query."""
+        if plan.broad_excel:
+            show_targets = plan.target_show_names
+            if show_targets:
+                docs = fetch_many_show_promos(show_targets, top_per_show=500)
+                log.info(
+                    "  broad show-filter fetch: %d show(s) → %d doc(s)",
+                    len(show_targets), len(docs),
+                )
+                return docs
+            log.info("  broad retrieval requested without catalog target → semantic fallback")
         if ranking_show:
             docs = fetch_show_promos(ranking_show, top=500)
             log.info("  show-filter fetch: show=%r → %d doc(s) (all rows)", ranking_show, len(docs))
@@ -538,14 +790,23 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
 
     if route == "excel_numeric":
         docs = _fetch_excel()
+        selected_docs = _select_excel_rows_for_plan(docs, plan) if plan.broad_excel else docs
         log.info("  Excel hits: %d | Word hits: 0 | season_filter=%s | ranking_show=%s",
                  len(docs), season_filter or "none", ranking_show or "none")
         if not docs:
             log.warning("  *** No Excel hits — answer will have no numeric evidence ***")
-        return _RetrievalResult(context=_fmt_excel(docs), excel_docs=docs)
+        context = _fmt_broad_excel_evidence(docs, selected_docs, plan) if plan.broad_excel else _fmt_excel(docs)
+        return _RetrievalResult(context=context, excel_docs=selected_docs)
 
     if route == "word_quote":
-        docs = search_word_docs(query, top=word_top)
+        word_kwargs = {}
+        if plan.broad_word:
+            word_kwargs = {
+                "show_names": plan.target_show_names or None,
+                "doc_types": _doc_types_for_plan(plan) or None,
+                "question_types": _question_types_for_plan(plan) or None,
+            }
+        docs = search_word_docs(query, top=word_top, **word_kwargs)
         if season_filter:
             docs = _rerank_word_docs_by_season(docs, season_filter)
         log.info("  Word hits: %d | Excel hits: 0", len(docs))
@@ -585,7 +846,15 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
 
     if route == "hybrid":
         excel_docs = _fetch_excel()
-        word_docs  = search_word_docs(query, top=word_top)
+        selected_excel_docs = _select_excel_rows_for_plan(excel_docs, plan) if plan.broad_excel else excel_docs
+        word_kwargs = {}
+        if plan.broad_word:
+            word_kwargs = {
+                "show_names": plan.target_show_names or None,
+                "doc_types": _doc_types_for_plan(plan) or None,
+                "question_types": _question_types_for_plan(plan) or None,
+            }
+        word_docs  = search_word_docs(query, top=word_top, **word_kwargs)
         if season_filter:
             word_docs = _rerank_word_docs_by_season(word_docs, season_filter)
         log.info("  Excel hits: %d | Word hits: %d | season_filter=%s | ranking_show=%s",
@@ -617,12 +886,12 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
         )
         ctx = (
             "=== נתוני Excel ===\n\n"
-            f"{_fmt_excel(excel_docs)}\n\n"
+            f"{_fmt_broad_excel_evidence(excel_docs, selected_excel_docs, plan) if plan.broad_excel else _fmt_excel(excel_docs)}\n\n"
             "=== מסמכי Word ===\n\n"
             f"{_fmt_word(word_docs)}"
             f"{sp_section}"
         )
-        return _RetrievalResult(context=ctx, excel_docs=excel_docs, word_docs=word_docs, sharepoint_docs=sp_docs)
+        return _RetrievalResult(context=ctx, excel_docs=selected_excel_docs, word_docs=word_docs, sharepoint_docs=sp_docs)
 
     # unknown — shallow search on both, model instructed to be cautious
     log.info("Route unknown — shallow retrieval from both indexes (top=3 each)")
