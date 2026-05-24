@@ -89,6 +89,10 @@ class QueryResponse(BaseModel):
     sources: list[SourceDoc] = Field(default_factory=list,
                                      description="Retrieved source citations")
     trace_id: str = Field(..., description="UUID for log correlation")
+    lf_trace_id: str | None = Field(
+        None,
+        description="Langfuse trace ID — used to link eval scores back to the source trace",
+    )
     debug_trace: str | None = Field(
         None,
         description="Full retrieval context (only present when debug=true)"

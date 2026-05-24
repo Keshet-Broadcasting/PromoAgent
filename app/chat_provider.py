@@ -63,10 +63,14 @@ except ImportError:
     _GENAI_AVAILABLE = False
 
 try:
-    from langfuse.openai import register_tracing
-    register_tracing()
+    # Import the langfuse-patched OpenAI class so every call becomes a child
+    # span nested inside the @observe trace in service.py.
+    # Do NOT call register_tracing() here — that registers an OTEL exporter
+    # which creates a second top-level trace and causes duplicate logging.
+    from langfuse.openai import OpenAI as _LangfuseOpenAI
+    _LANGFUSE_OPENAI_AVAILABLE = True
 except ImportError:
-    pass  # langfuse optional — tracing silently disabled
+    _LANGFUSE_OPENAI_AVAILABLE = False
 
 
 log = logging.getLogger(__name__)
@@ -117,7 +121,10 @@ class AzureOpenAIProvider(ChatProvider):
         self.api_key    = os.environ["AZURE_OPENAI_CHAT_KEY"]
         self.deployment = os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"]
 
-        from openai import OpenAI
+        if _LANGFUSE_OPENAI_AVAILABLE:
+            from langfuse.openai import OpenAI
+        else:
+            from openai import OpenAI
         self._client = OpenAI(base_url=self.endpoint, api_key=self.api_key)
 
     def complete(self, messages: list[dict]) -> str:
