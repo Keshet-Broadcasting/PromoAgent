@@ -102,6 +102,55 @@ def embed_texts(
 # ---------------------------------------------------------------------------
 
 
+def delete_existing_chunks_for_title(
+    search_client: SearchClient,
+    title: str,
+    dry_run: bool,
+) -> int:
+    """Delete all existing index documents whose 'title' field matches the given value.
+
+    Used before re-ingesting a re-chunked document so that stale chunks (with
+    old chunk_ids) don't linger alongside the new ones.
+
+    Returns the number of documents deleted.
+    """
+    logger.info(f"    Deleting existing chunks for title='{title}' ...")
+
+    safe_title = title.replace("'", "''")
+    total_deleted = 0
+
+    # Paginate: Azure Search returns at most 1000 per request, so loop until empty
+    while True:
+        results = search_client.search(
+            search_text="*",
+            filter=f"title eq '{safe_title}'",
+            select=["chunk_id"],
+            top=1000,
+        )
+        ids_to_delete = [r["chunk_id"] for r in results if r.get("chunk_id")]
+        if not ids_to_delete:
+            break
+
+        logger.info(f"    Deleting batch of {len(ids_to_delete)} chunk(s) ...")
+        if dry_run:
+            logger.info("    DRY RUN — skipping delete.")
+            break
+
+        for start in range(0, len(ids_to_delete), UPLOAD_BATCH_SIZE):
+            batch = [{"chunk_id": cid} for cid in ids_to_delete[start: start + UPLOAD_BATCH_SIZE]]
+            search_client.delete_documents(documents=batch)
+            total_deleted += len(batch)
+
+        if len(ids_to_delete) < 1000:
+            break  # got fewer than the page limit — no more pages
+
+    if total_deleted == 0 and not dry_run:
+        logger.info("    No existing chunks found — nothing to delete.")
+    else:
+        logger.info(f"    Deleted {total_deleted} existing chunk(s) total.")
+    return total_deleted
+
+
 def upload_batch(
     search_client: SearchClient,
     documents: list[dict],
@@ -122,7 +171,12 @@ def upload_batch(
 # ---------------------------------------------------------------------------
 
 
-def main(dry_run: bool = False) -> None:
+def main(dry_run: bool = False, doc_filter: str | None = None) -> None:
+    """Embed JSON chunks and upload to the word-docs Azure AI Search index.
+
+    doc_filter: if set, only the JSON blob whose name matches
+                '<doc_filter stem>.json' (case-insensitive) is processed.
+    """
     required = {
         "AZURE_SEARCH_ENDPOINT": AZURE_SEARCH_ENDPOINT,
         "AZURE_SEARCH_KEY": AZURE_SEARCH_KEY,
@@ -156,8 +210,16 @@ def main(dry_run: bool = False) -> None:
         timeout=60.0,
     )
 
-    # List JSON blobs
+    # List JSON blobs, optionally filtered to a single document
     json_blobs = [b for b in json_container.list_blobs() if b.name.lower().endswith(".json")]
+    if doc_filter:
+        # Accept either the .docx name or the .json name as the filter value
+        stem = doc_filter.lower().removesuffix(".docx").removesuffix(".json")
+        json_blobs = [b for b in json_blobs if b.name.lower().removesuffix(".json") == stem]
+        if not json_blobs:
+            logger.error(f"--doc filter '{doc_filter}' matched no JSON blobs.")
+            return
+        logger.info(f"--doc filter active: ingesting only '{doc_filter}'")
     logger.info(f"Found {len(json_blobs)} JSON file(s) in '{JSON_CONTAINER}'.\n")
 
     grand_total_chunks = 0
@@ -175,6 +237,13 @@ def main(dry_run: bool = False) -> None:
             raw = json_container.get_blob_client(blob_name).download_blob().readall()
             chunks: list[dict] = json.loads(raw.decode("utf-8"))
 
+            # When targeting a single document, delete stale chunks first so that
+            # old chunk_ids (from previous fixed-size chunking) don't linger.
+            if doc_filter and chunks:
+                title_for_delete = chunks[0].get("title", "")
+                if title_for_delete:
+                    delete_existing_chunks_for_title(search_client, title_for_delete, dry_run)
+
             if not chunks:
                 logger.info("    Empty — skipping.")
                 continue
@@ -185,18 +254,28 @@ def main(dry_run: bool = False) -> None:
                 logger.info("    All chunks empty after filtering — skipping.")
                 continue
 
-            logger.info(f"    {len(chunks)} chunk(s) — embedding ...")
+            has_meta = sum(1 for c in chunks if c.get("show_name"))
+            logger.info(
+                f"    {len(chunks)} chunk(s) — {has_meta} with show_name — embedding ..."
+            )
 
             # Embed all chunks in batches
             texts = [c["chunk"] for c in chunks]
             vectors = embed_texts(openai_http, texts)
+
+            # Internal-only semantic chunking flag. The remaining metadata
+            # fields are part of the Phase 6b word-docs schema and should be
+            # uploaded for deterministic filtering.
+            _INTERNAL_ONLY_FIELDS = frozenset({"_atomic"})
 
             # Attach vectors; skip chunks where embedding failed (empty text)
             docs_to_upload: list[dict] = []
             for chunk, vector in zip(chunks, vectors):
                 if vector is None:
                     continue
-                doc = dict(chunk)           # copy fields from JSON
+                doc = {k: v for k, v in chunk.items() if k not in _INTERNAL_ONLY_FIELDS}
+                if doc.get("season") is not None:
+                    doc["season"] = str(doc["season"])
                 doc["chunk_vector"] = vector
                 docs_to_upload.append(doc)
 
@@ -248,5 +327,14 @@ if __name__ == "__main__":
         action="store_true",
         help="Parse and embed but skip the actual upload to Search",
     )
+    parser.add_argument(
+        "--doc",
+        metavar="FILENAME",
+        default=None,
+        help=(
+            "Ingest only the named document (filename without extension, or with .docx/.json). "
+            "Example: --doc \"מסמך ריאליטי GPT.docx\""
+        ),
+    )
     args = parser.parse_args()
-    main(dry_run=args.dry_run)
+    main(dry_run=args.dry_run, doc_filter=args.doc)

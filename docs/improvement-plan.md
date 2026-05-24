@@ -1,8 +1,8 @@
-# PromoAgent — Improvement Plan
+﻿# PromoAgent — Improvement Plan
 ## Goal: Replace the Custom GPT on OpenAI Subscription
 
-**Written:** May 10, 2026 | **Last updated:** May 19, 2026  
-**Current judge score:** 43.4% (≈ 2.7 / 5) — Foundry gpt-4o after May 19 changes  
+**Written:** May 10, 2026 | **Last updated:** May 20, 2026  
+**Current judge score:** 42.0% (≈ 2.6 / 5) — Foundry gpt-4o after May 20 changes (Phase 6 impact not yet measured)  
 **Target judge score:** ≥ 70% (≈ 3.5 / 5 — "correct, complete, well-phrased")
 
 ---
@@ -322,19 +322,28 @@ With 26 cases and 8 categories, the ranking/strategy/comparison categories have 
 
 ---
 
-### Phase 6 — Word Document Semantic Chunking (1 week) ⭐
+### Phase 6 — Word Document Semantic Chunking ✅ DONE (May 20, 2026)
 
-**Expected judge gain: +5–10% on quote and factual**
+**Implemented.** All 4 GPT-template Word documents re-chunked and re-ingested.
 
-Current indexing in `scripts/ingest_word_chunks.py` uses fixed-size token chunking. A multi-paragraph insight section like "תובנות מהקמפיין" can be split across 2 chunks, so the LLM only sees the setup without the conclusion, or vice versa.
+**What was built:**
+- `scripts/preprocess_word_docs.py`: Added `detect_gpt_template()`, `split_semantic()` (two-level hierarchical split — primary show/season blocks, secondary Q&A sections). Chunk guardrails: min 3 sentences, max 800 tokens, 1-sentence overlap.
+- `scripts/preprocess_word_docs.py --doc <name>`: Single-doc preprocess flag. `--preview-doc` for dry-run console output without Azure writes.
+- `scripts/ingest_word_chunks.py --doc <name>`: Single-doc ingest with paginated delete-first (clears stale chunks before uploading new ones).
+- `scripts/diagnose_word_docs.py --source json`: Inspect JSON blobs to validate chunk quality before ingest.
+- Metadata extracted per chunk: `header` (question heading), `show_name`, `season`, `doc_type`, `question_type`.
 
-**Solution:** Update `scripts/ingest_word_chunks.py` to split on Hebrew semantic boundaries:
-- **Primary split points:** Bold headings, section dividers, Hebrew keywords: `תובנות`, `אסטרטגיה`, `גמר`, `השקה`, `מסקנה`, `המלצות`
-- **Minimum chunk size:** 3 sentences
-- **Maximum chunk size:** 600 tokens  
-- **Overlap:** 1 sentence between adjacent chunks
+**Index state after ingest:**
 
-This requires re-ingesting all Word documents into the `word-docs` index. No schema change needed — only the chunk content changes.
+| Document | Chunks | Sections (header) | show_name |
+|---|---|---|---|
+| מסמך ריאליטי GPT.docx | 423 | 407 (96%) | 97% |
+| מסמך דרמות GPT.docx | 174 | 145 (83%) | 98% |
+| GPT מסמך בידור.docx | 45 | 16 (36%) | 100% |
+| GPT מסמך תוכניות נוספות.docx | 25 | 9 (36%) | 100% |
+| **Total** | **667** | **577 (86%)** | **~98%** |
+
+**Follow-up (Phase 6b):** `show_name`, `season`, `doc_type`, `question_type` are in JSON blobs but not yet in the Azure Search index schema. Add fields + re-ingest to enable filter-based retrieval by show/season on Word docs.
 
 ---
 
@@ -376,6 +385,8 @@ Key gaps in `promobot-ui` compared to the custom GPT experience:
 |---|---|---|
 | **Baseline** (May 10) | — | **37.5%** |
 | Phase 1–3 + May 19 changes | `<thinking>` block + Markdown table + prompt tuning | **43.4%** ✅ actual |
+| Phase 6 (word semantic chunking) | Semantic chunks ingested May 20 | **~50-55%** (projected — next eval pending) |
+| May 24, 2026 eval | First run after Phase 6 ingestion | **52.3% / J:44.4%** (new high) |
 | Phase 6 (word semantic chunking) | Fix quote/factual chunk splitting | **~50–55%** |
 | Phase 8 (UI parity) | Streaming, threads, mobile | **~50–55%** (UX, not score) |
 | Full quality stack | Re-chunking + alias reinforcement + cross-show retrieval | **~60–70%** |
