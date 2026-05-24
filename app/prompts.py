@@ -102,6 +102,30 @@ _ROUTE_ADDENDUM: dict[str, str] = {
 
 }
 
+# SharePoint-specific instruction appended to the route addendum whenever the
+# context contains a SharePoint section.  Keeps the LLM grounded on those docs.
+_SHAREPOINT_ADDENDUM = """
+
+## שימוש במסמכי SharePoint (DocLib4)
+
+הקטע "=== מסמכי SharePoint (DocLib4) ===" מכיל תוצאות ממאגר המסמכים של ספריית הפרומו ב-SharePoint.
+השתמש בתוצאות אלה **רק כמקור משלים** — כאשר אין נתוני Excel או מסמכי Word זמינים.
+ציין בתשובה שהמידע נלקח מ-SharePoint / DocLib4.
+אל תמציא תוכן שאינו מופיע בקטעים שנשלפו.
+""".strip()
+
+_BROAD_RETRIEVAL_ADDENDUM = """
+
+## שימוש בשליפה רחבה
+
+כאשר מופיע בקונטקסט "כיסוי שליפה רחבה", התשובה חייבת:
+1. לפתוח במסקנה או במספר המרכזי, ואז להציג את הטבלה/ההשוואה.
+2. לציין אילו תוכניות/ז'אנרים כוסו וכמה שורות נכנסו לקונטקסט.
+3. אם יש פחות כיסוי ממה שהמשתמש ביקש, לכתוב במפורש: "הממצא חלקי".
+4. בשאלות השוואה/דפוסים, להציג לפחות 3 דוגמאות תומכות אם הן קיימות בקונטקסט.
+5. לסיים בשורת מקור קצרה: "מקור: ..." עם קובץ/מסמך/סוג השליפה.
+""".strip()
+
 
 # ---------------------------------------------------------------------------
 # Context block formatter
@@ -144,6 +168,11 @@ def build_messages(
     ]
     """
     addendum = _ROUTE_ADDENDUM.get(route, _ROUTE_ADDENDUM["unknown"])
+    # If the context contains a SharePoint section, append the SharePoint instruction
+    if "=== מסמכי SharePoint" in context:
+        addendum = f"{addendum}\n\n{_SHAREPOINT_ADDENDUM}"
+    if "כיסוי שליפה רחבה" in context:
+        addendum = f"{addendum}\n\n{_BROAD_RETRIEVAL_ADDENDUM}"
     system_content = f"{SYSTEM_PROMPT}\n\n{addendum}"
 
     messages: list[dict] = [{"role": "system", "content": system_content}]
