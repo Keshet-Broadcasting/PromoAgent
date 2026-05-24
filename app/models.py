@@ -24,10 +24,17 @@ MAX_QUESTION_LENGTH: int = int(os.getenv("MAX_QUESTION_LENGTH", "500"))
 # ---------------------------------------------------------------------------
 
 
+# History messages can include long assistant answers (citations, tables, etc.).
+# The 2000-char limit was too low and caused 422 errors for multi-turn sessions.
+# User questions are still capped separately by MAX_QUESTION_LENGTH (default 500).
+MAX_HISTORY_MESSAGE_LENGTH: int = int(os.getenv("MAX_HISTORY_MESSAGE_LENGTH", "8000"))
+
+
 class HistoryMessage(BaseModel):
     """A single turn in the conversation history sent by the client."""
     role: Literal["user", "assistant"] = Field(..., description="Who sent this message")
-    content: str = Field(..., min_length=1, max_length=2000, description="Message text")
+    content: str = Field(..., min_length=1, max_length=MAX_HISTORY_MESSAGE_LENGTH,
+                         description="Message text")
 
 
 MAX_HISTORY_TURNS: int = int(os.getenv("MAX_HISTORY_TURNS", "10"))
