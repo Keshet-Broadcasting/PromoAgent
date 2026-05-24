@@ -230,6 +230,6 @@ def query(request: Request, req: QueryRequest, auth_payload: dict = Depends(requ
     user_oid = auth_payload.get("oid") or auth_payload.get("sub") or ""
     log.info("POST /query  question=%r  debug=%s  history_turns=%d  user=%s",
              req.question[:80], effective_debug, len(req.history), user_oid[:8] if user_oid else "anon")
-    response = run_query(req.question, debug=effective_debug, history=history_dicts)
+    response = run_query(req.question, debug=effective_debug, history=history_dicts, session_id=user_oid or None)
     extract_and_store(user_oid, history_dicts)
     return response

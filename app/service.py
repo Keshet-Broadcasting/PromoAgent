@@ -741,12 +741,21 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
     plan = _build_retrieval_plan(route, query, ranking_intent, season_filter)
 
     # Route upgrade: cross-show / multi-show / genre-broad questions can fall to
-    # the 'unknown' router branch (e.g. "דפוסים משותפים בכל התוכניות") even though
-    # the retrieval planner correctly detects broad_scope. Without this upgrade
-    # they take the shallow top=3 unknown branch and bypass the Phase 6b broad
-    # word/excel retrieval paths entirely.
-    if route == "unknown" and plan.broad_scope:
-        log.info("  Route upgrade: unknown → hybrid (broad_scope detected)")
+    # the 'unknown' router branch (e.g. "דפוסים משותפים בכל התוכניות") or be
+    # rigidly silo'd to 'excel_numeric' by a numeric trigger word (e.g.
+    # "ממוצע השלמות בסדרה X") even though the retrieval planner correctly
+    # detects broad_scope. Without this upgrade they bypass the Phase 6b
+    # broad-Word retrieval entirely and end up with Excel-only context for
+    # questions whose answer lives in Word docs.
+    if plan.broad_scope and (
+        route == "unknown"
+        or (route == "excel_numeric" and plan.genres)
+    ):
+        log.info(
+            "  Route upgrade: %s → hybrid (broad_scope + %s)",
+            route,
+            "genre-aware" if plan.genres else "multi-source",
+        )
         route = "hybrid"
         plan.route = "hybrid"
 
@@ -775,8 +784,9 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
         excel_top = 5
     # Strategic synthesis benefits from more chunks for cross-show context.
     # Other routes use fewer chunks to stay within latency/token budgets.
+    # Target: keep typical input tokens under 6,000 (p90 was 9–13k before this).
     strategic_intent = bool(re.search(r"מה הייתי|מה היית|תמליץ|הצע|מה כדאי|כיצד הייתי|תחשוב מה", query))
-    word_top = 15 if strategic_intent else 10
+    word_top = 12 if strategic_intent else 6
 
     def _fetch_excel() -> list[dict]:
         """Select the right Excel retrieval strategy for this query."""
@@ -919,6 +929,20 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
 
 
 # ---------------------------------------------------------------------------
+# Hebrew language guard
+# ---------------------------------------------------------------------------
+
+_HEBREW_CHAR_RE = re.compile(r'[\u05d0-\u05fa]')
+
+_HEBREW_REJECTION = "אנא שאל בעברית."
+
+
+def _is_hebrew_query(text: str) -> bool:
+    """Return True when the query contains at least one Hebrew character."""
+    return bool(_HEBREW_CHAR_RE.search(text.strip()))
+
+
+# ---------------------------------------------------------------------------
 # Source metadata  (private)
 # ---------------------------------------------------------------------------
 
@@ -971,23 +995,52 @@ def run_query(
     question: str,
     debug: bool = False,
     history: list[dict] | None = None,
+    session_id: str | None = None,
 ) -> QueryResponse:
     """Full pipeline: classify → retrieve → prompt → LLM → structured response.
 
     Parameters
     ----------
-    question : user question (any language, typically Hebrew)
-    debug    : when True, the full retrieval context is included in the response
-    history  : previous conversation turns [{"role": ..., "content": ...}]
+    question   : user question (any language, typically Hebrew)
+    debug      : when True, the full retrieval context is included in the response
+    history    : previous conversation turns [{"role": ..., "content": ...}]
+    session_id : client-provided session identifier for Langfuse session grouping
 
     Returns
     -------
-    QueryResponse with answer, route, confidence, sources, trace_id
+    QueryResponse with answer, route, confidence, sources, trace_id, lf_trace_id
     """
     trace_id = str(uuid.uuid4())
     log.info("[%s] question=%r  debug=%s", trace_id, question[:80], debug)
 
-    # Step 0 — expand team nicknames to official show names for better search recall
+    # Attach session context to the Langfuse trace so multi-turn conversations group together.
+    if _LF_AVAILABLE:
+        langfuse_context.update_current_trace(
+            session_id=session_id,
+            user_id=session_id,
+            input=question,
+        )
+
+    # Step 0a — Hebrew language guard (before any retrieval to avoid wasting tokens)
+    if not _is_hebrew_query(question):
+        log.info("[%s] Non-Hebrew query rejected (no Hebrew chars detected)", trace_id)
+        lf_trace_id: str | None = None
+        if _LF_AVAILABLE:
+            lf_trace_id = langfuse_context.get_current_trace_id()
+            langfuse_context.update_current_trace(
+                output=_HEBREW_REJECTION,
+                metadata={"route": "rejected_non_hebrew"},
+            )
+        return QueryResponse(
+            answer=_HEBREW_REJECTION,
+            route="rejected_non_hebrew",
+            confidence="low",
+            sources=[],
+            trace_id=trace_id,
+            lf_trace_id=lf_trace_id,
+        )
+
+    # Step 0b — expand team nicknames to official show names for better search recall
     expanded = _expand_aliases(question)
     if expanded != question:
         log.info("[%s] Alias expansion: %r → %r", trace_id, question[:60], expanded[:60])
@@ -1037,6 +1090,18 @@ def run_query(
     log.info("[%s] Context length: %d chars", trace_id, len(retrieval.context))
     log.debug("[%s] === FULL CONTEXT ===\n%s\n=== END ===", trace_id, retrieval.context)
 
+    # Attach retrieval stats to the Langfuse trace for latency + coverage analysis.
+    if _LF_AVAILABLE:
+        langfuse_context.update_current_trace(
+            metadata={
+                "route": route,
+                "retrieval_excel_docs": len(retrieval.excel_docs),
+                "retrieval_word_docs": len(retrieval.word_docs),
+                "retrieval_sp_docs": len(retrieval.sharepoint_docs),
+                "context_chars": len(retrieval.context),
+            }
+        )
+
     # Step 3 — build messages (with conversation history if provided)
     messages = build_messages(route, retrieval.context, question, history=history)
     log.debug("[%s] === USER MESSAGE ===\n%s\n=== END ===",
@@ -1074,11 +1139,19 @@ def run_query(
     sources    = _build_sources(retrieval)
     confidence = _confidence(sources)
 
+    lf_trace_id: str | None = None
     if _LF_AVAILABLE:
+        lf_trace_id = langfuse_context.get_current_trace_id()
         confidence_score = {"high": 1.0, "medium": 0.5, "low": 0.0}.get(confidence, 0.0)
         langfuse_context.update_current_trace(
             output=answer,
-            metadata={"route": route, "confidence": confidence},
+            metadata={
+                "route": route,
+                "confidence": confidence,
+                "retrieval_excel_docs": len(retrieval.excel_docs),
+                "retrieval_word_docs": len(retrieval.word_docs),
+                "context_chars": len(retrieval.context),
+            },
         )
         langfuse_context.score_current_trace(
             name="retrieval-confidence",
@@ -1092,6 +1165,7 @@ def run_query(
         confidence=confidence,
         sources=sources,
         trace_id=trace_id,
+        lf_trace_id=lf_trace_id,
         debug_trace=retrieval.context if debug else None,
     )
 

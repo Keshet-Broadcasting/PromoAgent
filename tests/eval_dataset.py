@@ -334,6 +334,18 @@ def load_dataset(path: Path) -> list[GoldCase]:
     return cases
 
 
+def _lf_score(lf_trace_id: str | None, name: str, value: float, comment: str = "") -> None:
+    """Write a Langfuse score back to the source trace, if the SDK is available."""
+    if not lf_trace_id:
+        return
+    try:
+        from langfuse import Langfuse
+        _lf = Langfuse()
+        _lf.score(trace_id=lf_trace_id, name=name, value=value, comment=comment or None)
+    except Exception as exc:
+        log.debug("  Langfuse score() skipped: %s", exc)
+
+
 def run_eval(
     cases: list[GoldCase],
     use_judge: bool = False,
@@ -355,9 +367,11 @@ def run_eval(
             log.info("  Q(clean): %s", eval_query[:90])
 
         t0 = time.time()
+        lf_trace_id: str | None = None
         try:
             resp = run_query(eval_query)
             answer = resp.answer
+            lf_trace_id = getattr(resp, "lf_trace_id", None)
         except Exception as exc:
             elapsed = time.time() - t0
             log.error("  ERROR: %s (%.1fs)", exc, elapsed)
@@ -389,6 +403,17 @@ def run_eval(
 
         r.overall = compute_overall(r, use_judge)
         results.append(r)
+
+        # Write eval scores back to the Langfuse trace so the Scores column is populated.
+        if lf_trace_id:
+            _lf_score(lf_trace_id, "eval-overall",  r.overall,
+                      f"id={gold.id} cat={gold.category}")
+            if r.keyword_score is not None:
+                _lf_score(lf_trace_id, "eval-keyword",  r.keyword_score)
+            if r.grounded_score is not None:
+                _lf_score(lf_trace_id, "eval-grounded", r.grounded_score)
+            if r.judge_score is not None:
+                _lf_score(lf_trace_id, "eval-judge",    r.judge_score)
 
         log.info("  NUM=%.2f  KW=%.2f  GND=%.0f  REF=%s  JDG=%s  => %.2f  (%.1fs)",
                  r.numeric_score if r.numeric_score is not None else -1,

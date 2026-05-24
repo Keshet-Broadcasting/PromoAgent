@@ -61,6 +61,7 @@ class TestProviderSingleton:
         "AZURE_OPENAI_CHAT_DEPLOYMENT": "gpt-4o",
         "CHAT_PROVIDER": "azure_openai",
     })
+    @patch("app.chat_provider._LANGFUSE_OPENAI_AVAILABLE", False)
     @patch("openai.OpenAI")
     def test_provider_creates_client_in_init(self, mock_openai_cls):
         from app.chat_provider import AzureOpenAIProvider
@@ -84,6 +85,7 @@ class TestNoneContentSafety:
         "AZURE_OPENAI_CHAT_KEY": "fake-key",
         "AZURE_OPENAI_CHAT_DEPLOYMENT": "gpt-4o",
     })
+    @patch("app.chat_provider._LANGFUSE_OPENAI_AVAILABLE", False)
     @patch("openai.OpenAI")
     def test_none_content_returns_fallback(self, mock_openai_cls):
         from app.chat_provider import AzureOpenAIProvider
@@ -104,6 +106,7 @@ class TestNoneContentSafety:
         "AZURE_OPENAI_CHAT_KEY": "fake-key",
         "AZURE_OPENAI_CHAT_DEPLOYMENT": "gpt-4o",
     })
+    @patch("app.chat_provider._LANGFUSE_OPENAI_AVAILABLE", False)
     @patch("openai.OpenAI")
     def test_normal_content_returned(self, mock_openai_cls):
         from app.chat_provider import AzureOpenAIProvider
@@ -132,7 +135,11 @@ class TestLLMTimeout:
     def test_timeout_passed_to_openai(self, mock_openai_cls):
         import importlib
         import app.chat_provider as cp
+        # Force the langfuse-patched path to be unavailable before reload so
+        # the test's openai.OpenAI mock is used instead of langfuse.openai.OpenAI.
+        cp._LANGFUSE_OPENAI_AVAILABLE = False
         importlib.reload(cp)
+        cp._LANGFUSE_OPENAI_AVAILABLE = False
 
         mock_choice = MagicMock()
         mock_choice.message.content = "answer"
@@ -235,7 +242,8 @@ class TestDebugGating:
         resp = client.post("/query", json={"question": "מה הרייטינג?", "debug": True})
 
         assert resp.status_code == 200
-        mock_run_query.assert_called_once_with("מה הרייטינג?", debug=False, history=None)
+        # When AUTH_ENABLED=false, require_auth returns {"sub": "dev-user"} → session_id="dev-user"
+        mock_run_query.assert_called_once_with("מה הרייטינג?", debug=False, history=None, session_id="dev-user")
 
     @patch("app.fact_extractor.extract_and_store")
     @patch("app.service.run_query")
@@ -250,7 +258,7 @@ class TestDebugGating:
         resp = client.post("/query", json={"question": "מה הרייטינג?", "debug": True})
 
         assert resp.status_code == 200
-        mock_run_query.assert_called_once_with("מה הרייטינג?", debug=True, history=None)
+        mock_run_query.assert_called_once_with("מה הרייטינג?", debug=True, history=None, session_id="dev-user")
 
 
 class TestInputValidation:
