@@ -72,6 +72,7 @@ stages:
     # Secrets come from the kst-ai-shared + kst-ai-stage variable groups
     # -----------------------------------------------------------------------
     stagingEnvVars:
+      LANGFUSE_BASE_URL: 'https://cloud.langfuse.com'
       AZURE_SEARCH_ENDPOINT: 'https://ai-search-keshet.search.windows.net'
       AZURE_SEARCH_INDEX_NAME: 'tv-promos'
       AZURE_OPENAI_ENDPOINT: 'https://azureopenaipilot.openai.azure.com/'
@@ -93,6 +94,8 @@ stages:
 
     # Staging: secret vars (references to variable group variables)
     stagingSecretVars:
+      LANGFUSE_SECRET_KEY: '$(LANGFUSE-SECRET-KEY)'
+      LANGFUSE_PUBLIC_KEY: '$(LANGFUSE-PUBLIC-KEY)'
       AZURE_SEARCH_KEY: '$(AZURE-SEARCH-KEY)'
       AZURE_OPENAI_KEY: '$(AZURE-OPENAI-KEY)'
       AZURE_OPENAI_CHAT_KEY: '$(AZURE-OPENAI-CHAT-KEY)'
@@ -103,6 +106,7 @@ stages:
     # Production: non-secret env vars (same as staging unless overridden)
     # -----------------------------------------------------------------------
     prodEnvVars:
+      LANGFUSE_BASE_URL: 'https://cloud.langfuse.com'
       AZURE_SEARCH_ENDPOINT: 'https://ai-search-keshet.search.windows.net'
       AZURE_SEARCH_INDEX_NAME: 'tv-promos'
       AZURE_OPENAI_ENDPOINT: 'https://azureopenaipilot.openai.azure.com/'
@@ -124,6 +128,8 @@ stages:
 
     # Production: secret vars
     prodSecretVars:
+      LANGFUSE_SECRET_KEY: '$(LANGFUSE-SECRET-KEY)'
+      LANGFUSE_PUBLIC_KEY: '$(LANGFUSE-PUBLIC-KEY)'
       AZURE_SEARCH_KEY: '$(AZURE-SEARCH-KEY)'
       AZURE_OPENAI_KEY: '$(AZURE-OPENAI-KEY)'
       AZURE_OPENAI_CHAT_KEY: '$(AZURE-OPENAI-CHAT-KEY)'
