@@ -91,8 +91,25 @@ GENRE_PATTERNS: dict[str, tuple[str, ...]] = {
     "factual": ("דוקו", "פאקטואליה", "תיעודי"),
 }
 
+# Content-type adjective phrases that use "דרמה" to describe content or emotion
+# (NOT a genre label). These must be stripped BEFORE genre detection to avoid
+# false-positives on queries like "טונייט שמציג דרמה אישית" routing to drama genre.
+_DRAMA_CONTENT_TYPE_RE = re.compile(
+    r"דרמה\s+(?:אישית|רגשית|פנימית|זוגית|משפחתית|אנושית|של\b)"
+)
+
 
 _OFFICIAL_BY_NAME = {show.official: show for show in SHOWS}
+
+# כוכב + season number: seasons ≥10 use "הכוכב הבא לאירוויזיון"; seasons <10 use "הכוכב הבא"
+# Handles: "כוכב עונה 11", "כוכב בעונה 11", "כוכב 11"
+_KOCHAV_SEASON_RE = re.compile(r"\bכוכב\s+(?:ב?עונה\s+)?(\d+)\b")
+
+
+def _expand_kochav_season(m: re.Match) -> str:
+    season = int(m.group(1))
+    show = "הכוכב הבא לאירוויזיון" if season >= 10 else "הכוכב הבא"
+    return f"{show} עונה {m.group(1)}"
 
 
 def official_show_names(indexed_only: bool = True) -> list[str]:
@@ -118,6 +135,8 @@ def aliases() -> list[tuple[str, str]]:
 
 def expand_aliases(query: str) -> str:
     expanded = query
+    # Context-aware כוכב: "כוכב עונה N" → correct show name based on season number
+    expanded = _KOCHAV_SEASON_RE.sub(_expand_kochav_season, expanded)
     for alias, official in aliases():
         # Skip if the official name is already in the query — avoids doubling
         # like "נינג'ה ישראל" → "נינג'ה ישראל ישראל" when the alias "נינג'ה"
@@ -139,9 +158,12 @@ def extract_show_names(query: str) -> list[str]:
 
 
 def genres_for_query(query: str) -> list[str]:
+    # Strip content-type drama phrases (e.g. "דרמה אישית") before checking genre
+    # patterns — they describe content/emotion, not the drama show genre.
+    clean = _DRAMA_CONTENT_TYPE_RE.sub("", query)
     matches: list[str] = []
     for genre, patterns in GENRE_PATTERNS.items():
-        if any(pattern in query for pattern in patterns):
+        if any(pattern in clean for pattern in patterns):
             matches.append(genre)
     return matches
 

@@ -579,7 +579,10 @@ def _build_retrieval_plan(route: str, query: str, ranking: bool, season_filter: 
     broad_scope = (
         bool(_BROAD_SCOPE_PATTERNS.search(query))
         or len(show_names) > 1
-        or bool(genres)
+        # genres broaden only when no single show constrains the query; a single-show
+        # query like "ציטוט מ-אור ראשון על הדרמה" should stay narrow even if
+        # "דרמה"/"סדרה" is detected. Cross-genre/no-show queries legitimately broaden.
+        or (bool(genres) and len(show_names) == 0)
         or conversion
     )
     # A single-show ranking is handled by fetch_show_promos; broad ranking uses
