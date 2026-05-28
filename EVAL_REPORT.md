@@ -1,6 +1,6 @@
 # PromoAgent — Evaluation Report
 
-**Last updated:** May 28, 2026 (Phase A + Phase C + Phase D + router brief fix + dataset case 9 fix)  
+**Last updated:** May 28, 2026 (Phase A + Phase C + Phase D + router fix + dataset cases 8, 9, 48 fixed + language check fix)  
 **Dataset:** `dataset.jsonl` — 62 cases  
 **Eval harness:** `tests/eval_dataset.py` (LLM-as-judge via GPT-4o)  
 **Observability:** Langfuse v4 — scores pushed per run to [cloud.langfuse.com](https://cloud.langfuse.com)  
@@ -128,7 +128,13 @@ Identical code + seed=42 across two runs → 22% of cases changed judge bucket. 
 | "נורא" (terrible) and "הראש" (show name) untouched | False-positive guard verified — 9/9 unit tests pass |
 | Router: "בריף" + 10 campaign/brief phrases added to `WORD_QUOTE_PATTERNS` | Brief queries now route to `word_quote` → show_name filter surfaces הראש strategy chunks (17 confirmed in index); 7/7 router tests pass |
 
-**Dataset fix — case 9 (commit `529bd71`):** Gold answer for "כוונות צפייה פאלו אלטו + גוף שלישי" was wrong — stated "no numerical data for פאלו אלטו" but document has 29%/65%/70%/67% across 3 measurement types. Verified directly from מסמך דרמות GPT.docx via Claude. Gold answer updated with full correct data; confidence raised to high. This was penalizing the model (score 2) for giving correct answers.
+**Dataset fix — case 9 (commit `529bd71`):** Gold answer for "כוונות צפייה פאלו אלטו + גוף שלישי" was wrong — stated "no numerical data for פאלו אלטו" but document has 29%/65%/70%/67% across 3 measurement types. Verified via Claude. This was penalizing the model (score 2) for correct answers.
+
+**Dataset fix — case 8 (commit `5d2130b`):** Gold answer for חולי אהבה had wrong numbers (35%/78%/83% — don't exist for this show). Real headline: **68%** promo test (story-reveal version), 28% general mid-campaign, 75% women. Verified via Claude + GPT reference answer.
+
+**Dataset fix — case 48 (commit `5d2130b`):** Gold answer said "אור ראשון 20% is highest drama launch" — wrong. **ביום שהאדמה רעדה (2019) launched at 24%**, explicitly called "most-watched drama on Channel 12 to that point" in the document. Bot was correct; gold was incomplete. Verified via Claude + מעקבי פרומו.xlsx.
+
+**System prompt fix — case 21 (commit `5d2130b`):** Bot was answering "אנא שאל בעברית" for Hebrew query containing "Live+7/VOD" English tokens. Language check rule strengthened: now triggers ONLY when zero Hebrew Unicode characters (U+05D0–U+05EA) present. This was scoring 0% (judge=1) for a correctly answerable case.
 
 **Confirmed via live test:** הראש has 17 rich strategy chunks in `מסמך דרמות GPT.docx` including *"תובנות מהקמפיין (5 נקודות)"*, *"מה השיקול שעמד מאחורי כל פרומו"*, *"התלבטויות מיוחדות"* — all now reachable.
 
@@ -136,7 +142,7 @@ Identical code + seed=42 across two runs → 22% of cases changed judge bucket. 
 
 | Priority | Item | Expected lift | Phase |
 |----------|------|---------------|-------|
-| 1 | **Run eval (Run 9)** — measure combined A+C+D+router+dataset-fix impact vs Run 8 (49.0% judge) | Baseline measurement | — |
+| 1 | **Run eval (Run 10)** — measure combined impact after cases 8+9+48 gold fixes + language check fix | Expected +3-5pp from 44.8% baseline | — |
 | 2 | **Strategy precision** — bot paraphrases instead of reproducing exact slogans/formulas | +2-3pp strategy | C |
 | 3 | **Dataset expansion to N≥10** for `comparison`, `cross_show` | Measurement reliability | E |
 | 4 | **Phase B spans** — per-pipeline-step Langfuse spans (route → retrieval → LLM) | No judge lift; better debugging | B |

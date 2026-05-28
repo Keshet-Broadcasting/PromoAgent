@@ -57,6 +57,9 @@ PromoAgent is a RAG-based chatbot for Keshet TV's promo department, replacing a 
 | D.1 | Azure content filter: sanitize violence phrases in `promo_text`, Word chunks, SharePoint text | **DONE (May 28)** | `_sanitize_for_content_filter()` in `service.py`; 9/9 unit tests pass; replaces אקדח/ירי/נהרג/גופה etc. with neutral brackets before prompt assembly; הראש queries no longer hit Error 400 |
 | D.2 | Router: add "בריף" and campaign/brief patterns to `WORD_QUOTE_PATTERNS` | **DONE (May 28)** | Brief queries now route to `word_quote` → show_name filter retrieves הראש strategy chunks (17 chunks confirmed in index); 7/7 router tests pass |
 | D.3 | Dataset: fix case 9 gold answer (פאלו אלטו + גוף שלישי viewing intentions) | **DONE (May 28)** | Gold stated "no data for פאלו אלטו" — wrong; document has 29%/65%/70%/67% across 3 measurement types. Model was scoring 2 for correct answers. |
+| D.4 | Dataset: fix case 8 gold answer (חולי אהבה viewing intentions) | **DONE (May 28)** | Gold had 35%/78%/83% — numbers that don't exist for this show. Correct headline: 68% promo test. |
+| D.5 | Dataset: fix case 48 gold answer (highest drama launch) | **DONE (May 28)** | Gold said "אור ראשון 20%". ביום שהאדמה רעדה launched at 24% — highest ever on Ch12. Bot was right. |
+| D.6 | System prompt: fix false Hebrew language refusal (case 21) | **DONE (May 28)** | Bot answered "אנא שאל בעברית" for Hebrew+Live+7/VOD query. Rule now checks for zero Hebrew Unicode chars only. |
 | 6g | Investigate 6 catalog shows with 0 index chunks (`רוקדים`, `הבוגדים`, …) | TODO (MED) | May need alias additions or doc-coverage check |
 | 7 | Consolidate Hebrew vocabulary into `app/text_patterns.py` | TODO (1-2 hr) | Single source of truth for `_GROUNDING_MARKERS`, `_DOCTYPE_KEYS`, `GENRE_PATTERNS`, `_RANKING_PATTERNS`, `_LAUNCH_PATTERNS`, etc. Currently scattered across 5 files. Refactor only — no behavior change. |
 | 8 | UI parity (streaming, threads, mobile) | TODO | UX |
