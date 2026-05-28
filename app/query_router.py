@@ -93,6 +93,22 @@ WORD_QUOTE_PATTERNS: list[re.Pattern] = [
         r"מסרים",
         r"\bמסר\b",
         r"אימאג'",
+        # Campaign brief / creative brief requests — must route to word_quote
+        # so the show_name + doc_type filters retrieve strategy chunks,
+        # not just Excel rating rows.
+        r"בריף",
+        r"תן לי בריף",
+        r"כתוב לי בריף",
+        r"בריף לקמפיין",
+        r"בריף להשקה",
+        r"בריף לעונה",
+        r"תכנית קמפיין",
+        r"אסטרטגיית קמפיין",
+        r"כיצד לקדם",
+        r"איך לקדם",
+        r"איך לשווק",
+        r"פרומו לעונה",
+        r"שלבי קמפיין",
         # Strategic / creative synthesis questions
         # NOTE: r"מה היית" was intentionally removed — it is a prefix of
         # "מה הייתה" (past-tense factual queries like "מה הייתה נקודת הפתיחה")
