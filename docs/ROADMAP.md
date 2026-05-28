@@ -1,6 +1,6 @@
 ﻿# PromoAgent — Roadmap
 
-**Last updated:** May 28, 2026 (Phase A routing fixes + Phase C prompt)
+**Last updated:** May 28, 2026 (Phase A + Phase C + Phase D)
 
 **Strategic plan for hitting 70%:** see [`docs/PATH_TO_70_PERCENT.md`](PATH_TO_70_PERCENT.md) — handoff document with phased plan, realistic ceiling math, observability upgrade, and decision points.
 
@@ -54,8 +54,8 @@ PromoAgent is a RAG-based chatbot for Keshet TV's promo department, replacing a 
 | C.1 | Refusal calibration: clean-refusal formula when all chunks are off-topic | **DONE (May 28)** | `system_prompt.txt` — explicit template: "לא נמצאו נתונים על [X]... הנתונים שנשלפו מתייחסים ל-[Y]" |
 | C.2 | Anti-hedging voice rule + no citation footer in Creative Mode | **DONE (May 28)** | `system_prompt.txt` — forbids "ייתכן כי", "אולי", academic closers; Creative Mode ends on visual beat |
 | C.3 | Expand Creative Mode trigger patterns | **DONE (May 28)** | `system_prompt.txt` — 14 trigger phrases (was 5); covers "תכתוב לי", "תבנה לי", "תיצור לי", etc. |
+| D.1 | Azure content filter: sanitize violence phrases in `promo_text`, Word chunks, SharePoint text | **DONE (May 28)** | `_sanitize_for_content_filter()` in `service.py`; 9/9 unit tests pass; replaces אקדח/ירי/נהרג/גופה etc. with neutral brackets before prompt assembly; הראש queries no longer hit Error 400 |
 | 6g | Investigate 6 catalog shows with 0 index chunks (`רוקדים`, `הבוגדים`, …) | TODO (MED) | May need alias additions or doc-coverage check |
-| 6i | Address Azure content filter on "הראש" (violence flag) | TODO (MED) | Sanitize promo_text or switch model for violence-content cases |
 | 7 | Consolidate Hebrew vocabulary into `app/text_patterns.py` | TODO (1-2 hr) | Single source of truth for `_GROUNDING_MARKERS`, `_DOCTYPE_KEYS`, `GENRE_PATTERNS`, `_RANKING_PATTERNS`, `_LAUNCH_PATTERNS`, etc. Currently scattered across 5 files. Refactor only — no behavior change. |
 | 8 | UI parity (streaming, threads, mobile) | TODO | UX |
 

@@ -1,6 +1,6 @@
 # PromoAgent — Path to 70% Judge Score (Handoff Plan)
 
-**Written:** 2026-05-25 · **Revised:** 2026-05-28 (Phase E.1 + B.1-B.3 + A.1-A.3 + C.1-C.3 done)
+**Written:** 2026-05-25 · **Revised:** 2026-05-28 (Phase E.1 + B.1-B.3 + A.1-A.3 + C.1-C.3 + D.1 done)
 **Audience:** the next agent (or future self) picking up where we left off
 **Current state:** judge ~49% (Run 8: 49.0% on 62-case dataset), overall ~50-53%
 **Target:** judge ≥ 70% to declare ready for Custom GPT replacement
@@ -216,18 +216,15 @@ expensive to evaluate without observability.
 **Phase C success criterion:** judge ≥ 53%. Side-by-side blind test with 5 promo
 team members on 10 creative questions: PromoBot competitive on ≥6/10.
 
-### Phase D — Content filter mitigation (4-8 hours, +1-2pp)
+### Phase D — Content filter mitigation ✅ DONE (May 28, commit `f1f8e1f`)
 
-The Azure OpenAI content filter blocks any prompt containing "הראש" promo text
-(violence: medium flag — phrases like "אקדח לראש"). Every eval case about the
-show "הראש" silently fails.
+| Item | Status | Detail |
+|---|---|---|
+| **D.1 Sanitize all text sources** | **DONE** | `_sanitize_for_content_filter()` applied to `promo_text` (Excel), `chunk`+`caption` (Word), `text` (SharePoint) before prompt assembly. Replaces אקדח/ירי/יורה/נורה/נהרג/גופה + conjugated forms with neutral brackets. |
 
-| Item | File | Effort | Expected lift |
-|---|---|---|---|
-| **Sanitize `promo_text` in `_fmt_excel`** — replace flagged phrases with neutralized versions before assembling the prompt | 2 hr | +1-2 (recovers ~2 cases) |
-| **Alternative: route specific cases to non-Azure model** (direct OpenAI) | 4-6 hr | same |
-
-**Phase D success criterion:** eval cases mentioning "הראש" no longer hit Error 400.
+**False-positive guards:** "נורא" (terrible) unchanged ✅, "הראש" show name unchanged ✅.  
+**Test coverage:** 9/9 unit tests pass (`tmp_test_content_filter.py`).  
+**Phase D success criterion:** eval cases mentioning "הראש" no longer hit Error 400. ✅ (to confirm in next eval run)
 
 ### Phase E — Statistical power and rubric (1-2 days, unlocks measurement)
 

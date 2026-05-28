@@ -1,6 +1,6 @@
 # PromoAgent — Evaluation Report
 
-**Last updated:** May 28, 2026 (Phase A routing fixes + Phase C prompt)  
+**Last updated:** May 28, 2026 (Phase A + Phase C + Phase D)  
 **Dataset:** `dataset.jsonl` — 62 cases  
 **Eval harness:** `tests/eval_dataset.py` (LLM-as-judge via GPT-4o)  
 **Observability:** Langfuse v4 — scores pushed per run to [cloud.langfuse.com](https://cloud.langfuse.com)  
@@ -119,12 +119,20 @@ Identical code + seed=42 across two runs → 22% of cases changed judge bucket. 
 | No citation footer in Creative Mode | Creative answers end on visual/emotional beat, not "הנתונים נשלפו מ-X" |
 | Expanded Creative Mode triggers: 14 phrases (was 5) | "תכתוב לי", "תבנה לי", "תיצור לי" etc. now reliably hit Creative Mode |
 
+## Phase D — Done (May 28, commit `f1f8e1f`)
+
+| Item | Effect |
+|------|--------|
+| `_sanitize_for_content_filter()` in `service.py` | Applied to `promo_text` (Excel), `chunk`+`caption` (Word), `text` (SharePoint) before prompt assembly |
+| Replaces: אקדח/ירי/יורה/נורה/נהרג/גופה + variants | Violence triggers removed; neutral brackets preserve meaning for LLM |
+| "נורא" (terrible) and "הראש" (show name) untouched | False-positive guard verified — 9/9 unit tests pass |
+
 ## What Needs Work (Priority Order)
 
 | Priority | Item | Expected lift | Phase |
 |----------|------|---------------|-------|
-| 1 | **Content filter for "הראש"** — sanitize promo_text for violence flags | Recovers 2-3 cases | D |
-| 2 | **Strategy precision** — bot paraphrases instead of reproducing explicit slogans/formulas from source | +2-3pp strategy | C |
+| 1 | **Run eval (Run 9)** — measure combined A+C+D impact vs Run 8 (49.0% judge) | Baseline measurement | — |
+| 2 | **Strategy precision** — bot paraphrases instead of reproducing exact slogans/formulas | +2-3pp strategy | C |
 | 3 | **Dataset expansion to N≥10** for `comparison`, `cross_show` | Measurement reliability | E |
 | 4 | **Phase B spans** — per-pipeline-step Langfuse spans (route → retrieval → LLM) | No judge lift; better debugging | B |
 | 5 | **Architectural** (HyDE, better re-ranker, GPT-5 test) | Unknown — only after C+D | F |
@@ -146,8 +154,7 @@ Identical code + seed=42 across two runs → 22% of cases changed judge bucket. 
 
 ## Next Steps (This Week)
 
-1. **Phase D — content filter** — sanitize "הראש" promo_text in `_fmt_excel` in `service.py` (2 hr; recovers 2-3 cases).
-2. **Phase C — strategy precision** — add instruction to reproduce slogans/formulas verbatim from Word chunks when available.
-3. **Run eval (Run 9)** — measure Phase A + Phase C combined impact; compare to Run 8 (49.0% judge).
-4. **Phase B (remaining)** — add per-span metadata to Langfuse traces; `session_id` linkage.
-5. **Side-by-side user test** — 5 promo team members, 10 real questions. Pass criterion: wins or ties on ≥7/10.
+1. **Run eval (Run 9)** — measure combined A+C+D impact; compare to Run 8 (49.0% judge baseline).
+2. **Phase C — strategy precision** — instruction to reproduce slogans/formulas verbatim when present in chunk.
+3. **Phase B (remaining)** — per-span metadata (route → retrieval → LLM) in Langfuse traces.
+4. **Side-by-side user test** — 5 promo team members, 10 real questions. Pass criterion: wins or ties on ≥7/10.
