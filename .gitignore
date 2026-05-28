@@ -22,11 +22,20 @@ ENV/
 
 # ── Scratch / local experiments ──────────────────────────────────────────────
 scratch/
+tmp_pkg/
+
+# ── Generated data artifacts (reproducible from scripts) ─────────────────────
+processed_promos.json
+dataset.jsonl.bak
+*.xlsx
 
 # ── Backup / temp files ───────────────────────────────────────────────────────
 *.bak
 *.tmp
 *.log
+*_stderr.log
+*_stdout.log
+eval_log.txt
 
 # ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store

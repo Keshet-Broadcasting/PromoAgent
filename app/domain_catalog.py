@@ -37,6 +37,8 @@ SHOWS: tuple[ShowRecord, ...] = (
     ShowRecord("חולי אהבה", "drama"),
     ShowRecord("להיות איתה", "drama"),
     ShowRecord("צומת מילר", "drama"),
+    ShowRecord("כפולים", "drama"),
+    ShowRecord("רצח בים המלח", "drama"),
 
     # Reality / competition
     ShowRecord("חתונה ממבט ראשון", "reality", aliases=("חתונמי",)),
@@ -62,10 +64,14 @@ SHOWS: tuple[ShowRecord, ...] = (
     ShowRecord("ארץ נהדרת", "entertainment", aliases=("ארץ",)),
     ShowRecord("זה לא אולפן שישי", "entertainment"),
     ShowRecord("בית הספר למוזיקה", "entertainment"),
-    ShowRecord("מה באמת קרה שם ארז טל", "entertainment"),
+    ShowRecord("מה באמת קרה שם ארז טל", "entertainment", aliases=("מה באמת קרה שם",)),
     ShowRecord("מה שבע", "entertainment"),
     ShowRecord("נוטוק", "entertainment", aliases=("נו טוק", "No Talk")),
     ShowRecord("שיטת אשכנזי", "entertainment"),
+    ShowRecord("סברי מרנן", "entertainment"),
+    ShowRecord("מועדון לילה", "entertainment"),
+    ShowRecord("כוכבים בריבוע", "entertainment"),
+    ShowRecord("צא מזה", "entertainment"),
     ShowRecord("המתמחים", "factual"),
 )
 

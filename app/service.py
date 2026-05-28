@@ -42,7 +42,8 @@ except ImportError:
 from .chat_provider import get_provider
 
 try:
-    from langfuse.decorators import langfuse_context, observe as _lf_observe
+    from langfuse import observe as _lf_observe, get_client as _lf_get_client
+    from opentelemetry import trace as _otel_trace
     _LF_AVAILABLE = True
 except Exception:
     _LF_AVAILABLE = False
@@ -811,12 +812,25 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
 
     if route == "excel_numeric":
         docs = _fetch_excel()
-        selected_docs = _select_excel_rows_for_plan(docs, plan) if plan.broad_excel else docs
-        log.info("  Excel hits: %d | Word hits: 0 | season_filter=%s | ranking_show=%s",
-                 len(docs), season_filter or "none", ranking_show or "none")
+        # Cap rows before formatting. The broad path already does this; the
+        # ranking_show path previously dumped ALL rows (e.g. 188 deduped rows
+        # for חתונה ממבט ראשון → 100k+ char context → exceeds token/TPM budget
+        # → BadRequestError). _select_excel_rows_for_plan sorts by the ranking
+        # metric, applies launch/finale/tonight intent filtering, and caps at 60.
+        if plan.broad_excel or ranking_show:
+            selected_docs = _select_excel_rows_for_plan(docs, plan)
+        else:
+            selected_docs = docs
+        log.info("  Excel hits: %d (selected %d) | Word hits: 0 | season_filter=%s | ranking_show=%s",
+                 len(docs), len(selected_docs), season_filter or "none", ranking_show or "none")
         if not docs:
             log.warning("  *** No Excel hits — answer will have no numeric evidence ***")
-        context = _fmt_broad_excel_evidence(docs, selected_docs, plan) if plan.broad_excel else _fmt_excel(docs)
+        if plan.broad_excel:
+            context = _fmt_broad_excel_evidence(docs, selected_docs, plan)
+        else:
+            # ranking_show and plain numeric both format the (possibly capped)
+            # selected rows.
+            context = _fmt_excel(selected_docs)
         return _RetrievalResult(context=context, excel_docs=selected_docs)
 
     if route == "word_quote":
@@ -990,7 +1004,7 @@ def _confidence(sources: list[SourceDoc]) -> str:
 # Public API
 # ---------------------------------------------------------------------------
 
-@_lf_observe(name="promobot-query", as_type="trace")
+@_lf_observe(name="promobot-query", as_type="agent")
 def run_query(
     question: str,
     debug: bool = False,
@@ -1015,19 +1029,18 @@ def run_query(
 
     # Attach session context to the Langfuse trace so multi-turn conversations group together.
     if _LF_AVAILABLE:
-        langfuse_context.update_current_trace(
-            session_id=session_id,
-            user_id=session_id,
-            input=question,
-        )
+        if session_id:
+            _otel_trace.get_current_span().set_attribute("session.id", session_id)
+        _lf_get_client().update_current_span(input=question)
 
     # Step 0a — Hebrew language guard (before any retrieval to avoid wasting tokens)
     if not _is_hebrew_query(question):
         log.info("[%s] Non-Hebrew query rejected (no Hebrew chars detected)", trace_id)
         lf_trace_id: str | None = None
         if _LF_AVAILABLE:
-            lf_trace_id = langfuse_context.get_current_trace_id()
-            langfuse_context.update_current_trace(
+            _lf = _lf_get_client()
+            lf_trace_id = _lf.get_current_trace_id()
+            _lf.update_current_span(
                 output=_HEBREW_REJECTION,
                 metadata={"route": "rejected_non_hebrew"},
             )
@@ -1092,7 +1105,7 @@ def run_query(
 
     # Attach retrieval stats to the Langfuse trace for latency + coverage analysis.
     if _LF_AVAILABLE:
-        langfuse_context.update_current_trace(
+        _lf_get_client().update_current_span(
             metadata={
                 "route": route,
                 "retrieval_excel_docs": len(retrieval.excel_docs),
@@ -1141,9 +1154,10 @@ def run_query(
 
     lf_trace_id: str | None = None
     if _LF_AVAILABLE:
-        lf_trace_id = langfuse_context.get_current_trace_id()
+        _lf = _lf_get_client()
+        lf_trace_id = _lf.get_current_trace_id()
         confidence_score = {"high": 1.0, "medium": 0.5, "low": 0.0}.get(confidence, 0.0)
-        langfuse_context.update_current_trace(
+        _lf.update_current_span(
             output=answer,
             metadata={
                 "route": route,
@@ -1153,7 +1167,7 @@ def run_query(
                 "context_chars": len(retrieval.context),
             },
         )
-        langfuse_context.score_current_trace(
+        _lf.score_current_trace(
             name="retrieval-confidence",
             value=confidence_score,
             comment=f"{confidence} — top source score: {sources[0].score:.2f}" if sources else confidence,

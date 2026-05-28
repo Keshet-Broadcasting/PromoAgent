@@ -208,24 +208,54 @@ def search_word_docs(
         if not key or key in promoted_ids:
             continue
         if key not in by_id:
-            # Chunk ranked outside top-N; synthesize a minimal doc from the
-            # answer text so the LLM still receives its content.
-            by_id[key] = {
-                "chunk_id":    key,
-                "chunk":       getattr(answer, "text", "") or "",
-                "header":      "",
-                "title":       "",
-                "source_file": "",
-                "show_name":   "",
-                "season":      "",
-                "doc_type":    "",
-                "question_type": "",
-                "score":       score,
-                "caption":     getattr(answer, "highlights", "") or "",
-            }
-            logger.debug(
-                "  @search.answers promoted (out-of-range): key=%s score=%.3f", key, score
-            )
+            # Chunk ranked outside top-N. Look up its full metadata via the
+            # index so the LLM (and the eval's groundedness check) can see the
+            # source. Without this enrichment the chunk would land with
+            # title="" / show_name=""; the bot couldn't cite the doc by name
+            # and groundedness markers like 'מסמך'/'docx' wouldn't appear in
+            # the answer, even though the content IS from a real source.
+            try:
+                doc = client.get_document(key=key)
+                by_id[key] = {
+                    "chunk_id":    key,
+                    "chunk":       doc.get("chunk") or getattr(answer, "text", "") or "",
+                    "header":      doc.get("header", ""),
+                    "title":       doc.get("title", ""),
+                    "source_file": doc.get("source_file", ""),
+                    "show_name":   doc.get("show_name", ""),
+                    "season":      doc.get("season", ""),
+                    "doc_type":    doc.get("doc_type", ""),
+                    "question_type": doc.get("question_type", ""),
+                    "score":       score,
+                    "caption":     getattr(answer, "highlights", "") or "",
+                }
+                logger.debug(
+                    "  @search.answers promoted (out-of-range, enriched): "
+                    "key=%s score=%.3f title=%r",
+                    key, score, by_id[key]["title"],
+                )
+            except Exception as exc:
+                # If lookup fails (network, deleted doc, etc.), fall back to
+                # the minimal-doc behavior so the chunk content still reaches
+                # the LLM. Title will be missing but content is preserved.
+                logger.warning(
+                    "  @search.answers metadata lookup failed for key=%s (%s); "
+                    "falling back to minimal doc",
+                    key, type(exc).__name__,
+                )
+                by_id[key] = {
+                    "chunk_id":    key,
+                    "chunk":       getattr(answer, "text", "") or "",
+                    "header":      "",
+                    "title":       "",
+                    "source_file": "",
+                    "show_name":   "",
+                    "season":      "",
+                    "doc_type":    "",
+                    "question_type": "",
+                    "score":       score,
+                    "caption":     getattr(answer, "highlights", "") or "",
+                }
         else:
             # Already in value results; boost its recorded score so the source
             # confidence in the API response reflects the answer confidence.
@@ -319,8 +349,26 @@ def fetch_show_promos(show_name: str, season: str | None = None, top: int = 500)
         ],
     )
 
+    # Safety net: drop EXACT-duplicate rows (same show+season+episode+date+
+    # promo_text), mirroring fetch_many_show_promos(). NOTE: this is NOT the
+    # main fix for the high-row-show context overflow — verified that חתונה
+    # ממבט ראשון's 362 rows are NOT exact duplicates (they're multiple distinct
+    # promos per episode: same rating, different promo text/date). The real fix
+    # for the token/TPM overflow is row-capping in service._retrieve(). This
+    # dedup only removes genuine exact-dupes if the index ever has any.
     docs = []
+    seen: set[tuple] = set()
     for r in results:
+        key = (
+            r.get("show_name", ""),
+            r.get("season", ""),
+            r.get("episode_number", ""),
+            r.get("date", ""),
+            r.get("promo_text", ""),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
         docs.append({
             "show_name":      r.get("show_name", ""),
             "season":         r.get("season", ""),

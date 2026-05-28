@@ -102,6 +102,11 @@ class ChatProvider(ABC):
 
 _LLM_TIMEOUT   = int(os.getenv("LLM_TIMEOUT_SECONDS",  "90"))
 _MAX_TOKENS    = int(os.getenv("MAX_ANSWER_TOKENS",    "1000"))  # industry default for RAG: 800-1200
+# OpenAI "seed" is best-effort reproducibility (GPU non-determinism still
+# applies, but materially reduces variance between repeat eval runs).
+# Default is fixed so reruns are comparable; override via env var only if you
+# need different sampling for a one-off experiment.
+_LLM_SEED      = int(os.getenv("LLM_SEED",             "42"))
 
 
 class AzureOpenAIProvider(ChatProvider):
@@ -132,6 +137,7 @@ class AzureOpenAIProvider(ChatProvider):
             model=self.deployment,
             messages=messages,
             temperature=0,
+            seed=_LLM_SEED,
             max_tokens=_MAX_TOKENS,
             timeout=_LLM_TIMEOUT,
         )
@@ -253,6 +259,7 @@ class FoundryProvider(ChatProvider):
             model=self.model,
             messages=messages,
             temperature=0,
+            seed=_LLM_SEED,
             max_tokens=_MAX_TOKENS,
             timeout=_LLM_TIMEOUT,
         )

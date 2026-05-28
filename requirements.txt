@@ -17,7 +17,7 @@ python-jose[cryptography]>=3.3.0
 cryptography>=42.0.0
 
 # Observability
-langfuse>=2,<4
+langfuse>=4
 truststore>=0.9.0  # use OS cert store to trust corporate proxies
 
 # Testing

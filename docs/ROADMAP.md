@@ -1,6 +1,8 @@
 ﻿# PromoAgent — Roadmap
 
-**Last updated:** May 20, 2026
+**Last updated:** May 28, 2026
+
+**Strategic plan for hitting 70%:** see [`docs/PATH_TO_70_PERCENT.md`](PATH_TO_70_PERCENT.md) — handoff document with phased plan, realistic ceiling math, observability upgrade, and decision points.
 
 ---
 
@@ -21,7 +23,7 @@ PromoAgent is a RAG-based chatbot for Keshet TV's promo department, replacing a 
 | 2 | Fix eval: judge uses cleaned query | **DONE** | Accurate scoring |
 | 3 | Few-shot examples in system prompt | **DONE** | +5–10% all categories |
 | 4 | Conversation memory (multi-turn) | **DONE** | UX parity |
-| 5 | Expand eval dataset to 54 cases | **DONE** | Reliable metrics |
+| 5 | Expand eval dataset to 62 cases | **DONE** | Reliable metrics |
 | 5b | Chain-of-thought (`<thinking>`) + Markdown table context | **DONE** | +2.5% overall, +14% ranking |
 | 5c | Gemini provider alternative | **DONE** | 3x faster, weaker quality — not for prod |
 | 5d | Full Excel → JSON → Azure ingest pipeline | **DONE** | 1,462 records re-ingested with rich text chunks |
@@ -29,11 +31,29 @@ PromoAgent is a RAG-based chatbot for Keshet TV's promo department, replacing a 
 | 6 | Word document semantic chunking | **DONE** | 721 semantic chunks (4 GPT docs); `header`, `show_name`, `season` metadata |
 | 7 | Model verification (GPT-4o) | **DONE** | Confirmed GPT-4o deployed |
 | 6b | Word-docs schema migration (add 4 metadata fields, re-ingest) | **DONE (May 24)** | +4.7% judge; quote +25, strategy +17, factual +10 |
-| 6c | Route upgrade fix (unknown + broad_scope → hybrid) | **DONE (May 24)** | Cross_show queries now engage broad path |
-| 6d | Alias expansion idempotency + extended route upgrade (excel_numeric + genres → hybrid) | **DONE (May 24)** | Fixes corrupted multi-show queries and Word-shadowed factual queries; impact pending re-eval |
-| 6e | Tighten English-rejection rule in system_prompt.txt | **DONE (May 24)** | Hebrew queries with English tokens (e.g. Live+7/VOD) now answered, not refused |
-| 8 | UI parity (streaming, threads, mobile) | TODO | UX |
 | BR | Broad retrieval activation (`BROAD_RETRIEVAL_ENABLED=true`) | **DONE (May 24)** | +2.4% judge; alias +17%, ranking +10%, quote +13% |
+| 6c-1 | Patch A: alias expansion idempotency (`domain_catalog.expand_aliases`) | **DONE (May 24)** | Fixes corrupted multi-show queries like "נינג'ה ישראל ישראל" |
+| 6c-2 | Patch B: route upgrade — `unknown`/`excel_numeric` + broad_scope → `hybrid` | **DONE (May 24)** | Cross-show / genre-aware queries now engage Phase 6b broad path |
+| 6c-3 | Patch C: tighten English-rejection rule in `system_prompt.txt` | **DONE (May 24)** | Hebrew queries with English tokens (e.g. Live+7/VOD) now answered, not refused |
+| 6c-4 | Patch D: add `seed=42` to LLM calls for reproducible eval | **DONE (May 24)** | Best-effort determinism; reduces LLM variance between repeat runs |
+| 6d | **Phase 6c — rewrite `preprocess_word_docs.py` show_name extraction (catalog-based)** | **DONE (May 25)** | Pre-fix: 60% garbage (`השקה`/`גמר`/...), 22/40 catalog match. Post-fix: 0% garbage, 40/46 catalog match. Unblocks Phase 6b filter for ~250 chunks. |
+| 6d-1 | Domain catalog: add 6 untracked shows + alias for `מה באמת קרה שם` | **DONE (May 25)** | סברי מרנן, מועדון לילה, כוכבים בריבוע, צא מזה, כפולים, רצח בים המלח |
+| 6e | Patch E: loosen groundedness markers in eval rubric | **DONE (May 25)** | Eval was treating `(מקור:` citations as ungrounded — only matched `[מקור`. Bot's actual format now accepted; groundedness ~85% → ~92% expected. |
+| **TEST** | `tests/test_data_health.py` — catalog + index health guardrails | **DONE (May 25)** | 27 tests (18 offline + 9 live). Encodes the success criteria of Phase 6b/6c so future regressions fail loudly. |
+|| E.1 | Dataset expanded 54→62 cases from `OriginalGPT.md` + hallucination test | **DONE (May 28)** | strategy 3→6, open_ended 7→10, comparison 1→2, no_answer 3→4; IDs 55-62 added |
+|| E.1b | ID 51 gold answer fixed (meta-instruction → actual expected answer) | **DONE (May 28)** | Prevents false-negative judge scoring on strategy case |
+|| SP.1 | `system_prompt.txt`: Retrieval Safety & Metadata Verification section | **DONE (May 28)** | Guards against wrong-show retrieval + partial-data refusal instruction |
+|| SP.2 | `system_prompt.txt`: creative-mode few-shot example (from real GPT Q&A) | **DONE (May 28)** | Closes ChatGPT vs PromoBot voice gap on open_ended/strategy queries |
+|| SP.3 | `system_prompt.txt`: anti-hallucination rule for production/technical details | **DONE (May 28)** | Prevents fabricating production details not in source |
+|| B.1 | Langfuse v4 migration (`app/service.py` + `tests/eval_dataset.py`) | **DONE (May 28)** | `langfuse.decorators` → v4 API; `create_score()`, OTel span attributes, `OTEL_SERVICE_NAME` |
+|| B.2 | `load_dotenv()` fix in eval harness — Langfuse keys now loaded correctly | **DONE (May 28)** | Eval scores now reliably pushed to Langfuse dashboard per run |
+|| B.3 | `tmp_pkg/diag_case.py` — per-case end-to-end diagnostic tool (`--id N`) | **DONE (May 28)** | Shows route, retrieved chunks, bot answer, gold, numeric/keyword scores + diagnosis |
+| 6f | Genre detector: exclude content-type phrases like "דרמה אישית" | TODO (LOW) | Fixes id=32 false-positive on reality-show queries |
+| 6g | Investigate 6 catalog shows with 0 index chunks (`רוקדים`, `הבוגדים`, …) | TODO (MED) | May need alias additions or doc-coverage check |
+| 6h | Refine broad-scope trigger for narrow queries (`quote`/`alias`/`ranking` regression) | TODO (HIGH) | Phase 6c data fix exposed over-broadening: quote 71→42, ranking 50→38. Tighten `_build_retrieval_plan` so single-show quote queries stay narrow. |
+| 6i | Address Azure content filter on "הראש" (violence flag) | TODO (MED) | Sanitize promo_text or switch model for violence-content cases |
+| 7 | Consolidate Hebrew vocabulary into `app/text_patterns.py` | TODO (1-2 hr) | Single source of truth for `_GROUNDING_MARKERS`, `_DOCTYPE_KEYS`, `GENRE_PATTERNS`, `_RANKING_PATTERNS`, `_LAUNCH_PATTERNS`, etc. Currently scattered across 5 files. Refactor only — no behavior change. |
+| 8 | UI parity (streaming, threads, mobile) | TODO | UX |
 
 ---
 
@@ -116,7 +136,9 @@ PromoAgent is a RAG-based chatbot for Keshet TV's promo department, replacing a 
 | Item | Status |
 |------|--------|
 | LLM-as-judge eval harness | DONE |
-| Dataset expanded to 54 cases across all categories | DONE |
+| Langfuse v4 observability — per-run scores, OTel spans, `OTEL_SERVICE_NAME` | DONE (May 28) |
+| `load_dotenv()` fix — eval Langfuse scores reliably pushed per run | DONE (May 28) |
+| Dataset expanded to 62 cases across all categories (IDs 1–62) | DONE (May 28) |
 | Hebrew prefix stemming in keyword scorer | DONE |
 | Judge uses cleaned query (not raw context-dependent form) | DONE |
 
@@ -264,6 +286,10 @@ The `show_name`, `season`, `doc_type`, `question_type` metadata fields are extra
 | May 20, 2026 | — | — | — | Phase 6 semantic chunking ingested — next eval will measure impact |
 | May 24, 2026 | Foundry gpt-4o | **52.3%** | **44.4%** | Broad-retrieval checkpoint — `BROAD_RETRIEVAL_ENABLED=true`; 54 cases, 0 errors; alias +17%, ranking +10%, quote +13%; **Phase 6b not yet deployed** — strategy 25% / cross_show 19% / comparison 0% remain blocked |
 | May 24, 2026 (run 2) | Foundry gpt-4o | **53.6%** | **49.1%** | Phase 6b deployed (schema + re-ingest); quote 71% (+25pp), strategy 42% (+17pp), factual 40% (+10pp); cross_show unchanged 19% — routing bug discovered, patched (`route=unknown` + `broad_scope` → upgrade to `hybrid`); not yet measured post-fix |
+| May 24, 2026 (run 3) | Foundry gpt-4o | 50.1% | 45.3% | After Patches A/B/C: **net regression**. ranking +6 / cross_show +6 ✅ but no_answer -33 / factual -20 / strategy -17 / quote -9 ⚠️. Patch B suspected of over-routing to hybrid; new bug surfaced: Azure content filter blocks "הראש" violence content |
+| May 26, 2026 (run 6) | Foundry gpt-4o | 53.4% | 45.8% | **Variance verification** — identical code/seed/data vs Run 5. Macro stable (Δ judge +0.5pp). Per-category swings up to ±10pp; refusal swung +33pp on 3 cases. 22% of cases changed bucket. **Confirms: prior "regressions" were largely LLM noise**; Phase A.6h confirmed not worth shipping. |
+| May 26, 2026 (run 7) | Foundry gpt-4o | 50.7% | 45.1% | **Patch E.2** (judge rubric tweak: no verbosity penalty, semantic equivalence, structured SCORE/REASONING output). 51 cases (3 DNS errors). Quote +8pp, alias +7pp, open_ended +7pp; macro within noise band. **Reasoning capture now operational** — every judge call writes a one-sentence reason to Langfuse, fetchable via `tmp_pkg/fetch_judge_reasoning.py`. |
+|| May 28, 2026 (run 8) | Foundry gpt-4o | — | **49.0%** | **62-case dataset** (8 new cases: IDs 55-62). 50 of 62 judged. Avg judge 0.490. Strong: no_answer 100%, numeric/factual ~75%. Weak: strategy/open_ended ~25-30% (voice gap confirmed). Two main failure modes: (1) wrong-episode retrieval for cross-show queries; (2) generic synthesis when source chunks partially match. Langfuse v4 scores live on dashboard. |
 
 **Target:** ≥ 70% judge score (≈ 3.5/5) — threshold for replacing the custom GPT.
 

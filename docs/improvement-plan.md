@@ -1,8 +1,8 @@
 ﻿# PromoAgent — Improvement Plan
 ## Goal: Replace the Custom GPT on OpenAI Subscription
 
-**Written:** May 10, 2026 | **Last updated:** May 20, 2026  
-**Current judge score:** 42.0% (≈ 2.6 / 5) — Foundry gpt-4o after May 20 changes (Phase 6 impact not yet measured)  
+**Written:** May 10, 2026 | **Last updated:** May 28, 2026  
+**Current judge score:** 49.0% (≈ 2.45 / 5) — Foundry gpt-4o, 62-case dataset (Run 8, May 28)  
 **Target judge score:** ≥ 70% (≈ 3.5 / 5 — "correct, complete, well-phrased")
 
 ---
@@ -26,7 +26,7 @@ This is the fundamental gap. Every other improvement is secondary until data cov
 
 ## 2. Gap Analysis by Eval Category
 
-Based on `eval_judge_results.json` (54 cases, May 19 run — Foundry v2 after all improvements):
+Based on `eval_judge_results.json` (62 cases as of May 28; category table below reflects May 19 run for historical comparison):
 
 | Category | N | Judge score | Δ vs May 10 | Primary remaining failure |
 |---|---|---|---|---|
@@ -300,27 +300,48 @@ This directly enables the follow-up pattern the promo team uses (e.g., "and what
 
 ---
 
-### Phase 5 — Expand Eval Dataset (1–2 days) ⭐⭐
+### Phase 5 — Expand Eval Dataset ✅ DONE (May 28, 62 cases)
 
 **Expected impact:** Reliable metrics — category scores become trustworthy
 
 With 26 cases and 8 categories, the ranking/strategy/comparison categories have 1–5 cases each. A single LLM variance event changes category scores by 20–50%. Priorities based on these scores are unreliable.
 
-**Target:** 50–60 total cases covering:
-- 8–10 numeric cases (currently 5)
-- 8–10 ranking cases (currently 5)
-- 6–8 factual cases (currently 4)
-- 6–8 quote cases (currently 3)
-- 8–10 open_ended cases (currently 6)
-- 4–5 strategy cases (currently 1)
-- 4–5 comparison cases (currently 1)
-- 3–4 no_answer cases (currently 1)
+**Target:** 80 total cases covering (62 done as of May 28):
+- 10+ numeric cases (done: 10) ✅
+- 8+ ranking cases (done: 8) ✅
+- 5–8 factual cases (done: 5)
+- 6–8 quote cases (done: 6) ✅
+- 10+ open_ended cases (done: 10) ✅
+- 6+ strategy cases (done: 6) ✅
+- 4–5 comparison cases (done: 2)
+- 4+ no_answer cases (done: 4) ✅
 
 **Source:** Real questions and answers from `feedback from promo team.md`, plus adversarial cases (questions about shows not in the index, ambiguous season references) to test refusal.
 
 **Format:** Each new case needs `query`, `cleaned_query`, `answer`, `cleaned_answer`, `category`, `answerable`, `has_numeric_data`, `source_hint`.
 
 ---
+
+### Phase B — Langfuse Observability ✅ PARTIAL (May 28)
+
+| Item | Status | Notes |
+|---|---|---|
+| Langfuse v4 migration (`app/service.py`) | DONE | `langfuse.decorators` → v4 API; `_lf_observe`, `_lf_get_client()` |
+| Langfuse v4 migration (`tests/eval_dataset.py`) | DONE | `_lf.score()` → `_lf.create_score()` |
+| `load_dotenv()` fix in eval harness | DONE | Env vars now loaded; Langfuse scores pushed per eval run |
+| `OTEL_SERVICE_NAME=promobot-api` in `.env` + `.env.example` | DONE | Shows meaningful service name in Langfuse trace metadata |
+| Per-span metadata (route, hits count, etc.) | TODO | Still surfaces as single `OpenAI-generation` span |
+| `session_id` linkage agent ↔ judge traces | TODO | Needed for click-through debugging in Langfuse |
+
+### Phase C — System Prompt / Voice Improvements ✅ PARTIAL (May 28)
+
+| Item | Status | Notes |
+|---|---|---|
+| Retrieval Safety & Metadata Verification section | DONE | Prevents wrong-show retrieval; adds partial-data refusal instruction |
+| Creative-mode few-shot example (from real GPT Q&A) | DONE | Closes voice gap for open_ended/strategy queries |
+| Anti-hallucination rule (no production/technical fabrication) | DONE | Prevents "האפקטים נוצרו באמצעות AI" style confabulations; backed by ID 62 test case |
+| Refusal calibration | TODO | Still synthesizes from adjacent context instead of clean refusal |
+| Citation rule strengthening | TODO | Explicit file/source required in every non-creative answer |
 
 ### Phase 6 — Word Document Semantic Chunking ✅ DONE (May 20, 2026)
 

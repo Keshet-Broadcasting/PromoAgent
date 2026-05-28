@@ -113,6 +113,7 @@ class CaseResult:
     grounded_score: float | None = None
     refusal_score: float | None = None
     judge_score: float | None = None
+    judge_reason: str = ""
     overall: float = 0.0
     error: str | None = None
     elapsed_s: float = 0.0
@@ -211,9 +212,20 @@ def score_keyword(gold: str, predicted: str) -> float:
 # ---------------------------------------------------------------------------
 
 _GROUNDING_MARKERS = [
-    "xlsx", "docx", "מסמך", "מעקבי", "קובץ", "נשלף", "נשלפו",
-    "קטע", "[מקור", "על פי המידע", "על פי הנתונ", "בהתבסס על",
-    "שנשלף", "שנשלפ", "ממסמך", "לפי המידע", "בהתאם למידע",
+    # File / document references
+    "xlsx", "docx", "מסמך", "מעקבי", "קובץ", "ממסמך",
+    # Phrases indicating sourced data
+    "נשלף", "נשלפו", "שנשלף", "שנשלפ",
+    "על פי המידע", "על פי הנתונ", "בהתבסס על", "לפי המידע", "בהתאם למידע",
+    "הנתונים נלקחו", "הנתונים שנלקחו", "מתוך קובץ", "מתוך מסמך",
+    # Citation markers in any bracket / punctuation style the bot uses.
+    # The bot uses [מקור:...], (מקור:...), and bare "מקור:" interchangeably
+    # depending on the answer template; all are valid grounding indicators.
+    "[מקור",      # [מקור: ...]
+    "(מקור",      # (מקור: ...)
+    "מקור:",      # bare "מקור: ..."
+    "מקור [",     # "מקור [1]"
+    "קטע",        # "קטע מס': 3_112"
 ]
 
 _NOT_FOUND_MARKERS = [
@@ -252,16 +264,29 @@ def score_refusal(predicted: str, answerable: bool) -> float | None:
 # LLM-as-judge  (optional)
 # ---------------------------------------------------------------------------
 
-_JUDGE_PROMPT = """You are an evaluation judge. Compare the MODEL ANSWER to the GOLD ANSWER for the given question.
+_JUDGE_PROMPT = """You are an evaluation judge for a Hebrew RAG system. Compare
+the MODEL ANSWER to the GOLD ANSWER for the given question.
 
-Rate the model answer on a scale of 1-5:
-  1 = Completely wrong, irrelevant, or hallucinated
-  2 = Partially relevant but missing key facts or contains errors
-  3 = Mostly correct but incomplete or imprecise
-  4 = Good — covers the key facts with minor omissions
-  5 = Excellent — accurate, complete, well-grounded
+Rate the model answer on a scale of 1-5 based on FACTUAL ACCURACY and whether
+the MAIN INSIGHT of the gold answer is conveyed:
 
-The answers are in Hebrew. Focus on factual accuracy, not style.
+  1 = Completely wrong, irrelevant, or hallucinated (no factual basis)
+  2 = Partially correct but missing the main insight, OR contains factual errors
+  3 = Main insight partially expressed, OR mixes correct content with imprecise details
+  4 = Main insight clearly conveyed AND no factual errors (extra context / length is FINE)
+  5 = Main insight clearly conveyed, accurately phrased, well-grounded, no errors
+
+IMPORTANT scoring rules:
+  - DO NOT penalize the model for being more verbose than the gold answer.
+    Gold answers are intentionally short; comprehensive answers are good as long
+    as the main insight is present and the additional content is factually correct.
+  - DO NOT require word-for-word phrase matching. Semantic equivalence is enough.
+    Example: gold says 'פטריוטי' and model says 'רגש לאומי' — these are equivalent.
+  - DO penalize hallucinations and factual errors (e.g. wrong show name, wrong number).
+  - DO penalize missing the main insight even if the model writes a lot of correct
+    surrounding content.
+
+The answers are in Hebrew.
 
 QUESTION: {question}
 
@@ -269,27 +294,50 @@ GOLD ANSWER: {gold}
 
 MODEL ANSWER: {predicted}
 
-Respond with ONLY a single integer (1-5), nothing else."""
+Respond in this EXACT format (English reasoning is fine; do not output anything else):
+SCORE: <integer 1-5>
+REASONING: <one sentence explaining the score>"""
 
 
-def score_judge(question: str, gold: str, predicted: str) -> float:
-    """Use the configured LLM to rate the answer 1-5, normalized to 0-1."""
+def score_judge(question: str, gold: str, predicted: str) -> tuple[float, str]:
+    """Use the configured LLM to rate the answer 1-5, normalized to 0-1.
+
+    Returns (normalized_score, reasoning). The reasoning is parsed from the
+    structured "REASONING:" line and persisted in the results JSON so failure
+    analysis reads the reason from the SAME judge call that produced the score
+    (no Langfuse trace-matching, no cross-run mismatch).
+
+    Parses the structured format (SCORE: N / REASONING: ...) and falls back to
+    the legacy first-digit regex for backwards compatibility.
+    """
     from app.chat_provider import get_provider
 
     prompt = _JUDGE_PROMPT.format(
         question=question, gold=gold, predicted=predicted,
     )
     messages = [
-        {"role": "system", "content": "You are a strict evaluation judge."},
+        {"role": "system", "content": "You are an evaluation judge for a Hebrew RAG system."},
         {"role": "user", "content": prompt},
     ]
     try:
         raw = get_provider().complete(messages).strip()
-        score = int(re.search(r"[1-5]", raw).group())  # type: ignore[union-attr]
-        return (score - 1) / 4.0
+        # Preferred: structured format "SCORE: N"
+        m = re.search(r"SCORE:\s*([1-5])", raw, re.IGNORECASE)
+        # Fallback: first 1-5 digit (backwards-compat with legacy format)
+        if not m:
+            m = re.search(r"[1-5]", raw)
+        if not m:
+            log.warning("  Judge returned no parseable score; raw=%r", raw[:200])
+            return 0.5, "UNPARSEABLE: " + raw[:200]
+        score = int(m.group(1) if m.lastindex else m.group())
+        reason_match = re.search(r"REASONING:\s*(.+?)(?:\n\n|$)", raw, re.IGNORECASE | re.DOTALL)
+        reasoning = reason_match.group(1).strip() if reason_match else ""
+        if reasoning:
+            log.info("  Judge: score=%d reason=%s", score, reasoning[:200])
+        return (score - 1) / 4.0, reasoning
     except Exception as exc:
         log.warning("  Judge failed: %s — defaulting to 0.5", exc)
-        return 0.5
+        return 0.5, f"JUDGE_ERROR: {type(exc).__name__}"
 
 
 # ---------------------------------------------------------------------------
@@ -341,7 +389,7 @@ def _lf_score(lf_trace_id: str | None, name: str, value: float, comment: str = "
     try:
         from langfuse import Langfuse
         _lf = Langfuse()
-        _lf.score(trace_id=lf_trace_id, name=name, value=value, comment=comment or None)
+        _lf.create_score(trace_id=lf_trace_id, name=name, value=value, comment=comment or None)
     except Exception as exc:
         log.debug("  Langfuse score() skipped: %s", exc)
 
@@ -399,7 +447,7 @@ def run_eval(
         r.refusal_score = score_refusal(answer, gold.answerable)
 
         if use_judge:
-            r.judge_score = score_judge(eval_query, gold_text, answer)
+            r.judge_score, r.judge_reason = score_judge(eval_query, gold_text, answer)
 
         r.overall = compute_overall(r, use_judge)
         results.append(r)
@@ -505,6 +553,7 @@ def results_to_json(results: list[CaseResult]) -> str:
             "grounded": round(r.grounded_score, 3) if r.grounded_score is not None else None,
             "refusal": round(r.refusal_score, 3) if r.refusal_score is not None else None,
             "judge": round(r.judge_score, 3) if r.judge_score is not None else None,
+            "judge_reason": r.judge_reason or None,
             "error": r.error,
             "elapsed_s": round(r.elapsed_s, 1),
         })

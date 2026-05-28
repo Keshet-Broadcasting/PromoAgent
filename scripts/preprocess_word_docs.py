@@ -43,6 +43,15 @@ import json
 import logging
 import os
 import re
+import sys
+from pathlib import Path
+
+# Make app/ importable so we can pull the show catalog as the single source of
+# truth for show_name extraction. Without this, running the script directly
+# (python scripts/preprocess_word_docs.py) fails to find app.domain_catalog.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 import xml.etree.ElementTree as ET            # stdlib XML parser for .docx fallback
 import zipfile                                 # stdlib ZIP reader for .docx files
@@ -51,6 +60,8 @@ from azure.ai.documentintelligence.models import AnalyzeResult
 from azure.core.credentials import AzureKeyCredential
 from azure.storage.blob import BlobServiceClient, ContainerClient
 from dotenv import load_dotenv
+
+from app.domain_catalog import SHOWS as _CATALOG_SHOWS
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -124,7 +135,42 @@ _ATOMIC_SECTION_KEYS = ("תכנית מדיה", "מעקב פרומו")
 
 _DATE_LINE_RE  = re.compile(r"\b\d{1,2}[./]\d{1,2}[./]\d{2,4}\b")
 _SEASON_RE     = re.compile(r"עונה\s+(\d+)")
-_SHOW_RE       = re.compile(r"(?:תובנות\s+|אסטרטגיה\S*\s+)(.+?)\s*[-\u2013\u2014]")
+# Catalog-based show_name lookup. Built once at module load from the domain
+# catalog (app.domain_catalog.SHOWS). Each entry is (search_term, official_name)
+# where search_term may be an alias. Longest-first so greedy substring matching
+# prefers the most specific show (e.g. "הכוכב הבא לאירוויזיון" over "הכוכב הבא",
+# and "חתונה ממבט ראשון" over "חתונמי").
+def _build_catalog_lookup() -> list[tuple[str, str]]:
+    pairs: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for show in _CATALOG_SHOWS:
+        for term in (show.official,) + tuple(show.aliases):
+            if term and term not in seen:
+                seen.add(term)
+                pairs.append((term, show.official))
+    return sorted(pairs, key=lambda x: len(x[0]), reverse=True)
+
+
+_CATALOG_LOOKUP: list[tuple[str, str]] = _build_catalog_lookup()
+
+
+def _extract_show_from_text(text: str) -> str:
+    """Return the longest catalog show (or alias) found in text; otherwise "".
+
+    This is the generic replacement for the regex-based show_name extraction
+    that previously misfired and captured doc_type words ('השקה', 'גמר', ...)
+    on ~60% of chunks. The catalog is the single source of truth -- any value
+    returned is guaranteed to be a real official show_name. If extraction
+    cannot find a known show, returns "" (chunk left untagged) rather than
+    guessing.
+    """
+    if not text:
+        return ""
+    for term, official in _CATALOG_LOOKUP:
+        if term in text:
+            return official
+    return ""
+
 _DOCTYPE_KEYS  = {"השקה": "השקה", "גמר": "גמר", "מחקר": "מחקר", "אסטרטגיה": "אסטרטגיה"}
 _QTYPE_MAP     = {
     "מה האסטרטגיה":              "אסטרטגיה",
@@ -516,10 +562,13 @@ def _parse_block_title(title_text: str) -> dict:
         'המסמכים הבאים יעסקו בתוכנית "הזמר במסכה" עונה 1'
         "המסמכים הבאים יעסקו בסדרה 'פאלו אלטו'"
     """
+    # season
     season_match = _SEASON_RE.search(title_text)
     season = int(season_match.group(1)) if season_match else None
 
-    # Pattern 2 — bridge sentence: quoted/unquoted show name after יעסקו ב(תוכנית|סדרה)
+    # Bridge-sentence fast path: when the heading is the explicit bridge
+    # ('המסמכים הבאים יעסקו ב<תוכנית|סדרה> "X"') we trust the quoted name
+    # directly. This handles the drama/reality docs cleanly.
     bridge_match = re.search(
         r'יעסקו\s+ב(?:תוכנית|סדרה)\s*[\u0022\u201c\u2018\u2019\u0027\u201d]'
         r'(.+?)'
@@ -527,32 +576,29 @@ def _parse_block_title(title_text: str) -> dict:
         title_text,
     )
     if bridge_match:
+        bridge_name = bridge_match.group(1).strip()
+        # Validate against catalog so we don't propagate garbage; if the
+        # quoted text contains a catalog name, return that; else accept the
+        # bridge text as-is (rare new shows).
+        official = _extract_show_from_text(bridge_name)
         return {
-            "show_name": bridge_match.group(1).strip(),
+            "show_name": official or bridge_name,
             "season":    season,
             "doc_type":  "כללי",  # bridge sentences don't carry doc_type
         }
 
-    # Pattern 1 — _SHOW_RE: "תובנות X – [show] –" or "אסטרטגיה X [show]"
-    show_match = _SHOW_RE.search(title_text)
-    show_name = show_match.group(1).strip() if show_match else ""
-
-    # Fallback: strip known prefixes and extract the first dash-separated segment
-    if not show_name:
-        for prefix in ("תובנות השקה", "תובנות גמר", "תובנות מחקר", "אסטרטגיה"):
-            if title_text.startswith(prefix):
-                rest = title_text[len(prefix):].lstrip(" \u2013\u2014-").strip()
-                # take up to the next dash or 'עונה'
-                part = re.split(r"\s*[-\u2013\u2014]\s*|\s+עונה", rest, maxsplit=1)[0].strip()
-                if part:
-                    show_name = part
-                break
-
+    # doc_type -- keyword search (unchanged from previous version)
     doc_type = "כללי"
     for kw, label in _DOCTYPE_KEYS.items():
         if kw in title_text:
             doc_type = label
             break
+
+    # show_name -- catalog-based lookup. Replaces the old _SHOW_RE-based
+    # extraction that captured doc_type words on ~60% of chunks. If nothing in
+    # the catalog matches, show_name is left empty (honest 'unknown') rather
+    # than guessing from the heading text.
+    show_name = _extract_show_from_text(title_text)
 
     return {"show_name": show_name, "season": season, "doc_type": doc_type}
 

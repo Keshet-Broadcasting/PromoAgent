@@ -2,74 +2,80 @@
   {
     "id": "1",
     "category": "quote",
-    "overall": 0.11,
+    "overall": 0.13,
     "numeric": 0.0,
-    "keyword": 0.129,
+    "keyword": 0.226,
     "grounded": 0.0,
     "refusal": null,
     "judge": 0.25,
+    "judge_reason": "The model answer provides some correct details about marketing strategies but misses the main insight of the gold answer, which focuses on specific strategies for \"אף אחד לא עוזב את פאלו אלטו\" and \"אור ראשון,\" and introduces unrelated or hallucinated content.",
     "error": null,
-    "elapsed_s": 14.3
+    "elapsed_s": 29.8
   },
   {
     "id": "2",
     "category": "numeric",
-    "overall": 0.473,
-    "numeric": 0.5,
-    "keyword": 0.37,
+    "overall": 0.19,
+    "numeric": 0.0,
+    "keyword": 0.111,
     "grounded": 1.0,
     "refusal": null,
-    "judge": 0.25,
+    "judge": 0.0,
+    "judge_reason": "The model answer is completely wrong and irrelevant, as it claims no data exists on viewing intentions, directly contradicting the factual information provided in the gold answer.",
     "error": null,
-    "elapsed_s": 4.9
+    "elapsed_s": 5.0
   },
   {
     "id": "3",
     "category": "comparison",
-    "overall": 0.253,
+    "overall": 0.481,
     "numeric": 0.167,
-    "keyword": 0.579,
-    "grounded": 0.0,
+    "keyword": 0.474,
+    "grounded": 1.0,
     "refusal": null,
-    "judge": 0.25,
+    "judge": 0.5,
+    "judge_reason": "The model partially conveys the main insight that 'אור ראשון' has lower viewing intentions compared to other dramas, especially among women, but it lacks the specific comparative numerical data provided in the gold answer and introduces irrelevant details about promo versions.",
     "error": null,
-    "elapsed_s": 5.1
+    "elapsed_s": 10.1
   },
   {
     "id": "4",
     "category": "open_ended",
-    "overall": 0.18,
-    "numeric": 0.222,
-    "keyword": 0.152,
+    "overall": 0.206,
+    "numeric": 0.333,
+    "keyword": 0.121,
     "grounded": 0.0,
     "refusal": null,
     "judge": 0.25,
+    "judge_reason": "The model answer provides some relevant analysis but introduces factual inaccuracies (e.g., incorrect ratings and show names) and misses the main insight about the predictive relationship between high viewing intentions and actual ratings, as well as the specific thresholds and factors mentioned in the gold answer.",
     "error": null,
-    "elapsed_s": 13.1
+    "elapsed_s": 30.3
   },
   {
     "id": "5",
     "category": "numeric",
-    "overall": 0.754,
-    "numeric": 0.75,
-    "keyword": 0.571,
+    "overall": 0.795,
+    "numeric": 0.5,
+    "keyword": 0.714,
     "grounded": 1.0,
     "refusal": null,
-    "judge": 0.75,
+    "judge": 1.0,
+    "judge_reason": "The model answer accurately conveys the main insight of the gold answer, including the correct ratings (15.4% average and 17% starting point), and the additional context about the data source is factually correct and does not detract from the accuracy.",
     "error": null,
-    "elapsed_s": 2.0
+    "elapsed_s": 6.4
   },
   {
     "id": "6",
     "category": "numeric",
-    "overall": 0.592,
-    "numeric": 0.6,
+    "overall": 0.65,
+    "numeric": 0.8,
     "keyword": 0.4,
     "grounded": 1.0,
     "refusal": null,
     "judge": 0.5,
+    "judge_reason": "The model answer partially conveys the main insight by mentioning the average rating (16.2%) and the share (27%), but it omits the opening rating (18%) and includes irrelevant details about file sources, which are unnecessary and detract from the clarity.",
     "error": null,
-    "elapsed_s": 2.4
+    "elapsed_s": 8.8
   },
   {
     "id": "7",
@@ -80,32 +86,35 @@
     "grounded": 1.0,
     "refusal": null,
     "judge": 0.25,
+    "judge_reason": "The model answer is factually correct in stating the lack of data but fails to address or convey the main insight from the gold answer, which provides specific conversion rates and factors influencing ratings.",
     "error": null,
-    "elapsed_s": 6.5
+    "elapsed_s": 14.1
   },
   {
     "id": "8",
     "category": "numeric",
-    "overall": 0.319,
+    "overall": 0.201,
     "numeric": 0.0,
-    "keyword": 0.333,
+    "keyword": 0.167,
     "grounded": 1.0,
     "refusal": null,
-    "judge": 0.25,
+    "judge": 0.0,
+    "judge_reason": "The model answer is completely irrelevant and does not address the main insight about the general and segmented viewing intentions percentages; instead, it provides unrelated episode-specific data.",
     "error": null,
-    "elapsed_s": 4.1
+    "elapsed_s": 10.3
   },
   {
     "id": "9",
     "category": "factual",
-    "overall": 0.465,
+    "overall": 0.479,
     "numeric": 0.5,
-    "keyword": 0.333,
+    "keyword": 0.4,
     "grounded": 1.0,
     "refusal": null,
     "judge": 0.25,
+    "judge_reason": "The model provides detailed percentages for 'פאלו אלטו' that are not mentioned in the gold answer, which suggests hallucination, and it gives an incorrect percentage for 'גוף שלישי' in the trailer context (76% instead of 69%), missing the main insight.",
     "error": null,
-    "elapsed_s": 5.7
+    "elapsed_s": 9.3
   },
   {
     "id": "10",
@@ -116,128 +125,139 @@
     "grounded": 1.0,
     "refusal": null,
     "judge": 0.25,
+    "judge_reason": "The model answer contains factual inaccuracies, such as incorrect slogans for the launch and finale campaigns, and it fails to convey the main insight of the gold answer, which specifies the exact slogans used.",
     "error": null,
-    "elapsed_s": 6.2
+    "elapsed_s": 10.9
   },
   {
     "id": "11",
     "category": "quote",
-    "overall": 0.507,
+    "overall": 0.403,
     "numeric": 0.0,
-    "keyword": 0.433,
+    "keyword": 0.333,
     "grounded": 1.0,
     "refusal": null,
-    "judge": 0.75,
+    "judge": 0.5,
+    "judge_reason": "The model answer partially conveys the main insight by emphasizing the emotional connection and promotional strategies, but it misses key elements such as the historical framing of Yuval Shmala's departure, the unexpected use of a sports image (farewell poster), and the specific impact on ratings (50% above average).",
     "error": null,
-    "elapsed_s": 8.3
+    "elapsed_s": 30.4
   },
   {
     "id": "12",
     "category": "open_ended",
-    "overall": 0.506,
+    "overall": 0.775,
     "numeric": 1.0,
-    "keyword": 0.227,
-    "grounded": 0.0,
+    "keyword": 0.318,
+    "grounded": 1.0,
     "refusal": null,
-    "judge": 0.5,
+    "judge": 0.75,
+    "judge_reason": "The model answer clearly conveys the main insight about the campaign's success in re-engaging audiences and achieving high ratings, including the 20.1% figure. However, it introduces additional context and speculative elements (e.g., references to past seasons and specific campaign tactics) that, while factually correct, slightly dilute the focus on the core insight of the gold answer.",
     "error": null,
-    "elapsed_s": 9.6
+    "elapsed_s": 35.8
   },
   {
     "id": "13",
     "category": "ranking",
-    "overall": 0.629,
-    "numeric": 0.4,
+    "overall": 0.404,
+    "numeric": 0.2,
     "keyword": 0.462,
     "grounded": 1.0,
     "refusal": null,
-    "judge": 0.75,
+    "judge": 0.25,
+    "judge_reason": "The model answer provides incorrect details about the episode number, date, and opening percentage, failing to convey the main insight from the gold answer and including factual errors.",
     "error": null,
-    "elapsed_s": 3.7
+    "elapsed_s": 9.1
   },
   {
     "id": "14",
     "category": "ranking",
-    "overall": 0.583,
+    "overall": 0.729,
     "numeric": 0.8,
-    "keyword": 0.476,
+    "keyword": 0.381,
     "grounded": 1.0,
     "refusal": null,
-    "judge": 0.25,
+    "judge": 0.75,
+    "judge_reason": "The model answer conveys the main insight about the top promo ratings and the emotional or dramatic triggers for high opening ratings, but it includes additional details and rankings not present in the gold answer, which are accurate but slightly diverge from the concise focus of the gold.",
     "error": null,
-    "elapsed_s": 6.5
+    "elapsed_s": 18.5
   },
   {
     "id": "15",
     "category": "ranking",
-    "overall": 0.464,
-    "numeric": 1.0,
-    "keyword": 0.429,
-    "grounded": 0.0,
+    "overall": 0.524,
+    "numeric": 0.6,
+    "keyword": 0.476,
+    "grounded": 1.0,
     "refusal": null,
     "judge": 0.25,
+    "judge_reason": "The model answer includes some correct data (e.g., season 5's opening rating of 21%) but introduces factual inaccuracies (e.g., season 7 with a 23.5% rating, which is not mentioned in the gold answer) and hallucinates details like specific campaign strategies and sources. It also fails to clearly convey the main insight about the most successful strategies being tied to multiple weddings or early exposure of couples.",
     "error": null,
-    "elapsed_s": 12.8
+    "elapsed_s": 29.4
   },
   {
     "id": "16",
     "category": "open_ended",
-    "overall": 0.376,
+    "overall": 0.506,
     "numeric": null,
-    "keyword": 0.08,
+    "keyword": 0.12,
     "grounded": 1.0,
     "refusal": null,
-    "judge": 0.25,
+    "judge": 0.5,
+    "judge_reason": "The model answer partially conveys the main insight by emphasizing focus on specific couples and stories, but it introduces additional details and examples (e.g., seasons 5 and 7) that are not in the gold answer and may not be accurate, while missing the core emphasis on a single couple and a critical question about their relationship.",
     "error": null,
-    "elapsed_s": 8.1
+    "elapsed_s": 19.7
   },
   {
     "id": "17",
     "category": "ranking",
-    "overall": 0.294,
+    "overall": 0.377,
     "numeric": 0.0,
     "keyword": 0.211,
     "grounded": 1.0,
     "refusal": null,
-    "judge": 0.25,
+    "judge": 0.5,
+    "judge_reason": "The model answer partially conveys the main insight by mentioning emotional elements like dramatic breakups and unique matches, but it over-focuses on specific episodes and details not present in the gold answer, while missing the broader emphasis on decisive moments and national buzz as key factors.",
     "error": null,
-    "elapsed_s": 6.5
+    "elapsed_s": 18.9
   },
   {
     "id": "18",
     "category": "factual",
-    "overall": 0.618,
+    "overall": 0.569,
     "numeric": null,
-    "keyword": 0.5,
+    "keyword": 0.333,
     "grounded": 1.0,
     "refusal": null,
     "judge": 0.5,
+    "judge_reason": "The model answer partially conveys the main insight about the \"צונאמי בחדר המומחים\" concept but introduces additional, unrelated details (e.g., AI effects, \"מאמא מיה\" tagline) that are not in the gold answer and may confuse the focus.",
     "error": null,
-    "elapsed_s": 4.9
+    "elapsed_s": 20.6
   },
   {
     "id": "19",
     "category": "open_ended",
-    "overall": 0.412,
+    "overall": 0.426,
     "numeric": null,
-    "keyword": 0.2,
+    "keyword": 0.25,
     "grounded": 1.0,
     "refusal": null,
     "judge": 0.25,
+    "judge_reason": "The model answer provides detailed recommendations but misses the main insight of focusing on judges' reactions, the suspense of the 'rising screen,' and moments of surprise, which are central to the gold answer.",
     "error": null,
-    "elapsed_s": 8.9
+    "elapsed_s": 37.8
   },
   {
     "id": "20",
     "category": "quote",
-    "overall": 0.796,
+    "overall": 0.513,
     "numeric": 1.0,
-    "keyword": 0.421,
+    "keyword": 0.263,
     "grounded": 1.0,
     "refusal": null,
-    "judge": 0.75,
+    "judge": 0.0,
+    "judge_reason": "The model answer is completely irrelevant to the question, as it discusses insights from season 8 instead of season 12, failing to convey the main insight and including no accurate information about the specified season.",
     "error": null,
-    "elapsed_s": 9.9
+    "elapsed_s": 15.0
   },
   {
     "id": "21",
@@ -248,8 +268,9 @@
     "grounded": 1.0,
     "refusal": null,
     "judge": 0.25,
+    "judge_reason": "The model answer correctly states that no numerical data on completion rates is available, but it fails to convey the main insight from the gold answer about the significant impact of completion rates on live viewer retention.",
     "error": null,
-    "elapsed_s": 1.1
+    "elapsed_s": 16.7
   },
   {
     "id": "22",
@@ -260,188 +281,204 @@
     "grounded": 1.0,
     "refusal": null,
     "judge": 0.25,
+    "judge_reason": "The model answer incorrectly identifies Episode 1 as the highest-rated regular episode, conflating the premiere's rating (24.5%) with the question's focus on regular episodes, and it misses the main insight about Episode 7's double finale and its specific ratings (16.5% opening, 15.8% overall).",
     "error": null,
-    "elapsed_s": 2.6
+    "elapsed_s": 8.7
   },
   {
     "id": "23",
     "category": "open_ended",
-    "overall": 0.573,
+    "overall": 0.535,
     "numeric": null,
-    "keyword": 0.348,
+    "keyword": 0.217,
     "grounded": 1.0,
     "refusal": null,
     "judge": 0.5,
+    "judge_reason": "The model answer partially conveys the main insight by emphasizing the importance of creating suspense and emotional connection, but it dilutes the focus on \"life-changing moments or personal crises of the character (Hanoch)\" with additional strategies and details that are not central to the gold answer's main point.",
     "error": null,
-    "elapsed_s": 8.5
+    "elapsed_s": 36.0
   },
   {
     "id": "24",
     "category": "open_ended",
-    "overall": 0.451,
+    "overall": 0.527,
     "numeric": null,
-    "keyword": 0.333,
+    "keyword": 0.19,
     "grounded": 1.0,
     "refusal": null,
-    "judge": 0.25,
+    "judge": 0.5,
+    "judge_reason": "The model answer partially conveys the main insight by emphasizing the emotional connection with the couples and focusing on a limited number of anchor couples, but it misses the specific recommendation to sell the emotional pressure of the race over the touristic beauty, and includes additional strategies not mentioned in the gold answer.",
     "error": null,
-    "elapsed_s": 9.0
+    "elapsed_s": 30.2
   },
   {
     "id": "25",
     "category": "factual",
-    "overall": 0.594,
+    "overall": 0.604,
     "numeric": 1.0,
-    "keyword": 0.25,
-    "grounded": 0.0,
+    "keyword": 0.3,
+    "grounded": 1.0,
     "refusal": null,
-    "judge": 0.75,
+    "judge": 0.25,
+    "judge_reason": "The model answer provides some correct details about the campaign's effectiveness in Season 2 but misses the main insight from the gold answer about the need to shift from static \"identity cards\" to moments of tension and drama for deeper engagement.",
     "error": null,
-    "elapsed_s": 6.4
+    "elapsed_s": 17.4
   },
   {
     "id": "26",
     "category": "strategy",
-    "overall": 0.304,
+    "overall": 0.666,
     "numeric": null,
-    "keyword": 0.235,
-    "grounded": 0.0,
+    "keyword": 0.265,
+    "grounded": 1.0,
     "refusal": null,
-    "judge": 0.5,
+    "judge": 0.75,
+    "judge_reason": "The model answer conveys the main insight of presenting the pregnancy as an emotional payoff rather than a promotional hook, integrates it into a broader narrative, and avoids overshadowing other participants. However, it lacks explicit mention of avoiding polished content in digital campaigns and the specific messaging about the format's life-changing impact, which were key points in the gold answer.",
     "error": null,
-    "elapsed_s": 10.3
+    "elapsed_s": 22.7
   },
   {
     "id": "27",
     "category": "alias",
-    "overall": 0.56,
-    "numeric": 0.667,
-    "keyword": 0.556,
-    "grounded": 1.0,
+    "overall": 0.0,
+    "numeric": 0.0,
+    "keyword": 0.0,
+    "grounded": 0.0,
     "refusal": null,
-    "judge": 0.25,
+    "judge": 0.0,
+    "judge_reason": "The model answer is completely irrelevant to the question, as it does not address the rating of 'רוקדים עם כוכבים' or provide any related information.",
     "error": null,
-    "elapsed_s": 3.6
+    "elapsed_s": 3.2
   },
   {
     "id": "28",
     "category": "alias",
-    "overall": 0.727,
-    "numeric": 0.667,
+    "overall": 0.546,
+    "numeric": 0.333,
     "keyword": 0.556,
     "grounded": 1.0,
     "refusal": null,
-    "judge": 0.75,
+    "judge": 0.5,
+    "judge_reason": "The model answer partially conveys the main insight of a return to normalcy after the war and includes the correct slogan, but it introduces additional details (e.g., sensitivity about hostages and casualties) that are not in the gold answer and lacks key factual elements like the specific ratings and the campaign with Trump and Kitzis.",
     "error": null,
-    "elapsed_s": 4.6
+    "elapsed_s": 16.1
   },
   {
     "id": "29",
     "category": "alias",
-    "overall": 0.471,
-    "numeric": 0.4,
+    "overall": 0.413,
+    "numeric": 0.2,
     "keyword": 0.5,
     "grounded": 1.0,
     "refusal": null,
     "judge": 0.25,
-    "error": null,
-    "elapsed_s": 2.9
-  },
-  {
-    "id": "30",
-    "category": "cross_show",
-    "overall": 0.319,
-    "numeric": 0.0,
-    "keyword": 0.333,
-    "grounded": 1.0,
-    "refusal": null,
-    "judge": 0.25,
-    "error": null,
-    "elapsed_s": 3.7
-  },
-  {
-    "id": "31",
-    "category": "cross_show",
-    "overall": 0.216,
-    "numeric": null,
-    "keyword": 0.333,
-    "grounded": 0.0,
-    "refusal": null,
-    "judge": 0.25,
+    "judge_reason": "The model answer provides an incorrect average rating (22.79%) and lacks the detailed breakdown of ratings for the premiere and finale, which is the main insight of the gold answer.",
     "error": null,
     "elapsed_s": 8.9
   },
   {
-    "id": "32",
+    "id": "30",
     "category": "cross_show",
-    "overall": 0.344,
-    "numeric": 0.333,
-    "keyword": 0.385,
+    "overall": 0.609,
+    "numeric": 0.667,
+    "keyword": 0.389,
     "grounded": 1.0,
     "refusal": null,
-    "judge": 0.0,
+    "judge": 0.5,
+    "judge_reason": "The model provides detailed ratings for multiple seasons, which is factually accurate, but it fails to clearly convey the main insight of the gold answer — a cross-genre comparison of launch strengths to identify which genre performs better.",
     "error": null,
-    "elapsed_s": 4.6
+    "elapsed_s": 13.6
+  },
+  {
+    "id": "31",
+    "category": "cross_show",
+    "overall": 0.35,
+    "numeric": null,
+    "keyword": 0.389,
+    "grounded": 0.0,
+    "refusal": null,
+    "judge": 0.5,
+    "judge_reason": "The model answer partially conveys the main insight by identifying recurring patterns like personal conflicts, emotional stories, and promises of unique events, but it misses some key elements from the gold answer, such as the focus on a single character and the sense of urgency, and includes additional details that are not directly relevant.",
+    "error": null,
+    "elapsed_s": 23.4
+  },
+  {
+    "id": "32",
+    "category": "cross_show",
+    "overall": 0.411,
+    "numeric": 0.333,
+    "keyword": 0.308,
+    "grounded": 1.0,
+    "refusal": null,
+    "judge": 0.25,
+    "judge_reason": "The model answer provides some relevant data but fails to capture the main insight from the gold answer, which highlights significant rating differences favoring personal drama across specific shows. Additionally, the model introduces unrelated examples and does not address the specific programs or the magnitude of differences mentioned in the gold answer.",
+    "error": null,
+    "elapsed_s": 21.3
   },
   {
     "id": "33",
     "category": "no_answer",
-    "overall": 0.932,
+    "overall": 0.898,
     "numeric": null,
-    "keyword": 0.714,
+    "keyword": 0.571,
     "grounded": 1.0,
     "refusal": 1.0,
     "judge": 1.0,
+    "judge_reason": "The model answer accurately conveys the main insight that there is no information available about the series \"שומר החומות\" and provides additional plausible context without introducing any factual errors.",
     "error": null,
-    "elapsed_s": 1.2
+    "elapsed_s": 5.2
   },
   {
     "id": "34",
     "category": "no_answer",
-    "overall": 0.802,
+    "overall": 0.841,
     "numeric": null,
-    "keyword": 0.167,
+    "keyword": 0.333,
     "grounded": 1.0,
     "refusal": 1.0,
     "judge": 1.0,
+    "judge_reason": "The model answer accurately conveys the main insight of the gold answer, stating that no relevant budget information is available, and it is factually correct with no errors.",
     "error": null,
-    "elapsed_s": 1.3
+    "elapsed_s": 1.7
   },
   {
     "id": "35",
     "category": "no_answer",
-    "overall": 0.932,
+    "overall": 0.871,
     "numeric": null,
-    "keyword": 0.714,
+    "keyword": 0.857,
     "grounded": 1.0,
     "refusal": 1.0,
-    "judge": 1.0,
+    "judge": 0.75,
+    "judge_reason": "The model answer correctly conveys the main insight that there is no information available about \"ישראל הבאה,\" but it adds speculative content about the user possibly referring to a different show or season, which is unnecessary but not factually incorrect.",
     "error": null,
-    "elapsed_s": 1.5
+    "elapsed_s": 9.1
   },
   {
     "id": "36",
     "category": "alias",
-    "overall": 0.337,
+    "overall": 0.354,
     "numeric": 0.0,
-    "keyword": 0.417,
+    "keyword": 0.5,
     "grounded": 1.0,
     "refusal": null,
     "judge": 0.25,
+    "judge_reason": "The model answer provides ratings for different seasons but does not include the specific rating for Season 3, which is the main insight of the gold answer, and it introduces a hallucinated Season 4, which is factually incorrect.",
     "error": null,
-    "elapsed_s": 3.1
+    "elapsed_s": 8.9
   },
   {
     "id": "37",
     "category": "ranking",
-    "overall": 0.771,
+    "overall": 0.688,
     "numeric": 1.0,
     "keyword": 0.7,
     "grounded": 1.0,
     "refusal": null,
-    "judge": 0.5,
+    "judge": 0.25,
+    "judge_reason": "The model answer provides specific details (date and percentage) that are not in the gold answer and may be hallucinated, and it misses the main insight about the promo text being included.",
     "error": null,
-    "elapsed_s": 9.0
+    "elapsed_s": 13.7
   },
   {
     "id": "38",
@@ -452,8 +489,9 @@
     "grounded": 1.0,
     "refusal": null,
     "judge": 1.0,
+    "judge_reason": "The model answer accurately conveys the main insight of the gold answer, provides the correct ranking and ratings, and includes additional factual context (e.g., dates) without introducing any errors.",
     "error": null,
-    "elapsed_s": 10.1
+    "elapsed_s": 15.7
   },
   {
     "id": "39",
@@ -464,8 +502,9 @@
     "grounded": 1.0,
     "refusal": null,
     "judge": 1.0,
+    "judge_reason": "The model answer accurately conveys the main insight (27% share for the premiere of 'הראש') and includes additional correct context without introducing any factual errors.",
     "error": null,
-    "elapsed_s": 2.3
+    "elapsed_s": 12.1
   },
   {
     "id": "40",
@@ -476,8 +515,9 @@
     "grounded": 1.0,
     "refusal": null,
     "judge": 1.0,
+    "judge_reason": "The model answer accurately conveys the main insight (the correct date of the premiere) and provides additional context that is factually correct, without introducing any errors.",
     "error": null,
-    "elapsed_s": 2.5
+    "elapsed_s": 6.7
   },
   {
     "id": "41",
@@ -488,56 +528,61 @@
     "grounded": 1.0,
     "refusal": null,
     "judge": 0.75,
+    "judge_reason": "The model answer clearly conveys the main insight of using patriotism as a central theme in the campaign and aligns with the gold answer's focus on engaging a broad audience, but it introduces additional details and context that, while accurate, slightly shift the emphasis away from the core simplicity of the gold answer.",
     "error": null,
-    "elapsed_s": 6.4
+    "elapsed_s": 21.5
   },
   {
     "id": "42",
     "category": "quote",
-    "overall": 0.895,
+    "overall": 0.735,
     "numeric": null,
-    "keyword": 0.643,
+    "keyword": 0.5,
     "grounded": 1.0,
     "refusal": null,
-    "judge": 1.0,
+    "judge": 0.75,
+    "judge_reason": "The model answer clearly conveys the main insight about the poster being inspired by Kobe Bryant and creating a special event feel, but it adds extra context about emotional messaging and campaign strategy, which, while accurate, slightly shifts focus from the core insight.",
     "error": null,
-    "elapsed_s": 6.7
+    "elapsed_s": 13.5
   },
   {
     "id": "43",
     "category": "open_ended",
-    "overall": 0.479,
-    "numeric": 0.5,
-    "keyword": 0.4,
-    "grounded": 0.0,
+    "overall": 0.319,
+    "numeric": 0.0,
+    "keyword": 0.333,
+    "grounded": 1.0,
     "refusal": null,
-    "judge": 0.75,
+    "judge": 0.25,
+    "judge_reason": "The model answer provides some correct information about general viewing intentions and intentions among those exposed to campaigns, but it introduces unrelated examples (\"בייבי בום\" and \"חתונה ממבט ראשון\") that are not in the gold answer, and it fails to convey the main insight about the specific 35% vs. 78% gap in \"חולי אהבה,\" which demonstrates campaign effectiveness.",
     "error": null,
-    "elapsed_s": 5.2
+    "elapsed_s": 14.9
   },
   {
     "id": "44",
     "category": "alias",
-    "overall": 0.646,
-    "numeric": 0.667,
-    "keyword": 0.565,
+    "overall": 0.53,
+    "numeric": 0.333,
+    "keyword": 0.478,
     "grounded": 1.0,
     "refusal": null,
     "judge": 0.5,
+    "judge_reason": "The model answer partially conveys the main insight about the emotional approach targeting parents with children, but it overemphasizes elements like Thailand and visual branding, which were not central to the gold answer, and misses the slogan and specific launch details.",
     "error": null,
-    "elapsed_s": 9.4
+    "elapsed_s": 22.5
   },
   {
     "id": "45",
     "category": "strategy",
-    "overall": 0.309,
+    "overall": 0.735,
     "numeric": null,
-    "keyword": 0.25,
-    "grounded": 0.0,
+    "keyword": 0.5,
+    "grounded": 1.0,
     "refusal": null,
-    "judge": 0.5,
+    "judge": 0.75,
+    "judge_reason": "The model answer clearly conveys the main insight of leading with the host and avoiding overhyping the show, aligning with the gold answer. However, it introduces additional context and examples (e.g., \"מה שבע\" and \"נוטוק\") that, while relevant, are not directly mentioned in the gold answer and could slightly distract from the core strategy.",
     "error": null,
-    "elapsed_s": 9.9
+    "elapsed_s": 27.1
   },
   {
     "id": "46",
@@ -548,56 +593,61 @@
     "grounded": 1.0,
     "refusal": null,
     "judge": 0.25,
+    "judge_reason": "The model answer provides general strategies for improving reality show ratings but fails to convey the main insight of the gold answer, which emphasizes disconnecting from a weak season storyline and creating a one-time emotional event to boost ratings, as demonstrated by \"Ninja\" Season 5.",
     "error": null,
-    "elapsed_s": 10.2
+    "elapsed_s": 30.4
   },
   {
     "id": "47",
     "category": "numeric",
-    "overall": 0.765,
+    "overall": 0.682,
     "numeric": 0.5,
     "keyword": 0.571,
     "grounded": 1.0,
     "refusal": null,
-    "judge": 1.0,
+    "judge": 0.75,
+    "judge_reason": "The model answer accurately conveys the main insight of the gold answer (average rating of 19.9%) and includes additional correct context, but it omits the secondary detail about the 20.5% starting point.",
     "error": null,
-    "elapsed_s": 2.0
+    "elapsed_s": 5.2
   },
   {
     "id": "48",
     "category": "ranking",
-    "overall": 0.276,
+    "overall": 0.193,
     "numeric": 0.0,
     "keyword": 0.125,
     "grounded": 1.0,
     "refusal": null,
-    "judge": 0.25,
+    "judge": 0.0,
+    "judge_reason": "The model answer is factually incorrect, naming a different series (\"ביום שהאדמה רעדה\") with an incorrect rating (24.4%) and does not convey the main insight from the gold answer.",
     "error": null,
-    "elapsed_s": 2.6
+    "elapsed_s": 10.1
   },
   {
     "id": "49",
     "category": "quote",
-    "overall": 0.714,
+    "overall": 0.672,
     "numeric": null,
-    "keyword": 0.429,
+    "keyword": 0.286,
     "grounded": 1.0,
     "refusal": null,
     "judge": 0.75,
+    "judge_reason": "The model answer conveys the main insight about the slogans being related to the finale and the couples' decisions, but it introduces a specific slogan and additional context that, while plausible, is not confirmed in the gold answer and could be a potential hallucination.",
     "error": null,
-    "elapsed_s": 3.0
+    "elapsed_s": 6.2
   },
   {
     "id": "50",
     "category": "alias",
-    "overall": 0.588,
+    "overall": 0.573,
     "numeric": 0.75,
-    "keyword": 0.571,
+    "keyword": 0.5,
     "grounded": 1.0,
     "refusal": null,
     "judge": 0.25,
+    "judge_reason": "The model provides detailed ratings data but introduces factual inaccuracies (e.g., incorrect dates and percentages) and fails to convey the main insight about the premiere and finale ratings being notable, as highlighted in the gold answer.",
     "error": null,
-    "elapsed_s": 3.5
+    "elapsed_s": 7.3
   },
   {
     "id": "51",
@@ -608,43 +658,47 @@
     "grounded": 1.0,
     "refusal": null,
     "judge": 1.0,
+    "judge_reason": "The model answer accurately conveys the main insight that season 2 of \"יצאת צדיק\" under חיים אתגר corresponds to season 8 overall, and it provides additional correct details about the airing dates and source, with no factual errors.",
     "error": null,
-    "elapsed_s": 2.7
+    "elapsed_s": 6.3
   },
   {
     "id": "52",
     "category": "cross_show",
-    "overall": 0.141,
+    "overall": 0.38,
     "numeric": 0.0,
-    "keyword": 0.278,
-    "grounded": 0.0,
+    "keyword": 0.222,
+    "grounded": 1.0,
     "refusal": null,
-    "judge": 0.25,
+    "judge": 0.5,
+    "judge_reason": "The model answer partially conveys the main insight by discussing differences in focus between drama series and reality shows, such as storytelling versus emotional connection and format emphasis, but it misses the key point about the higher initial ratings and event-driven nature of reality shows, and includes extraneous details that do not directly address the main insight.",
     "error": null,
-    "elapsed_s": 10.2
+    "elapsed_s": 26.3
   },
   {
     "id": "53",
     "category": "numeric",
-    "overall": 0.611,
+    "overall": 0.634,
     "numeric": 1.0,
-    "keyword": 0.333,
+    "keyword": 0.444,
     "grounded": 1.0,
     "refusal": null,
     "judge": 0.25,
+    "judge_reason": "The model answer provides some correct calculations for specific examples but fails to convey the main insight from the gold answer, which specifies the typical conversion multipliers (0.23 for regular dramas and 0.28-0.30 for event dramas). Additionally, the model introduces irrelevant and inconsistent data, such as a conversion rate of 1.27, which contradicts the gold answer.",
     "error": null,
-    "elapsed_s": 5.5
+    "elapsed_s": 24.4
   },
   {
     "id": "54",
     "category": "numeric",
-    "overall": 0.503,
-    "numeric": 0.333,
+    "overall": 0.601,
+    "numeric": 0.667,
     "keyword": 0.75,
     "grounded": 1.0,
     "refusal": null,
     "judge": 0.25,
+    "judge_reason": "The model answer contains factual errors and does not convey the main insight from the gold answer, as it provides incorrect percentages and additional irrelevant details not aligned with the gold answer.",
     "error": null,
-    "elapsed_s": 4.3
+    "elapsed_s": 9.6
   }
 ]
