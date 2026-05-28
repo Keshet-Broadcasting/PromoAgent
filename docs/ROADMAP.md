@@ -1,6 +1,6 @@
 ﻿# PromoAgent — Roadmap
 
-**Last updated:** May 28, 2026
+**Last updated:** May 28, 2026 (Phase A routing fixes)
 
 **Strategic plan for hitting 70%:** see [`docs/PATH_TO_70_PERCENT.md`](PATH_TO_70_PERCENT.md) — handoff document with phased plan, realistic ceiling math, observability upgrade, and decision points.
 
@@ -48,9 +48,10 @@ PromoAgent is a RAG-based chatbot for Keshet TV's promo department, replacing a 
 || B.1 | Langfuse v4 migration (`app/service.py` + `tests/eval_dataset.py`) | **DONE (May 28)** | `langfuse.decorators` → v4 API; `create_score()`, OTel span attributes, `OTEL_SERVICE_NAME` |
 || B.2 | `load_dotenv()` fix in eval harness — Langfuse keys now loaded correctly | **DONE (May 28)** | Eval scores now reliably pushed to Langfuse dashboard per run |
 || B.3 | `tmp_pkg/diag_case.py` — per-case end-to-end diagnostic tool (`--id N`) | **DONE (May 28)** | Shows route, retrieved chunks, bot answer, gold, numeric/keyword scores + diagnosis |
-| 6f | Genre detector: exclude content-type phrases like "דרמה אישית" | TODO (LOW) | Fixes id=32 false-positive on reality-show queries |
+| A.1 | Context-aware `כוכב` alias (`כוכב (ב)עונה N≥10` → `הכוכב הבא לאירוויזיון`) | **DONE (May 28)** | Fixes id=29; `_KOCHAV_SEASON_RE` in `domain_catalog.expand_aliases` |
+| A.2 | Genre false-positive: strip `דרמה אישית`/`דרמה זוגית` before genre detection | **DONE (May 28)** | Fixes id=32; `_DRAMA_CONTENT_TYPE_RE` strips content-type phrases in `genres_for_query` |
+| A.3 | Broad-scope guard: genres broaden only when no single show constrains query | **DONE (May 28)** | `_build_retrieval_plan`: `bool(genres) and len(show_names)==0`; single-show+drama stays narrow |
 | 6g | Investigate 6 catalog shows with 0 index chunks (`רוקדים`, `הבוגדים`, …) | TODO (MED) | May need alias additions or doc-coverage check |
-| 6h | Refine broad-scope trigger for narrow queries (`quote`/`alias`/`ranking` regression) | TODO (HIGH) | Phase 6c data fix exposed over-broadening: quote 71→42, ranking 50→38. Tighten `_build_retrieval_plan` so single-show quote queries stay narrow. |
 | 6i | Address Azure content filter on "הראש" (violence flag) | TODO (MED) | Sanitize promo_text or switch model for violence-content cases |
 | 7 | Consolidate Hebrew vocabulary into `app/text_patterns.py` | TODO (1-2 hr) | Single source of truth for `_GROUNDING_MARKERS`, `_DOCTYPE_KEYS`, `GENRE_PATTERNS`, `_RANKING_PATTERNS`, `_LAUNCH_PATTERNS`, etc. Currently scattered across 5 files. Refactor only — no behavior change. |
 | 8 | UI parity (streaming, threads, mobile) | TODO | UX |

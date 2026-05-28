@@ -1,6 +1,6 @@
 # PromoAgent — Evaluation Report
 
-**Last updated:** May 28, 2026  
+**Last updated:** May 28, 2026 (Phase A routing fixes added)  
 **Dataset:** `dataset.jsonl` — 62 cases  
 **Eval harness:** `tests/eval_dataset.py` (LLM-as-judge via GPT-4o)  
 **Observability:** Langfuse v4 — scores pushed per run to [cloud.langfuse.com](https://cloud.langfuse.com)  
@@ -102,6 +102,14 @@ Identical code + seed=42 across two runs → 22% of cases changed judge bucket. 
 
 ---
 
+## Phase A — Done (May 28)
+
+| Item | Commit | Effect |
+|------|--------|--------|
+| Context-aware `כוכב` alias: `כוכב (ב)עונה N≥10` → `הכוכב הבא לאירוויזיון` | `03508de` | ID 29 now retrieves season 11 of the correct show |
+| Genre false-positive: strip `דרמה אישית` / `דרמה זוגית` before genre detection | `03508de` | ID 32 no longer mis-routes to drama broad-path |
+| Broad-scope guard: genres only broaden when `show_names` is empty | `03508de` | Single-show queries with drama words stay narrow |
+
 ## What Needs Work (Priority Order)
 
 | Priority | Item | Expected lift | Phase |
@@ -109,9 +117,8 @@ Identical code + seed=42 across two runs → 22% of cases changed judge bucket. 
 | 1 | **Creative-mode voice** — sensory/visual language for `open_ended`/`strategy` | +3-5pp | C |
 | 2 | **Refusal calibration** — clean refusal instead of adjacent-context synthesis | +2-3pp refusal accuracy | C |
 | 3 | **Content filter for "הראש"** — sanitize promo_text for violence flags | Recovers 2-3 cases | D |
-| 4 | **Alias ambiguity** — context-aware `כוכב` rule | +1-2pp alias | A |
-| 5 | **Dataset expansion to N≥10** for `comparison`, `cross_show` | Measurement reliability | E |
-| 6 | **Architectural** (HyDE, better re-ranker, GPT-5 test) | Unknown — only after C+D | F |
+| 4 | **Dataset expansion to N≥10** for `comparison`, `cross_show` | Measurement reliability | E |
+| 5 | **Architectural** (HyDE, better re-ranker, GPT-5 test) | Unknown — only after C+D | F |
 
 ---
 
@@ -130,8 +137,8 @@ Identical code + seed=42 across two runs → 22% of cases changed judge bucket. 
 
 ## Next Steps (This Week)
 
-1. **Continue `diag_case.py` on failing cases** — ID 52 (cross_show), weak alias cases (IDs 28-34), weak open_ended cases.
-2. **Phase C — creative-mode prompt** — add trigger patterns + voice section to `system_prompt.txt`; re-eval.
-3. **Phase D — content filter** — sanitize "הראש" promo_text in `_fmt_excel`.
+1. **Phase C — refusal calibration** — add clean-refusal instruction (30 min) to `system_prompt.txt`.
+2. **Phase D — content filter** — sanitize "הראש" promo_text in `_fmt_excel` (`_fmt_excel` in `service.py`, 2 hr).
+3. **Phase C — voice** — continue creative-mode prompt for `open_ended`/`strategy` queries.
 4. **Phase B (remaining)** — add per-span metadata to Langfuse traces; `session_id` linkage.
 5. **Side-by-side user test** — 5 promo team members, 10 real questions. Pass criterion: wins or ties on ≥7/10.

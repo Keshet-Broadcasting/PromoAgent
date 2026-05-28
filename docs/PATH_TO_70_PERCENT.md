@@ -1,6 +1,6 @@
 # PromoAgent — Path to 70% Judge Score (Handoff Plan)
 
-**Written:** 2026-05-25 · **Revised:** 2026-05-28 (Phase E.1 + B.1-B.3 done)
+**Written:** 2026-05-25 · **Revised:** 2026-05-28 (Phase E.1 + B.1-B.3 + A.1-A.3 done)
 **Audience:** the next agent (or future self) picking up where we left off
 **Current state:** judge ~49% (Run 8: 49.0% on 62-case dataset), overall ~50-53%
 **Target:** judge ≥ 70% to declare ready for Custom GPT replacement
@@ -161,19 +161,21 @@ score on 54 historical cases.
 Five phases, each with a concrete success criterion. Do them in order — each
 phase's value depends on the previous phase landing first.
 
-### Phase A — Plateau-breaking routing fixes (1-2 days, +5-8pp expected)
+### Phase A — Plateau-breaking routing fixes ✅ DONE (May 28)
 
-**Goal:** recover what Phase 6c cost us. Phase 6c shipped 250 freshly-tagged
-chunks, but Patch B's route upgrade now over-fires on narrow queries that need
-narrow retrieval.
+**Commit:** `03508de`
 
-| Item | File | Effort | Expected lift | Detail |
-|---|---|---|---|---|
-| **6h — refine broad-scope trigger** | `app/service.py` `_build_retrieval_plan` | 30 min | +3-5 judge | Require multi-show OR explicit "כל ה"/genre keyword in query, not just genre-by-show inference. Today a single drama show triggers `genres=['drama']` → broad path. That's wrong for "quote me X from show Y" queries. |
-| **6f — exclude content-type phrases from genre detection** | `app/domain_catalog.py` `GENRE_PATTERNS` | 10 min | +1 | "דרמה אישית" (content type) matches "דרמה" pattern. Use negative lookahead or phrase blacklist. Fixes `id=32` and similar. |
-| **Context-aware alias for `כוכב`** | `app/domain_catalog.py` aliases | 20 min | +1-2 | `כוכב <number ≥ 10>` should map to `הכוכב הבא לאירוויזיון`, not `הכוכב הבא`. Fixes `id=29`. |
+| Item | File | Status | Detail |
+|---|---|---|---|
+| **A.3 — broad-scope guard** | `app/service.py` `_build_retrieval_plan` | **DONE** | `bool(genres) and len(show_names)==0` — genres only broaden when no single show constrains the query. Single-show+drama-word queries stay narrow. |
+| **A.2 — exclude content-type phrases** | `app/domain_catalog.py` `genres_for_query` | **DONE** | `_DRAMA_CONTENT_TYPE_RE` strips "דרמה אישית"/"דרמה זוגית" etc. before pattern matching. Fixes id=32. |
+| **A.1 — context-aware `כוכב` alias** | `app/domain_catalog.py` `expand_aliases` | **DONE** | `_KOCHAV_SEASON_RE`: `כוכב (ב)עונה N≥10` → `הכוכב הבא לאירוויזיון`; N<10 → `הכוכב הבא`. Fixes id=29. |
 
-**Phase A success criterion:** judge ≥ 50% with `quote` ≥ 55% and `ranking` ≥ 45%.
+**Diagnostic results (May 28):**
+- ID 29: retrieval plan now correctly targets `הכוכב הבא לאירוויזיון` season 11. Remaining score gap is answer format (average vs launch/finale specifics) — separate issue.
+- ID 32: no longer mis-routes to drama broad-path. Low score remains because cross-show promo-type comparison data isn't explicitly tagged in the index (Phase E item).
+
+**Phase A success criterion (to measure after next eval run):** judge ≥ 50% with `quote` ≥ 55% and `ranking` ≥ 45%.
 
 ### Phase B — Observability upgrade (4-6 hours, no direct judge lift but enables everything else)
 

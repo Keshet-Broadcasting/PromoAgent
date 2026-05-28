@@ -1,8 +1,8 @@
 ﻿# PromoAgent — Improvement Plan
 ## Goal: Replace the Custom GPT on OpenAI Subscription
 
-**Written:** May 10, 2026 | **Last updated:** May 28, 2026  
-**Current judge score:** 49.0% (≈ 2.45 / 5) — Foundry gpt-4o, 62-case dataset (Run 8, May 28)  
+**Written:** May 10, 2026 | **Last updated:** May 28, 2026 (Phase A routing fixes)  
+**Current judge score:** 49.0% (≈ 2.45 / 5) — Foundry gpt-4o, 62-case dataset (Run 8, May 28); Phase A shipped, next eval pending  
 **Target judge score:** ≥ 70% (≈ 3.5 / 5 — "correct, complete, well-phrased")
 
 ---
@@ -332,6 +332,18 @@ With 26 cases and 8 categories, the ranking/strategy/comparison categories have 
 | `OTEL_SERVICE_NAME=promobot-api` in `.env` + `.env.example` | DONE | Shows meaningful service name in Langfuse trace metadata |
 | Per-span metadata (route, hits count, etc.) | TODO | Still surfaces as single `OpenAI-generation` span |
 | `session_id` linkage agent ↔ judge traces | TODO | Needed for click-through debugging in Langfuse |
+
+### Phase A — Routing Fixes ✅ DONE (May 28)
+
+**Commit:** `03508de` — all three items shipped together.
+
+| Item | Status | Notes |
+|---|---|---|
+| Context-aware `כוכב` alias (`כוכב (ב)עונה N≥10` → `הכוכב הבא לאירוויזיון`) | **DONE** | `_KOCHAV_SEASON_RE` in `domain_catalog.expand_aliases`; handles "כוכב עונה 11" and "כוכב בעונה 11". Fixes ID 29. |
+| Genre false-positive: strip `דרמה אישית`/`דרמה זוגית` before genre detection | **DONE** | `_DRAMA_CONTENT_TYPE_RE` in `genres_for_query`; prevents content-type phrases from triggering drama genre path. Fixes ID 32. |
+| Broad-scope guard: genres broaden only when `show_names` is empty | **DONE** | `_build_retrieval_plan` condition changed to `bool(genres) and len(show_names)==0`. Single-show queries with drama/סדרה words stay narrow. |
+
+**Verified:** 10/10 unit tests pass in `tmp_verify_a.py`. Live diag on IDs 29 and 32 confirmed routing changes.
 
 ### Phase C — System Prompt / Voice Improvements ✅ PARTIAL (May 28)
 

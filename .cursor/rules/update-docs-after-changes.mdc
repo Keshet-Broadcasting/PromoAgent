@@ -1,0 +1,28 @@
+---
+description: After any code change or fix, update the four project tracking documents
+alwaysApply: true
+---
+
+# Always Update Docs After Every Change
+
+After **any** code change, bug fix, routing fix, prompt edit, or dataset update — before ending your turn — update all four project documents. Do this as part of the same response, not as a separate step.
+
+## Documents to update
+
+| File | What to update |
+|------|---------------|
+| `docs/ROADMAP.md` | Change TODO → DONE in the Status Summary table; bump "Last updated" date |
+| `docs/PATH_TO_70_PERCENT.md` | Mark the phase item as done; add diagnostic results and commit hash; bump "Revised" date |
+| `docs/improvement-plan.md` | Add a `✅ DONE (date)` section for the phase; record status of each sub-item |
+| `EVAL_REPORT.md` | Add entry to "Phase X — Done" block; update "What Needs Work" priority order; update "Last updated" date |
+
+## Minimal update per document
+
+- **ROADMAP.md**: flip the row from `TODO` to `**DONE (date)**`, update description with what file/function changed.
+- **PATH_TO_70_PERCENT.md**: replace the TODO table with a DONE table including commit hash and diagnostic result.
+- **improvement-plan.md**: add a `### Phase X — Done (date)` section above the TODO section with a status table.
+- **EVAL_REPORT.md**: add a `## Phase X — Done (date)` block above "What Needs Work"; remove completed items from the priority table.
+
+## Rule
+
+Never commit code without updating these four files. If a change is too small to warrant a full block, at minimum update the "Last updated" date and add one bullet to the relevant section.
