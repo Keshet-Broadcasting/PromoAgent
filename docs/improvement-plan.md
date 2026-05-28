@@ -1,8 +1,8 @@
 ﻿# PromoAgent — Improvement Plan
 ## Goal: Replace the Custom GPT on OpenAI Subscription
 
-**Written:** May 10, 2026 | **Last updated:** May 28, 2026 (Phase A + Phase C + Phase D shipped)  
-**Current judge score:** 49.0% (≈ 2.45 / 5) — Foundry gpt-4o, 62-case dataset (Run 8, May 28); Phase A + C.1-C.3 + D.1 shipped, Run 9 eval pending  
+**Written:** May 10, 2026 | **Last updated:** May 28, 2026 (Phase A + Phase C + Phase D + router brief fix shipped)  
+**Current judge score:** 49.0% (≈ 2.45 / 5) — Foundry gpt-4o, 62-case dataset (Run 8, May 28); Phase A + C.1-C.3 + D.1-D.2 shipped, Run 9 eval pending  
 **Target judge score:** ≥ 70% (≈ 3.5 / 5 — "correct, complete, well-phrased")
 
 ---
@@ -367,6 +367,7 @@ With 26 cases and 8 categories, the ranking/strategy/comparison categories have 
 | `_sanitize_for_content_filter()` in `service.py` | **DONE** | Applied to `_fmt_excel` (`promo_text`), `_fmt_word` (`chunk`+`caption`), `_fmt_sharepoint` (`text`) |
 | Replaces: אקדח/ירי/יורה/נורה/נהרגו/גופה + conjugated forms | **DONE** | 11 compiled patterns, neutral bracket replacements |
 | False-positive guards: "נורא", "הראש" show name | **DONE** | Both preserved in 9/9 unit tests |
+| **D.2 Router: "בריף" + campaign patterns → `WORD_QUOTE_PATTERNS`** | **DONE** | Brief queries now route to `word_quote` → show_name filter surfaces 17 הראש strategy chunks; 7/7 router tests pass. Root cause: live trace showed route="unknown" for brief requests → Word strategy chunks not retrieved. |
 
 ### Phase 6 — Word Document Semantic Chunking ✅ DONE (May 20, 2026)
 

@@ -1,6 +1,6 @@
 # PromoAgent — Evaluation Report
 
-**Last updated:** May 28, 2026 (Phase A + Phase C + Phase D)  
+**Last updated:** May 28, 2026 (Phase A + Phase C + Phase D + router brief fix)  
 **Dataset:** `dataset.jsonl` — 62 cases  
 **Eval harness:** `tests/eval_dataset.py` (LLM-as-judge via GPT-4o)  
 **Observability:** Langfuse v4 — scores pushed per run to [cloud.langfuse.com](https://cloud.langfuse.com)  
@@ -119,23 +119,26 @@ Identical code + seed=42 across two runs → 22% of cases changed judge bucket. 
 | No citation footer in Creative Mode | Creative answers end on visual/emotional beat, not "הנתונים נשלפו מ-X" |
 | Expanded Creative Mode triggers: 14 phrases (was 5) | "תכתוב לי", "תבנה לי", "תיצור לי" etc. now reliably hit Creative Mode |
 
-## Phase D — Done (May 28, commit `f1f8e1f`)
+## Phase D — Done (May 28, commits `f1f8e1f` + `64548d8`)
 
 | Item | Effect |
 |------|--------|
 | `_sanitize_for_content_filter()` in `service.py` | Applied to `promo_text` (Excel), `chunk`+`caption` (Word), `text` (SharePoint) before prompt assembly |
 | Replaces: אקדח/ירי/יורה/נורה/נהרג/גופה + variants | Violence triggers removed; neutral brackets preserve meaning for LLM |
 | "נורא" (terrible) and "הראש" (show name) untouched | False-positive guard verified — 9/9 unit tests pass |
+| Router: "בריף" + 10 campaign/brief phrases added to `WORD_QUOTE_PATTERNS` | Brief queries now route to `word_quote` → show_name filter surfaces הראש strategy chunks (17 confirmed in index); 7/7 router tests pass |
+
+**Confirmed via live test:** הראש has 17 rich strategy chunks in `מסמך דרמות GPT.docx` including *"תובנות מהקמפיין (5 נקודות)"*, *"מה השיקול שעמד מאחורי כל פרומו"*, *"התלבטויות מיוחדות"* — all now reachable.
 
 ## What Needs Work (Priority Order)
 
 | Priority | Item | Expected lift | Phase |
 |----------|------|---------------|-------|
-| 1 | **Run eval (Run 9)** — measure combined A+C+D impact vs Run 8 (49.0% judge) | Baseline measurement | — |
+| 1 | **Run eval (Run 9)** — measure combined A+C+D+router impact vs Run 8 (49.0% judge) | Baseline measurement | — |
 | 2 | **Strategy precision** — bot paraphrases instead of reproducing exact slogans/formulas | +2-3pp strategy | C |
 | 3 | **Dataset expansion to N≥10** for `comparison`, `cross_show` | Measurement reliability | E |
 | 4 | **Phase B spans** — per-pipeline-step Langfuse spans (route → retrieval → LLM) | No judge lift; better debugging | B |
-| 5 | **Architectural** (HyDE, better re-ranker, GPT-5 test) | Unknown — only after C+D | F |
+| 5 | **Architectural** (HyDE, better re-ranker, GPT-5 test) | Unknown — only after above | F |
 
 ---
 
