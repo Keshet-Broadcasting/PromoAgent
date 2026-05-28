@@ -1,6 +1,6 @@
 ﻿# PromoAgent — Roadmap
 
-**Last updated:** May 28, 2026 (Phase A + Phase C + Phase D + router brief fix)
+**Last updated:** May 28, 2026 (Phase A + Phase C + Phase D + router brief fix + dataset case 9 fix)
 
 **Strategic plan for hitting 70%:** see [`docs/PATH_TO_70_PERCENT.md`](PATH_TO_70_PERCENT.md) — handoff document with phased plan, realistic ceiling math, observability upgrade, and decision points.
 
@@ -56,6 +56,7 @@ PromoAgent is a RAG-based chatbot for Keshet TV's promo department, replacing a 
 | C.3 | Expand Creative Mode trigger patterns | **DONE (May 28)** | `system_prompt.txt` — 14 trigger phrases (was 5); covers "תכתוב לי", "תבנה לי", "תיצור לי", etc. |
 | D.1 | Azure content filter: sanitize violence phrases in `promo_text`, Word chunks, SharePoint text | **DONE (May 28)** | `_sanitize_for_content_filter()` in `service.py`; 9/9 unit tests pass; replaces אקדח/ירי/נהרג/גופה etc. with neutral brackets before prompt assembly; הראש queries no longer hit Error 400 |
 | D.2 | Router: add "בריף" and campaign/brief patterns to `WORD_QUOTE_PATTERNS` | **DONE (May 28)** | Brief queries now route to `word_quote` → show_name filter retrieves הראש strategy chunks (17 chunks confirmed in index); 7/7 router tests pass |
+| D.3 | Dataset: fix case 9 gold answer (פאלו אלטו + גוף שלישי viewing intentions) | **DONE (May 28)** | Gold stated "no data for פאלו אלטו" — wrong; document has 29%/65%/70%/67% across 3 measurement types. Model was scoring 2 for correct answers. |
 | 6g | Investigate 6 catalog shows with 0 index chunks (`רוקדים`, `הבוגדים`, …) | TODO (MED) | May need alias additions or doc-coverage check |
 | 7 | Consolidate Hebrew vocabulary into `app/text_patterns.py` | TODO (1-2 hr) | Single source of truth for `_GROUNDING_MARKERS`, `_DOCTYPE_KEYS`, `GENRE_PATTERNS`, `_RANKING_PATTERNS`, `_LAUNCH_PATTERNS`, etc. Currently scattered across 5 files. Refactor only — no behavior change. |
 | 8 | UI parity (streaming, threads, mobile) | TODO | UX |

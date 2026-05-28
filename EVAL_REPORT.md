@@ -1,6 +1,6 @@
 # PromoAgent — Evaluation Report
 
-**Last updated:** May 28, 2026 (Phase A + Phase C + Phase D + router brief fix)  
+**Last updated:** May 28, 2026 (Phase A + Phase C + Phase D + router brief fix + dataset case 9 fix)  
 **Dataset:** `dataset.jsonl` — 62 cases  
 **Eval harness:** `tests/eval_dataset.py` (LLM-as-judge via GPT-4o)  
 **Observability:** Langfuse v4 — scores pushed per run to [cloud.langfuse.com](https://cloud.langfuse.com)  
@@ -128,13 +128,15 @@ Identical code + seed=42 across two runs → 22% of cases changed judge bucket. 
 | "נורא" (terrible) and "הראש" (show name) untouched | False-positive guard verified — 9/9 unit tests pass |
 | Router: "בריף" + 10 campaign/brief phrases added to `WORD_QUOTE_PATTERNS` | Brief queries now route to `word_quote` → show_name filter surfaces הראש strategy chunks (17 confirmed in index); 7/7 router tests pass |
 
+**Dataset fix — case 9 (commit `529bd71`):** Gold answer for "כוונות צפייה פאלו אלטו + גוף שלישי" was wrong — stated "no numerical data for פאלו אלטו" but document has 29%/65%/70%/67% across 3 measurement types. Verified directly from מסמך דרמות GPT.docx via Claude. Gold answer updated with full correct data; confidence raised to high. This was penalizing the model (score 2) for giving correct answers.
+
 **Confirmed via live test:** הראש has 17 rich strategy chunks in `מסמך דרמות GPT.docx` including *"תובנות מהקמפיין (5 נקודות)"*, *"מה השיקול שעמד מאחורי כל פרומו"*, *"התלבטויות מיוחדות"* — all now reachable.
 
 ## What Needs Work (Priority Order)
 
 | Priority | Item | Expected lift | Phase |
 |----------|------|---------------|-------|
-| 1 | **Run eval (Run 9)** — measure combined A+C+D+router impact vs Run 8 (49.0% judge) | Baseline measurement | — |
+| 1 | **Run eval (Run 9)** — measure combined A+C+D+router+dataset-fix impact vs Run 8 (49.0% judge) | Baseline measurement | — |
 | 2 | **Strategy precision** — bot paraphrases instead of reproducing exact slogans/formulas | +2-3pp strategy | C |
 | 3 | **Dataset expansion to N≥10** for `comparison`, `cross_show` | Measurement reliability | E |
 | 4 | **Phase B spans** — per-pipeline-step Langfuse spans (route → retrieval → LLM) | No judge lift; better debugging | B |

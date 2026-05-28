@@ -1,6 +1,6 @@
 # PromoAgent — Path to 70% Judge Score (Handoff Plan)
 
-**Written:** 2026-05-25 · **Revised:** 2026-05-28 (Phase E.1 + B.1-B.3 + A.1-A.3 + C.1-C.3 + D.1-D.2 done)
+**Written:** 2026-05-25 · **Revised:** 2026-05-28 (Phase E.1 + B.1-B.3 + A.1-A.3 + C.1-C.3 + D.1-D.3 done)
 **Audience:** the next agent (or future self) picking up where we left off
 **Current state:** judge ~49% (Run 8: 49.0% on 62-case dataset), overall ~50-53%
 **Target:** judge ≥ 70% to declare ready for Custom GPT replacement
@@ -225,6 +225,9 @@ team members on 10 creative questions: PromoBot competitive on ≥6/10.
 **False-positive guards:** "נורא" (terrible) unchanged ✅, "הראש" show name unchanged ✅.  
 **Test coverage:** 9/9 unit tests pass (`tmp_test_content_filter.py`).  
 **Phase D success criterion:** eval cases mentioning "הראש" no longer hit Error 400. ✅ (to confirm in next eval run)
+
+**D.3 — Dataset case 9 gold answer fix (commit `529bd71`):**  
+Case 9 gold answer said "no numerical data for פאלו אלטו in document" — verified as wrong via Claude reading מסמך דרמות GPT.docx directly. Document contains: 29% general sample, 65% among promo-exposed (82% women), 70%/67% in screening test by version. Gold answer corrected to include all 3 measurement types for both shows. Model was being penalized score 2 for accurate, comprehensive answers.
 
 **D.2 — Router brief fix (commit `64548d8`):**  
 Added "בריף" + 10 brief/campaign phrases to `WORD_QUOTE_PATTERNS`. Brief queries now route to `word_quote` → show_name filter retrieves the הראש strategy chunks. Live verification: 17 הראש chunks confirmed in `מסמך דרמות GPT.docx` (תובנות, שיקול, התלבטויות, רייטינג sections). 7/7 router tests pass.
