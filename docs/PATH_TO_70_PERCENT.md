@@ -1,6 +1,6 @@
 # PromoAgent — Path to 70% Judge Score (Handoff Plan)
 
-**Written:** 2026-05-25 · **Revised:** 2026-05-28 (Phase E.1 + B.1-B.3 + A.1-A.3 done)
+**Written:** 2026-05-25 · **Revised:** 2026-05-28 (Phase E.1 + B.1-B.3 + A.1-A.3 + C.1-C.3 done)
 **Audience:** the next agent (or future self) picking up where we left off
 **Current state:** judge ~49% (Run 8: 49.0% on 62-case dataset), overall ~50-53%
 **Target:** judge ≥ 70% to declare ready for Custom GPT replacement
@@ -201,16 +201,17 @@ the Langfuse dashboard alone, no re-running diag scripts. Score backfill working
 be just as ambiguous as the last 5pp. Every patch from this point is more
 expensive to evaluate without observability.
 
-### Phase C — Voice and prompt (1-2 days, +3-5pp expected)
+### Phase C — Voice and prompt ✅ PARTIAL (May 28, commit `57d67f1`)
 
-**Goal:** close the ChatGPT-vs-PromoBot voice gap. The user demonstrated this
-clearly with side-by-side comparison on `המירוץ למיליון` creative-promo question.
+**Goal:** close the ChatGPT-vs-PromoBot voice gap.
 
-| Item | File | Effort | Expected lift |
-|---|---|---|---|
-| **Creative-mode prompt section** in `system_prompt.txt` triggered by patterns `אם הייתי`, `תפתח לי`, `תציע`, `כתוב לי`, `המלצה`. Voice: sensory, visual, no citation footers, concrete sequences instead of abstract principles | 1-2 hr | +2-3 on `open_ended`, some `strategy` |
-| **Citation rule strengthening** for non-creative answers — require explicit file/source reference | 30 min | +1, also pushes groundedness toward 95% |
-| **Refusal calibration** — instruction to refuse cleanly when retrieved chunks don't directly answer, rather than synthesize from adjacent context | 30 min | Recovers `refusal_accuracy` from 66.7% toward 90%+ |
+| Item | Status | Detail |
+|---|---|---|
+| **C.1 Refusal calibration** | **DONE** | Clean-refusal formula in `Retrieval Safety` section: "לא נמצאו נתונים על [X]... הנתונים שנשלפו מתייחסים ל-[Y]". Forbids synthesizing from off-topic chunks. |
+| **C.2 Anti-hedging voice rule** | **DONE** | Tone section: forbids "ייתכן כי", "אולי", academic closers; requires leading with conclusion in strategic answers. No citation footer in Creative Mode. |
+| **C.3 Creative Mode triggers** | **DONE** | Expanded from 5 → 14 trigger phrases; now covers "תכתוב לי", "תבנה לי", "תיצור לי", "תעזור לי לפתח", "איך היית מקמפיין". |
+| **Citation rule strengthening** | TODO | Require explicit file/source reference in every non-creative answer. |
+| **Strategy precision** | TODO | Bot paraphrases exact slogans/formulas from source docs instead of quoting them. Diag on ID 56 confirmed: right doc retrieved, wrong level of specificity in answer. |
 
 **Phase C success criterion:** judge ≥ 53%. Side-by-side blind test with 5 promo
 team members on 10 creative questions: PromoBot competitive on ≥6/10.

@@ -1,6 +1,6 @@
 # PromoAgent — Evaluation Report
 
-**Last updated:** May 28, 2026 (Phase A routing fixes added)  
+**Last updated:** May 28, 2026 (Phase A routing fixes + Phase C prompt)  
 **Dataset:** `dataset.jsonl` — 62 cases  
 **Eval harness:** `tests/eval_dataset.py` (LLM-as-judge via GPT-4o)  
 **Observability:** Langfuse v4 — scores pushed per run to [cloud.langfuse.com](https://cloud.langfuse.com)  
@@ -102,22 +102,31 @@ Identical code + seed=42 across two runs → 22% of cases changed judge bucket. 
 
 ---
 
-## Phase A — Done (May 28)
+## Phase A — Done (May 28, commit `03508de`)
 
-| Item | Commit | Effect |
-|------|--------|--------|
-| Context-aware `כוכב` alias: `כוכב (ב)עונה N≥10` → `הכוכב הבא לאירוויזיון` | `03508de` | ID 29 now retrieves season 11 of the correct show |
-| Genre false-positive: strip `דרמה אישית` / `דרמה זוגית` before genre detection | `03508de` | ID 32 no longer mis-routes to drama broad-path |
-| Broad-scope guard: genres only broaden when `show_names` is empty | `03508de` | Single-show queries with drama words stay narrow |
+| Item | Effect |
+|------|--------|
+| Context-aware `כוכב` alias: `כוכב (ב)עונה N≥10` → `הכוכב הבא לאירוויזיון` | ID 29 now retrieves season 11 of the correct show |
+| Genre false-positive: strip `דרמה אישית` / `דרמה זוגית` before genre detection | ID 32 no longer mis-routes to drama broad-path |
+| Broad-scope guard: genres only broaden when `show_names` is empty | Single-show queries with drama words stay narrow |
+
+## Phase C — Partially done (May 28, commit `57d67f1`)
+
+| Item | Effect |
+|------|--------|
+| Refusal calibration: clean-refusal formula with `[X]`/`[Y]` template | Bot will refuse cleanly instead of synthesizing from wrong-show chunks |
+| Anti-hedging voice rule: forbids "ייתכן כי", "אולי", academic closers | Strategic answers lead with conclusion, not hedge |
+| No citation footer in Creative Mode | Creative answers end on visual/emotional beat, not "הנתונים נשלפו מ-X" |
+| Expanded Creative Mode triggers: 14 phrases (was 5) | "תכתוב לי", "תבנה לי", "תיצור לי" etc. now reliably hit Creative Mode |
 
 ## What Needs Work (Priority Order)
 
 | Priority | Item | Expected lift | Phase |
 |----------|------|---------------|-------|
-| 1 | **Creative-mode voice** — sensory/visual language for `open_ended`/`strategy` | +3-5pp | C |
-| 2 | **Refusal calibration** — clean refusal instead of adjacent-context synthesis | +2-3pp refusal accuracy | C |
-| 3 | **Content filter for "הראש"** — sanitize promo_text for violence flags | Recovers 2-3 cases | D |
-| 4 | **Dataset expansion to N≥10** for `comparison`, `cross_show` | Measurement reliability | E |
+| 1 | **Content filter for "הראש"** — sanitize promo_text for violence flags | Recovers 2-3 cases | D |
+| 2 | **Strategy precision** — bot paraphrases instead of reproducing explicit slogans/formulas from source | +2-3pp strategy | C |
+| 3 | **Dataset expansion to N≥10** for `comparison`, `cross_show` | Measurement reliability | E |
+| 4 | **Phase B spans** — per-pipeline-step Langfuse spans (route → retrieval → LLM) | No judge lift; better debugging | B |
 | 5 | **Architectural** (HyDE, better re-ranker, GPT-5 test) | Unknown — only after C+D | F |
 
 ---
@@ -137,8 +146,8 @@ Identical code + seed=42 across two runs → 22% of cases changed judge bucket. 
 
 ## Next Steps (This Week)
 
-1. **Phase C — refusal calibration** — add clean-refusal instruction (30 min) to `system_prompt.txt`.
-2. **Phase D — content filter** — sanitize "הראש" promo_text in `_fmt_excel` (`_fmt_excel` in `service.py`, 2 hr).
-3. **Phase C — voice** — continue creative-mode prompt for `open_ended`/`strategy` queries.
+1. **Phase D — content filter** — sanitize "הראש" promo_text in `_fmt_excel` in `service.py` (2 hr; recovers 2-3 cases).
+2. **Phase C — strategy precision** — add instruction to reproduce slogans/formulas verbatim from Word chunks when available.
+3. **Run eval (Run 9)** — measure Phase A + Phase C combined impact; compare to Run 8 (49.0% judge).
 4. **Phase B (remaining)** — add per-span metadata to Langfuse traces; `session_id` linkage.
 5. **Side-by-side user test** — 5 promo team members, 10 real questions. Pass criterion: wins or ties on ≥7/10.

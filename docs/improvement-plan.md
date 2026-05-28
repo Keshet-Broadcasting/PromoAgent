@@ -1,8 +1,8 @@
 ﻿# PromoAgent — Improvement Plan
 ## Goal: Replace the Custom GPT on OpenAI Subscription
 
-**Written:** May 10, 2026 | **Last updated:** May 28, 2026 (Phase A routing fixes)  
-**Current judge score:** 49.0% (≈ 2.45 / 5) — Foundry gpt-4o, 62-case dataset (Run 8, May 28); Phase A shipped, next eval pending  
+**Written:** May 10, 2026 | **Last updated:** May 28, 2026 (Phase A + Phase C shipped)  
+**Current judge score:** 49.0% (≈ 2.45 / 5) — Foundry gpt-4o, 62-case dataset (Run 8, May 28); Phase A + C.1-C.3 shipped, next eval pending  
 **Target judge score:** ≥ 70% (≈ 3.5 / 5 — "correct, complete, well-phrased")
 
 ---
@@ -347,13 +347,18 @@ With 26 cases and 8 categories, the ranking/strategy/comparison categories have 
 
 ### Phase C — System Prompt / Voice Improvements ✅ PARTIAL (May 28)
 
+**Commits:** SP.1-SP.3 (`earlier`), C.1-C.3 (`57d67f1`)
+
 | Item | Status | Notes |
 |---|---|---|
 | Retrieval Safety & Metadata Verification section | DONE | Prevents wrong-show retrieval; adds partial-data refusal instruction |
 | Creative-mode few-shot example (from real GPT Q&A) | DONE | Closes voice gap for open_ended/strategy queries |
 | Anti-hallucination rule (no production/technical fabrication) | DONE | Prevents "האפקטים נוצרו באמצעות AI" style confabulations; backed by ID 62 test case |
-| Refusal calibration | TODO | Still synthesizes from adjacent context instead of clean refusal |
+| **C.1 Refusal calibration** | **DONE** | Clean-refusal formula added: "לא נמצאו נתונים על [X]... מתייחסים ל-[Y]". Forbids synthesizing from off-topic chunks. |
+| **C.2 Anti-hedging voice rule** | **DONE** | Tone section: forbids "ייתכן כי"/"אולי"/academic closers; no citation footer in Creative Mode. |
+| **C.3 Creative Mode trigger expansion** | **DONE** | 5 → 14 trigger phrases; now covers "תכתוב לי", "תבנה לי", "תיצור לי", "איך היית מקמפיין". |
 | Citation rule strengthening | TODO | Explicit file/source required in every non-creative answer |
+| Strategy precision | TODO | Bot paraphrases exact formulas/slogans from Word docs; needs instruction to quote verbatim when formula is explicit. Diag ID 56: right chunks retrieved, wrong specificity. |
 
 ### Phase 6 — Word Document Semantic Chunking ✅ DONE (May 20, 2026)
 

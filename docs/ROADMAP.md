@@ -1,6 +1,6 @@
 ﻿# PromoAgent — Roadmap
 
-**Last updated:** May 28, 2026 (Phase A routing fixes)
+**Last updated:** May 28, 2026 (Phase A routing fixes + Phase C prompt)
 
 **Strategic plan for hitting 70%:** see [`docs/PATH_TO_70_PERCENT.md`](PATH_TO_70_PERCENT.md) — handoff document with phased plan, realistic ceiling math, observability upgrade, and decision points.
 
@@ -51,6 +51,9 @@ PromoAgent is a RAG-based chatbot for Keshet TV's promo department, replacing a 
 | A.1 | Context-aware `כוכב` alias (`כוכב (ב)עונה N≥10` → `הכוכב הבא לאירוויזיון`) | **DONE (May 28)** | Fixes id=29; `_KOCHAV_SEASON_RE` in `domain_catalog.expand_aliases` |
 | A.2 | Genre false-positive: strip `דרמה אישית`/`דרמה זוגית` before genre detection | **DONE (May 28)** | Fixes id=32; `_DRAMA_CONTENT_TYPE_RE` strips content-type phrases in `genres_for_query` |
 | A.3 | Broad-scope guard: genres broaden only when no single show constrains query | **DONE (May 28)** | `_build_retrieval_plan`: `bool(genres) and len(show_names)==0`; single-show+drama stays narrow |
+| C.1 | Refusal calibration: clean-refusal formula when all chunks are off-topic | **DONE (May 28)** | `system_prompt.txt` — explicit template: "לא נמצאו נתונים על [X]... הנתונים שנשלפו מתייחסים ל-[Y]" |
+| C.2 | Anti-hedging voice rule + no citation footer in Creative Mode | **DONE (May 28)** | `system_prompt.txt` — forbids "ייתכן כי", "אולי", academic closers; Creative Mode ends on visual beat |
+| C.3 | Expand Creative Mode trigger patterns | **DONE (May 28)** | `system_prompt.txt` — 14 trigger phrases (was 5); covers "תכתוב לי", "תבנה לי", "תיצור לי", etc. |
 | 6g | Investigate 6 catalog shows with 0 index chunks (`רוקדים`, `הבוגדים`, …) | TODO (MED) | May need alias additions or doc-coverage check |
 | 6i | Address Azure content filter on "הראש" (violence flag) | TODO (MED) | Sanitize promo_text or switch model for violence-content cases |
 | 7 | Consolidate Hebrew vocabulary into `app/text_patterns.py` | TODO (1-2 hr) | Single source of truth for `_GROUNDING_MARKERS`, `_DOCTYPE_KEYS`, `GENRE_PATTERNS`, `_RANKING_PATTERNS`, `_LAUNCH_PATTERNS`, etc. Currently scattered across 5 files. Refactor only — no behavior change. |
