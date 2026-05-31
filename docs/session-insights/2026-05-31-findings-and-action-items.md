@@ -226,3 +226,28 @@ Edge cases that break naive parsing: `אור ראשון` (single merged note, no
 The רוקדים / הזמר / חולי אהבה / החיים prod failures the team hit are **already fixed in the
 committed code** (alias, history-anchor, single-show Word scoping, complete fetch) — they
 need a **deploy** to take effect in prod. Local verification passes on all four.
+**(Deployed to prod 2026-05-31.)**
+
+---
+
+## 8. The 6 word-docs zero-chunk shows — CONTENT gap, not a bug
+
+Audit flagged 6 catalog shows with 0 chunks in `word-docs`: רוקדים עם כוכבים, המטבח המנצח,
+המטבח המנצח VIP, הבוגדים, ישמח חתני, מבחן ההורים הגדול. Full-text search of the word index
+for each name shows they appear **only as comparison mentions inside OTHER shows' chunks**
+(e.g. רוקדים's 8 text-matches are all tagged המירוץ/הזמר/מאסטר שף; הבוגדים has 0 mentions
+anywhere). None has its own dedicated strategy section.
+
+**Verdict: a content-coverage gap, NOT an engineering bug.** These shows ARE tracked in the
+Excel index (`tv-promos`) with full ratings/promo data — they're simply not written up in the
+4 GPT strategy Word docs. Nothing is mis-tagged, mis-ingested, or broken.
+
+Consequences (correct behavior):
+- **Ratings/numeric questions** about these shows → answered from Excel (works; the dedup +
+  alias + date-launch/finale fixes apply to them too).
+- **Strategy/insight questions** → no Word data. The single-show Word scoping shipped today
+  scopes to the show's `show_name`, finds 0 chunks, and correctly returns "no data" — instead
+  of grabbing those comparison mentions from other shows and mis-attributing them.
+
+**Only way to add strategy coverage:** author the content into the source Word docs and
+re-ingest — a content/business task, out of engineering scope. No code change recommended.
