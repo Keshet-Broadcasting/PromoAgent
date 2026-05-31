@@ -32,6 +32,60 @@ def test_kochav_alias_does_not_corrupt_other_show_names():
     assert "הכוכב הבא" in extract_show_names("מה הרייטינג של כוכב")
 
 
+def test_date_based_launch_finale_marking():
+    """Launch = earliest date, finale = latest date, within a (show, season) group —
+    works even when episode_number is blank (the common case)."""
+    import app.service as svc
+
+    rows = [
+        {"show_name": "X", "season": "1", "date": "20.5.2025", "episode_number": ""},
+        {"show_name": "X", "season": "1", "date": "18.5.2025", "episode_number": ""},  # launch
+        {"show_name": "X", "season": "1", "date": "30.7.2025", "episode_number": ""},  # finale
+        {"show_name": "X", "season": "1", "date": "6.6.2025",  "episode_number": ""},
+    ]
+    svc._mark_launch_finale(rows)
+    roles = {r["date"]: r.get("_role") for r in rows}
+    assert roles["18.5.2025"] == "launch"
+    assert roles["30.7.2025"] == "finale"
+    assert roles["20.5.2025"] == "regular"
+    # _is_launch_row / _is_finale_row honor the date-derived role
+    launch = next(r for r in rows if r["date"] == "18.5.2025")
+    finale = next(r for r in rows if r["date"] == "30.7.2025")
+    assert svc._is_launch_row(launch) and not svc._is_finale_row(launch)
+    assert svc._is_finale_row(finale) and not svc._is_launch_row(finale)
+
+
+def test_launch_finale_same_date_tie_prefers_valid_metric():
+    """When two rows share the latest date (e.g. החיים 18.11.2024 finale + a
+    malformed same-night recap with a blank opening_point), the finale slot must
+    go to the row WITH a valid metric, not the blank one."""
+    import app.service as svc
+
+    rows = [
+        {"show_name": "Y", "season": "", "date": "23.9.2024",  "opening_point": "24.5"},  # launch
+        {"show_name": "Y", "season": "", "date": "5.10.2024",  "opening_point": "15.0"},
+        {"show_name": "Y", "season": "", "date": "18.11.2024", "opening_point": "16.5"},  # real finale
+        {"show_name": "Y", "season": "", "date": "18.11.2024", "opening_point": ""},      # malformed recap
+    ]
+    svc._mark_launch_finale(rows)
+    finale = next(r for r in rows if r["date"] == "18.11.2024" and r["opening_point"] == "16.5")
+    malformed = next(r for r in rows if r["date"] == "18.11.2024" and r["opening_point"] == "")
+    assert finale["_role"] == "finale"
+    assert malformed["_role"] != "finale"
+    assert next(r for r in rows if r["date"] == "23.9.2024")["_role"] == "launch"
+
+
+def test_parse_date_key_formats():
+    from app.service import _parse_date_key
+
+    assert _parse_date_key("18.5.2025") == (2025, 5, 18)
+    assert _parse_date_key("21.10.24") == (2024, 10, 21)
+    assert _parse_date_key("6/6/2021") == (2021, 6, 6)
+    assert _parse_date_key("20.5")[1:] == (5, 20)   # no year → year 0
+    assert _parse_date_key("") is None
+    assert _parse_date_key("not a date") is None
+
+
 def test_genre_detection_for_broad_query():
     from app.domain_catalog import genres_for_query, shows_for_genres
 

@@ -560,9 +560,17 @@ _BROAD_SCOPE_PATTERNS = re.compile(
     r"|דפוסים|משותפים|רוחבי|מכפיל|יחס המרה|כוונות צפייה.*רייטינג|רייטינג.*כוונות צפייה"
 )
 _LAUNCH_PATTERNS = re.compile(r"השקה|השקת|פתיחה|פרק ראשון|פרק 1")
+# Metric/column name "נקודת (ה)פתיחה" — stripped before launch detection so it
+# doesn't false-trigger launch intent (the "פתיחה" inside it is not a launch).
+_OPENING_METRIC_RE = re.compile(r"נקוד[התו]+\s+ה?פתיחה")
 _FINALE_PATTERNS = re.compile(r"גמר|סיום|פרק סיום|פינאל")
 _TONIGHT_PATTERNS = re.compile(r"טונייט|טונייטים|שוטף|פרומואים שוטפים")
 _CONVERSION_PATTERNS = re.compile(r"מכפיל|יחס המרה|כוונות צפייה.*רייטינג|רייטינג.*כוונות צפייה")
+# "except launch and finale" / "regular (not launch, not finale)" — drops BOTH.
+_EXCLUDE_LAUNCH_FINALE_RE = re.compile(
+    r"למעט.{0,15}(?:השק|גמר)|חוץ מ.{0,15}(?:השק|גמר)|פרט ל.{0,10}(?:השק|גמר)"
+    r"|לא כולל.{0,15}(?:השק|גמר)|(?:except|excluding).{0,15}(?:launch|finale)"
+)
 
 # ---------------------------------------------------------------------------
 # Azure OpenAI content-filter sanitizer (Phase D)
@@ -612,9 +620,13 @@ def _sanitize_for_content_filter(text: str) -> str:
 def _detect_event_intent(query: str) -> str | None:
     if _CONVERSION_PATTERNS.search(query):
         return "conversion"
-    if _LAUNCH_PATTERNS.search(query):
+    # Strip the metric phrase "נקודת (ה)פתיחה" (opening point) so its "פתיחה"
+    # doesn't falsely trigger launch intent — e.g. "הטונייט השוטף עם נקודת
+    # הפתיחה הגבוהה ביותר" is a TONIGHT query, not a launch query.
+    cleaned = _OPENING_METRIC_RE.sub(" ", query)
+    if _LAUNCH_PATTERNS.search(cleaned):
         return "launch"
-    if _FINALE_PATTERNS.search(query):
+    if _FINALE_PATTERNS.search(cleaned):
         return "finale"
     if _TONIGHT_PATTERNS.search(query):
         return "tonight"
@@ -678,12 +690,80 @@ def _doc_text(doc: dict) -> str:
     )
 
 
+# Dates appear as DD.M, DD.M.YY, DD.M.YYYY or with slashes. Day comes first
+# (Hebrew/Israeli format). Used to order episodes when episode_number is blank
+# (~65% of rows), so launch = earliest date and finale = latest date.
+_DATE_RE = re.compile(r"(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?")
+
+
+def _parse_date_key(value) -> tuple[int, int, int] | None:
+    """Parse a promo date into a sortable (year, month, day) tuple, or None."""
+    if not value:
+        return None
+    m = _DATE_RE.search(str(value))
+    if not m:
+        return None
+    day, month = int(m.group(1)), int(m.group(2))
+    if not (1 <= month <= 12 and 1 <= day <= 31):
+        return None
+    year = m.group(3)
+    if year:
+        year = int(year)
+        if year < 100:
+            year += 2000
+    else:
+        year = 0
+    return (year, month, day)
+
+
+def _mark_launch_finale(docs: list[dict]) -> None:
+    """Tag each row's role by DATE within its (show, season) group.
+
+    episode_number is blank on ~65% of rows, so the only reliable per-row signal
+    for "which episode is the launch / finale" is the date: earliest = launch,
+    latest = finale. Sets doc['_role'] in place. Groups with fewer than 2 dated
+    rows are left untouched (the text/episode heuristics in _is_launch_row /
+    _is_finale_row still apply).
+    """
+    from collections import defaultdict
+    groups: dict[tuple, list[tuple]] = defaultdict(list)
+    for d in docs:
+        k = _parse_date_key(d.get("date"))
+        if k is not None:
+            groups[(d.get("show_name", ""), str(d.get("season") or ""))].append((k, d))
+    for members in groups.values():
+        if len(members) < 2:
+            continue
+        # Fill missing years with the group's most common year so ordering is
+        # stable when some rows carry a year and some don't.
+        years = [k[0] for k, _ in members if k[0]]
+        ref_year = max(set(years), key=years.count) if years else 0
+        norm = [((k[0] or ref_year, k[1], k[2]), d) for k, d in members]
+        dates = [nk for nk, _ in norm]
+        min_d, max_d = min(dates), max(dates)
+        if min_d == max_d:
+            continue  # all one date — can't distinguish launch from finale
+        for _, d in norm:
+            d["_role"] = "regular"
+        # Among rows tied on the earliest/latest date, pick the one with a valid
+        # metric — so a malformed same-date row (e.g. a recap with a blank
+        # opening_point) doesn't steal the launch/finale slot from the real row.
+        launch = max((d for nk, d in norm if nk == min_d), key=_sort_metric)
+        finale = max((d for nk, d in norm if nk == max_d), key=_sort_metric)
+        launch["_role"] = "launch"
+        finale["_role"] = "finale"
+
+
 def _is_launch_row(doc: dict) -> bool:
+    if doc.get("_role"):
+        return doc["_role"] == "launch"
     episode = _episode_as_int(doc.get("episode_number") or doc.get("episode"))
     return episode == 1 or "השק" in _doc_text(doc)
 
 
 def _is_finale_row(doc: dict) -> bool:
+    if doc.get("_role"):
+        return doc["_role"] == "finale"
     text = _doc_text(doc)
     return "גמר" in text or "סיום" in text or "פינאל" in text
 
@@ -702,7 +782,14 @@ def _select_excel_rows_for_plan(docs: list[dict], plan: _RetrievalPlan, limit: i
     if not docs:
         return []
 
-    if plan.event_intent in ("launch", "conversion"):
+    # Tag launch/finale by date within each (show, season) group before filtering.
+    _mark_launch_finale(docs)
+
+    # Explicit "except launch and finale" / "regular episodes only" → drop BOTH.
+    # (Distinct from "tonight/שוטף", which excludes only the launch.)
+    if _EXCLUDE_LAUNCH_FINALE_RE.search(plan.query):
+        selected = [d for d in docs if not _is_launch_row(d) and not _is_finale_row(d)]
+    elif plan.event_intent in ("launch", "conversion"):
         selected = [d for d in docs if _is_launch_row(d)]
     elif plan.event_intent == "finale":
         selected = [d for d in docs if _is_finale_row(d)]
