@@ -97,9 +97,17 @@ def _validate_env() -> None:
 # Document helpers
 # ---------------------------------------------------------------------------
 
-def _make_id(show_name: str, season: str, episode: str, index: int) -> str:
-    """Stable SHA-256-based document ID (first 40 hex chars)."""
-    raw = f"{show_name}|{season}|{episode}|{index}"
+def _make_id(show_name: str, season: str, episode: str, date: str) -> str:
+    """Content-based SHA-256 document ID (first 40 hex chars).
+
+    The key is the logical-row identity (show|season|episode|date) — NOT the
+    positional row index. This makes ingestion idempotent: re-running, or
+    running a different pipeline for the same source row, produces the SAME id,
+    so Azure UPSERTS instead of creating a duplicate. (Episode is blank for ~65%
+    of rows, so `date` is the real disambiguator.) Must stay identical to
+    ingest_excel.make_document_id so the two pipelines never duplicate each other.
+    """
+    raw = f"{show_name}|{season}|{episode}|{date}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:40]
 
 
@@ -147,7 +155,7 @@ def _record_to_doc(rec: dict, idx: int) -> dict:
     promo_text = text_chunk or _to_str(rec.get("promo_text"))
 
     return {
-        "id":             _make_id(show_name, season, episode, idx),
+        "id":             _make_id(show_name, season, episode, _to_str(rec.get("date"))),
         "show_name":      show_name,
         "season":         season,
         "episode_number": episode,
@@ -200,6 +208,28 @@ def _embed_texts(http: httpx.Client, texts: list[str]) -> list[list[float] | Non
 # ---------------------------------------------------------------------------
 # Upload
 # ---------------------------------------------------------------------------
+
+def _delete_all_documents(client: SearchClient) -> int:
+    """Delete every document in the index (full-replace ingestion).
+
+    This pipeline ingests the COMPLETE processed_promos.json, so a clean
+    delete-then-upload guarantees the index ends with exactly the JSON's rows —
+    no accumulation. It also closes the duplication footgun: after the one-time
+    dedup, existing docs carry old positional ids that the new content-based ids
+    won't overwrite, so without a clean wipe a re-ingest would re-duplicate.
+    """
+    deleted = 0
+    while True:
+        ids = [d["id"] for d in client.search(search_text="*", select=["id"], top=1000)]
+        if not ids:
+            break
+        client.delete_documents(documents=[{"id": i} for i in ids])
+        deleted += len(ids)
+        log.info("  cleaned %d docs ...", deleted)
+        if len(ids) < 1000:
+            break
+    return deleted
+
 
 def _upload_batches(client: SearchClient, docs: list[dict]) -> int:
     """Upload documents in batches; returns count of successes."""
@@ -260,6 +290,13 @@ def main() -> None:
         index_name=AZURE_SEARCH_INDEX_NAME,
         credential=AzureKeyCredential(AZURE_SEARCH_KEY),
     )
+    # Full-replace by default: wipe the index first so re-ingestion is idempotent
+    # and cannot re-accumulate duplicates. Pass --no-clean to append instead.
+    if "--no-clean" not in sys.argv:
+        log.info("Cleaning index '%s' before upload (use --no-clean to skip) ...", AZURE_SEARCH_INDEX_NAME)
+        removed = _delete_all_documents(search_client)
+        log.info("  removed %d existing docs.", removed)
+
     log.info("Uploading to index '%s' in batches of %d ...", AZURE_SEARCH_INDEX_NAME, UPLOAD_BATCH_SIZE)
     total = _upload_batches(search_client, docs)
 

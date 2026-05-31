@@ -131,13 +131,19 @@ def download_blob(connection_string: str, container: str, blob_name: str) -> byt
     return data
 
 
-def make_document_id(show_name: str, season: str, episode_number: str, row_index: int) -> str:
+def make_document_id(show_name: str, season: str, episode_number: str, date: str) -> str:
     """
-    Generate a stable, unique document ID by hashing the identifying fields.
-    row_index is included as a fallback to guarantee uniqueness when episode
-    numbers are missing or duplicated.
+    Content-based document ID — hash of the logical-row identity
+    (show|season|episode|date), NOT the positional row index.
+
+    Using the row index made ingestion non-idempotent: re-running, or running
+    the JSON pipeline for the same source row, produced a different id and thus
+    a DUPLICATE document (this is what left ~45% of tv-promos duplicated).
+    Episode is blank for ~65% of rows, so `date` is the real disambiguator.
+    Must stay identical to ingest_json_to_azure._make_id so the two pipelines
+    never duplicate each other.
     """
-    raw = f"{show_name}|{season}|{episode_number}|{row_index}"
+    raw = f"{show_name}|{season}|{episode_number}|{date}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:40]
 
 
@@ -269,12 +275,12 @@ def parse_sheet(
         for field in COLUMN_MAP.values():
             doc.setdefault(field, "")
 
-        # Generate a stable unique ID for this document
+        # Content-based ID (idempotent) — see make_document_id docstring.
         doc["id"] = make_document_id(
             show_name,
             season,
             doc.get("episode_number", ""),
-            row_idx,
+            doc.get("date", ""),
         )
 
         documents.append(doc)

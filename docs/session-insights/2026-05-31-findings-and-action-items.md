@@ -178,3 +178,51 @@ data and answers correctly far more often than the judge credits — and that so
 were the *gold* being wrong (case 36), not the bot. The next move isn't another eval run;
 it's putting the bot in front of the team and letting their reaction be the metric. That
 test is 30 minutes and tells you the one thing 27 judge scores can't.
+
+---
+
+## 7. Data-health audit (read-only, 2026-05-31)
+
+Quantified the data layer because almost every prod bug traced to data/retrieval, not the LLM.
+
+**tv-promos (Excel) — 2,888 rows:**
+- **~45% duplicates** — 1,302 extra copies; only 1,586 distinct logical rows
+  `(show, season, episode, date)`. Verified on רוקדים: 220 rows → 112 distinct.
+- **`episode_number` blank on 65%** of rows → launch/finale must be detected by DATE,
+  not episode number.
+- `season` blank on 12% — but these are **single-season shows** (tabs without "עונה N":
+  המירוץ למיליון, גוף שלישי, חולי אהבה, פאלו אלטו, החיים…). Blank season is CORRECT for
+  them; do NOT "fix" it.
+
+**word-docs — 667 chunks (healthy):** 99% show_name coverage, 0 garbage tags. But **6 catalog
+shows have ZERO chunks** (רוקדים עם כוכבים, המטבח המנצח, הבוגדים, ישמח חתני, מבחן ההורים) and
+**6 are sparse (≤3 chunks)** — the thin-section condition behind the חולי-אהבה cross-show
+contamination.
+
+### Root cause of the duplication (confirmed)
+The document id hashed the **positional row index** (`show|season|episode|index`), and **two
+pipelines** (`ingest_excel.py` + `ingest_json_to_azure.py`) wrote the same source rows with
+different ids → duplicates instead of upserts. Proof: the two copies of one row had different
+ids, identical ratings, but different `promo_text` length (263 vs 403 chars = two pipelines).
+
+### Fix shipped
+- Both id-generators now hash **content** (`show|season|episode|date`, dropping `index`),
+  identical across pipelines → re-runs and cross-pipeline writes UPSERT, never duplicate.
+- `scripts/dedup_tv_promos.py` — dedups the existing index (dry-run by default; `--apply`
+  to delete). Keeps the richest `promo_text` copy. Dry-run result: 2,888 → 1,586 (−1,302).
+
+### ⚠ Sequencing footgun
+The kept docs still carry OLD positional ids. A future ingest with the new content-based
+keys would create non-matching ids → re-duplication. **After a dedup, tv-promos re-ingestion
+MUST be delete-all-first** (full replace), or do a one-time clean re-ingest instead.
+
+### Excel structure reference (`Obsidian/Prod/ExelMaping.md`)
+Tabs are per-(show, season) (e.g. "רוקדים עם כוכבים עונה 4"); within a tab `תאריך` is the row
+key. Real row counts sum to ~1,440 (matches 1,586 distinct minus section/special rows).
+Edge cases that break naive parsing: `אור ראשון` (single merged note, no episode rows),
+`היורשת`/`נוטוק`/`מאסטר שף VIP` (data in the header row), `מאסטר שף`/`המטבח` (sectioned tabs).
+
+### Note on prod vs local
+The רוקדים / הזמר / חולי אהבה / החיים prod failures the team hit are **already fixed in the
+committed code** (alias, history-anchor, single-show Word scoping, complete fetch) — they
+need a **deploy** to take effect in prod. Local verification passes on all four.
