@@ -14,6 +14,14 @@ With LLM-as-judge (uses an extra LLM call per case to score semantic quality):
 Single case by id:
     python tests/eval_dataset.py --id 5
 
+A subset of cases (token-cheap iteration — only re-runs these ids):
+    python tests/eval_dataset.py --judge --only 8,9,48
+
+Re-score WITHOUT re-running the agent (uses eval_answers_cache.json). Use after
+fixing gold answers or tweaking the judge rubric — numeric/keyword/grounded are
+free, only the judge spends one LLM call per case:
+    python tests/eval_dataset.py --rejudge --only 8,9,48
+
 JSON output:
     python tests/eval_dataset.py --json
 
@@ -50,10 +58,25 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Load .env for every entry path (CLI, run_eval_judge.py) — not just pytest,
+# which gets it via conftest. The judge provider needs AZURE_OPENAI_CHAT_* /
+# foundry credentials even when answers come from the cache.
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
+
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
 
 DATASET_PATH = Path(__file__).resolve().parent.parent / "dataset.jsonl"
+
+# Full agent answers are cached here so that gold-answer fixes and judge-rubric
+# tweaks can be re-scored WITHOUT re-running the agent (the expensive retrieval +
+# LLM call). Re-scoring numeric/keyword/grounded is then free; only --judge costs
+# one LLM call per case. Seed it from a fresh run or from Langfuse traces.
+CACHE_PATH = Path(__file__).resolve().parent.parent / "eval_answers_cache.json"
 
 WEIGHTS = {
     "numeric":   0.35,
@@ -382,6 +405,22 @@ def load_dataset(path: Path) -> list[GoldCase]:
     return cases
 
 
+def load_answer_cache() -> dict[str, dict]:
+    """Load the cached full agent answers (id -> {query, answer, elapsed_s})."""
+    if CACHE_PATH.exists():
+        try:
+            return json.loads(CACHE_PATH.read_text(encoding="utf-8"))
+        except Exception as exc:
+            log.warning("  Answer cache unreadable (%s); ignoring.", exc)
+    return {}
+
+
+def save_answer_cache(cache: dict[str, dict]) -> None:
+    CACHE_PATH.write_text(
+        json.dumps(cache, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+
 def _lf_score(lf_trace_id: str | None, name: str, value: float, comment: str = "") -> None:
     """Write a Langfuse score back to the source trace, if the SDK is available."""
     if not lf_trace_id:
@@ -397,8 +436,20 @@ def _lf_score(lf_trace_id: str | None, name: str, value: float, comment: str = "
 def run_eval(
     cases: list[GoldCase],
     use_judge: bool = False,
+    from_cache: bool = False,
+    update_cache: bool = True,
 ) -> list[CaseResult]:
-    from app.service import run_query
+    """Score cases against their gold answers.
+
+    from_cache=True   re-uses the full agent answer stored in CACHE_PATH instead
+                      of calling the agent. This makes gold-answer / rubric
+                      iteration cheap: numeric/keyword/grounded re-scoring is
+                      free, and only --judge spends one LLM call per case. Cases
+                      missing from the cache fall back to a live agent run.
+    update_cache=True persists every freshly-produced answer back to the cache.
+    """
+    run_query = None  # imported lazily, only when a live run is actually needed
+    cache = load_answer_cache()
 
     results: list[CaseResult] = []
     total = len(cases)
@@ -416,19 +467,33 @@ def run_eval(
 
         t0 = time.time()
         lf_trace_id: str | None = None
-        try:
-            resp = run_query(eval_query)
-            answer = resp.answer
-            lf_trace_id = getattr(resp, "lf_trace_id", None)
-        except Exception as exc:
+        cached = cache.get(gold.id) if from_cache else None
+        if cached and cached.get("answer"):
+            answer = cached["answer"]
+            elapsed = cached.get("elapsed_s", 0.0)
+            log.info("  (cached answer — no agent call)")
+        else:
+            if run_query is None:
+                from app.service import run_query as _rq
+                run_query = _rq
+            try:
+                resp = run_query(eval_query)
+                answer = resp.answer
+                lf_trace_id = getattr(resp, "lf_trace_id", None)
+            except Exception as exc:
+                elapsed = time.time() - t0
+                log.error("  ERROR: %s (%.1fs)", exc, elapsed)
+                results.append(CaseResult(
+                    id=gold.id, category=gold.category, query=gold.query,
+                    error=str(exc), elapsed_s=elapsed,
+                ))
+                continue
             elapsed = time.time() - t0
-            log.error("  ERROR: %s (%.1fs)", exc, elapsed)
-            results.append(CaseResult(
-                id=gold.id, category=gold.category, query=gold.query,
-                error=str(exc), elapsed_s=elapsed,
-            ))
-            continue
-        elapsed = time.time() - t0
+            if update_cache:
+                cache[gold.id] = {
+                    "query": eval_query, "answer": answer,
+                    "elapsed_s": round(elapsed, 1),
+                }
 
         gold_text = gold.cleaned_answer or gold.answer
 
@@ -471,6 +536,9 @@ def run_eval(
                  f"{r.judge_score:.2f}" if r.judge_score is not None else "off",
                  r.overall, elapsed)
         log.info("  A: %s%s", answer[:200], "…" if len(answer) > 200 else "")
+
+    if update_cache:
+        save_answer_cache(cache)
 
     return results
 
@@ -568,13 +636,19 @@ if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
 
-    use_judge = "--judge" in sys.argv
+    # --rejudge implies judge-on + read-from-cache (re-score cached answers).
+    rejudge = "--rejudge" in sys.argv
+    use_judge = "--judge" in sys.argv or rejudge
     json_out = "--json" in sys.argv
+    from_cache = rejudge or "--from-cache" in sys.argv
 
     case_id = None
+    only_ids: set[str] | None = None
     for i, arg in enumerate(sys.argv):
         if arg == "--id" and i + 1 < len(sys.argv):
             case_id = sys.argv[i + 1]
+        if arg == "--only" and i + 1 < len(sys.argv):
+            only_ids = {s.strip() for s in sys.argv[i + 1].split(",") if s.strip()}
 
     if not DATASET_PATH.exists():
         log.error("Dataset not found: %s", DATASET_PATH)
@@ -588,8 +662,20 @@ if __name__ == "__main__":
         if not cases:
             log.error("No case with id=%s", case_id)
             sys.exit(1)
+    elif only_ids is not None:
+        cases = [c for c in cases if c.id in only_ids]
+        missing = only_ids - {c.id for c in cases}
+        if missing:
+            log.warning("No cases for ids: %s", ", ".join(sorted(missing)))
+        if not cases:
+            log.error("No matching cases for --only %s", ",".join(sorted(only_ids)))
+            sys.exit(1)
 
-    results = run_eval(cases, use_judge=use_judge)
+    if from_cache:
+        log.info("Re-scoring from answer cache (%s) — no agent calls for cached ids.",
+                 CACHE_PATH.name)
+
+    results = run_eval(cases, use_judge=use_judge, from_cache=from_cache)
 
     if json_out:
         print(results_to_json(results))

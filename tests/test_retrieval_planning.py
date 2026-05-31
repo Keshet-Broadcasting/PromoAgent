@@ -15,6 +15,23 @@ def test_alias_extraction_returns_multiple_shows():
     assert "המירוץ למיליון" in shows
 
 
+def test_kochav_alias_does_not_corrupt_other_show_names():
+    """The 'כוכב' alias must not rewrite the 'כוכב' inside other show names.
+
+    Regression: 'רוקדים עם כוכבים' / 'כוכבים בריבוע' were being turned into
+    'הכוכב הבאים', making the agent retrieve הכוכב הבא לאירוויזיון by mistake.
+    """
+    from app.domain_catalog import extract_show_names
+
+    assert extract_show_names("מה היה הרייטינג של רוקדים עם כוכבים בעונה האחרונה?") == [
+        "רוקדים עם כוכבים"
+    ]
+    assert extract_show_names("מה רייטינג הגמר של כוכבים בריבוע?") == ["כוכבים בריבוע"]
+    # The intended expansions must still work:
+    assert extract_show_names("רוקדים") == ["רוקדים עם כוכבים"]
+    assert "הכוכב הבא" in extract_show_names("מה הרייטינג של כוכב")
+
+
 def test_genre_detection_for_broad_query():
     from app.domain_catalog import genres_for_query, shows_for_genres
 

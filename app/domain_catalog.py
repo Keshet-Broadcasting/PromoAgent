@@ -143,7 +143,12 @@ def expand_aliases(query: str) -> str:
         # matches as a substring of an already-official mention.
         if official in expanded:
             continue
-        expanded = re.sub(re.escape(alias), official, expanded)
+        # Match the alias only as a whole word — not glued to other Hebrew
+        # letters. Without this, the "כוכב" alias rewrites the "כוכב" inside
+        # "רוקדים עם כוכבים" / "כוכבים בריבוע" → "הכוכב הבאים", making the agent
+        # retrieve the wrong show (הכוכב הבא לאירוויזיון).
+        pattern = rf"(?<![א-ת]){re.escape(alias)}(?![א-ת])"
+        expanded = re.sub(pattern, official, expanded)
     return expanded
 
 

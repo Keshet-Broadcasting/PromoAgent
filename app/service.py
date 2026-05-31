@@ -205,6 +205,13 @@ _RANKING_PATTERNS = re.compile(
     r"|מי הכי|מה הכי"
 )
 
+# Single-show rating/metric questions ("מה היה הרייטינג של X", "רייטינג הגמר של Y",
+# "מה היו הרייטינגים של Z") need EVERY row for the show, not a semantic top-N that
+# routinely misses the launch / finale / specific-season episode. They are not
+# phrased as rankings, so _RANKING_PATTERNS misses them — detect them separately
+# so complete fetch_show_promos still fires.
+_RATING_INTENT_PATTERNS = re.compile(r"רייטינג|נקודת פתיחה|נקודות פתיחה|אחוזי צפייה|שֵיר|share")
+
 _LAST_SEASON_PATTERNS = re.compile(
     # Require "עונה" to be near the temporal word — avoids false positives on
     # "ההחלטה האחרונה", "הפעם האחרונה", etc.
@@ -761,6 +768,22 @@ def _doc_types_for_plan(plan: _RetrievalPlan) -> list[str]:
     return []
 
 
+def _single_show_word_kwargs(plan: _RetrievalPlan) -> dict:
+    """Scope Word retrieval to one show for single-show, non-comparison queries.
+
+    Word-side counterpart of the complete Excel fetch. Without it, a thin
+    single-show section (e.g. "חולי אהבה", which records very few numbers) ranks
+    below richer, semantically-similar sections from OTHER dramas, so the LLM
+    receives only other shows' chunks and mis-attributes their numbers
+    (observed: פאלו אלטו's 29%/82% reported as חולי אהבה's). Filtering by
+    show_name keeps retrieval on the requested show. Requires
+    WORD_METADATA_FILTERS_ENABLED=true; otherwise search_word_docs ignores it.
+    """
+    if len(plan.show_names) == 1 and not plan.genres and not plan.comparison:
+        return {"show_names": [plan.show_names[0]]}
+    return {}
+
+
 # ---------------------------------------------------------------------------
 # Retriever  (private)
 # ---------------------------------------------------------------------------
@@ -814,11 +837,22 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
             plan.event_intent or "—", plan.comparison, plan.conversion,
         )
 
-    # For ranking queries, detect a show name so we can use a filter-based
-    # fetch that returns ALL rows for that show (not just top-30 semantic hits).
+    # Use a filter-based fetch that returns ALL rows for a single show (not just
+    # top-N semantic hits) whenever the question is about that show's ratings,
+    # rankings, launch/finale, or a specific/last season. Semantic top-N
+    # routinely misses the launch or finale row, which then breaks ranking,
+    # min/max, per-season, and "rating of X" answers. The variable keeps the
+    # name `ranking_show` for the downstream Excel-selection wiring.
+    rating_intent = bool(_RATING_INTENT_PATTERNS.search(query))
+    single_show = len(plan.show_names) == 1 and not plan.genres
     ranking_show: str | None = (
         plan.show_names[0]
-        if ranking_intent and len(plan.show_names) == 1 and not plan.genres
+        if single_show and (
+            ranking_intent
+            or rating_intent
+            or plan.event_intent in ("launch", "finale", "tonight")
+            or season_filter is not None
+        )
         else None
     )
 
@@ -850,7 +884,12 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
             log.info("  broad retrieval requested without catalog target → semantic fallback")
         if ranking_show:
             docs = fetch_show_promos(ranking_show, top=500)
-            log.info("  show-filter fetch: show=%r → %d doc(s) (all rows)", ranking_show, len(docs))
+            # A complete fetch ignores semantic ranking, so a "last/first season"
+            # qualifier must still be applied here to narrow to the target season.
+            if season_filter:
+                docs = _filter_by_season_order(docs, season_filter)
+            log.info("  show-filter fetch: show=%r → %d doc(s) (all rows, season_filter=%s)",
+                     ranking_show, len(docs), season_filter or "none")
             return docs
         docs = search_excel_promos(query, top=excel_top)
         if season_filter:
@@ -888,7 +927,12 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
                 "doc_types": _doc_types_for_plan(plan) or None,
                 "question_types": _question_types_for_plan(plan) or None,
             }
-        docs = search_word_docs(query, top=word_top, **word_kwargs)
+        else:
+            word_kwargs = _single_show_word_kwargs(plan)
+        # When scoped to a single show (few chunks total), pull more of them so a
+        # low-ranked but on-topic chunk (e.g. the promo-test result) isn't cut off.
+        wt = 15 if word_kwargs.get("show_names") and not plan.broad_word else word_top
+        docs = search_word_docs(query, top=wt, **word_kwargs)
         if season_filter:
             docs = _rerank_word_docs_by_season(docs, season_filter)
         log.info("  Word hits: %d | Excel hits: 0", len(docs))
@@ -936,7 +980,10 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
                 "doc_types": _doc_types_for_plan(plan) or None,
                 "question_types": _question_types_for_plan(plan) or None,
             }
-        word_docs  = search_word_docs(query, top=word_top, **word_kwargs)
+        else:
+            word_kwargs = _single_show_word_kwargs(plan)
+        wt = 15 if word_kwargs.get("show_names") and not plan.broad_word else word_top
+        word_docs  = search_word_docs(query, top=wt, **word_kwargs)
         if season_filter:
             word_docs = _rerank_word_docs_by_season(word_docs, season_filter)
         log.info("  Excel hits: %d | Word hits: %d | season_filter=%s | ranking_show=%s",
