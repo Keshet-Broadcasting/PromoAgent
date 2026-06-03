@@ -924,11 +924,17 @@ def _fetch_word_docs(plan: _RetrievalPlan, query: str, word_top: int) -> list[di
     if plan.broad_word:
         targets = plan.target_show_names
         if plan.coverage and len(targets) > 1:
+            # Coverage = "quote/compare EVERY drama". Breadth beats depth here:
+            # take the single best-matching chunk PER show so all ~15-17
+            # strategy-bearing dramas fit the budget (top_per_show=2 capped at 24
+            # only reached 12/17). No hard doc_type/question_type filter — that can
+            # drop shows whose strategy section isn't tagged exactly "אסטרטגיה";
+            # the semantic query already biases toward the right chunk per show.
             return fetch_word_docs_per_show(
                 query,
                 targets,
-                doc_types=_doc_types_for_plan(plan) or None,
-                question_types=_question_types_for_plan(plan) or None,
+                top_per_show=1,
+                max_total=20,
             )
         word_kwargs = {
             "show_names": targets or None,
