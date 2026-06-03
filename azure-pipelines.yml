@@ -97,6 +97,13 @@ stages:
       # 2026-06-03 "quote all dramas" bug: only ~3 shows, no פאלו אלטו).
       WORD_METADATA_FILTERS_ENABLED: 'true'
       BROAD_RETRIEVAL_ENABLED: 'true'
+      # SharePoint fallback (new-show / no-answer case). Auth = Container App
+      # managed identity (no client secret). Flip SP_ENRICHMENT_ENABLED to 'true'
+      # ONLY after the managed identity is granted read access (Sites.Selected)
+      # on /sites/Promo — otherwise SP calls 403 and just add latency + warnings.
+      SP_SITE_URL: 'https://keshettv.sharepoint.com/sites/Promo'
+      SP_DOC_LIBRARY: 'DocLib4'
+      SP_ENRICHMENT_ENABLED: 'false'
     stagingSecretVars:
       LANGFUSE_SECRET_KEY: '$(LANGFUSE-SECRET-KEY)'
       LANGFUSE_PUBLIC_KEY: '$(LANGFUSE-PUBLIC-KEY)'
@@ -135,6 +142,13 @@ stages:
       # 2026-06-03 "quote all dramas" bug: only ~3 shows, no פאלו אלטו).
       WORD_METADATA_FILTERS_ENABLED: 'true'
       BROAD_RETRIEVAL_ENABLED: 'true'
+      # SharePoint fallback (new-show / no-answer case). Auth = Container App
+      # managed identity (no client secret). Flip SP_ENRICHMENT_ENABLED to 'true'
+      # ONLY after the managed identity is granted read access (Sites.Selected)
+      # on /sites/Promo — otherwise SP calls 403 and just add latency + warnings.
+      SP_SITE_URL: 'https://keshettv.sharepoint.com/sites/Promo'
+      SP_DOC_LIBRARY: 'DocLib4'
+      SP_ENRICHMENT_ENABLED: 'false'
 
     # Production: secret vars
     prodSecretVars:
