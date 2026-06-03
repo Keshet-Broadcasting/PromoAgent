@@ -212,6 +212,16 @@ _RANKING_PATTERNS = re.compile(
 # so complete fetch_show_promos still fires.
 _RATING_INTENT_PATTERNS = re.compile(r"רייטינג|נקודת פתיחה|נקודות פתיחה|אחוזי צפייה|שֵיר|share")
 
+# Strategic / synthesis questions need MORE word chunks for cross-show context
+# (word_top=12 instead of 6). Includes recommendation phrasing ("מה הייתי", "תמליץ")
+# AND summarization/pattern phrasing ("סכם", "תובנות", "פתרונות", "דפוסים",
+# "מאפיין") — a cross-show "summarize the insights" question must not be served
+# from only 5-6 chunks spread across ~17 shows, or coverage is shallow/partial.
+_STRATEGIC_INTENT_PATTERNS = re.compile(
+    r"מה הייתי|מה היית|תמליץ|הצע|מה כדאי|כיצד הייתי|תחשוב מה"
+    r"|סכם|תובנות|פתרונות|דפוסים|מאפיין|מאפיינים"
+)
+
 _LAST_SEASON_PATTERNS = re.compile(
     # Require "עונה" to be near the temporal word — avoids false positives on
     # "ההחלטה האחרונה", "הפעם האחרונה", etc.
@@ -954,15 +964,7 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
     # Strategic synthesis benefits from more chunks for cross-show context.
     # Other routes use fewer chunks to stay within latency/token budgets.
     # Target: keep typical input tokens under 6,000 (p90 was 9–13k before this).
-    # Includes synthesis/summarization phrasing ("סכם", "תובנות", "פתרונות",
-    # "דפוסים", "מאפיין") — cross-show summary questions need more chunks than a
-    # single-show lookup, otherwise the model sees only 5-6 chunks across ~17
-    # shows and produces shallow, partial coverage.
-    strategic_intent = bool(re.search(
-        r"מה הייתי|מה היית|תמליץ|הצע|מה כדאי|כיצד הייתי|תחשוב מה"
-        r"|סכם|תובנות|פתרונות|דפוסים|מאפיין|מאפיינים",
-        query,
-    ))
+    strategic_intent = bool(_STRATEGIC_INTENT_PATTERNS.search(query))
     word_top = 12 if strategic_intent else 6
 
     def _fetch_excel() -> list[dict]:
