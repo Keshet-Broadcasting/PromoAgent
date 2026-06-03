@@ -413,6 +413,7 @@ def fetch_word_docs_per_show(
     *,
     doc_types: Sequence[str] | None = None,
     question_types: Sequence[str] | None = None,
+    prefer_question_types: Sequence[str] | None = None,
 ) -> list[dict]:
     """Run the semantic Word search once PER show, so every show is represented.
 
@@ -444,12 +445,28 @@ def fetch_word_docs_per_show(
     seen: set[str] = set()
     shows_with_hits = 0
     for show in show_names:
-        per_show = search_word_docs(
-            query, top=top_per_show,
-            show_names=[show],
-            doc_types=doc_types,
-            question_types=question_types,
-        )
+        per_show: list[dict] = []
+        # Tier 1: when a section type is preferred (e.g. 'אסטרטגיה' for a
+        # "quote the strategies" query), pull that section FIRST so it isn't
+        # out-ranked by other chunks of the same show. Short strategy answers
+        # rank low semantically, so without this the strategy chunk is missed.
+        if prefer_question_types:
+            per_show = search_word_docs(
+                query, top=1, show_names=[show],
+                question_types=prefer_question_types,
+            )
+        # Tier 2: fill the remaining slots with the show's top semantic chunks.
+        if len(per_show) < top_per_show:
+            seen_local = {d.get("chunk_id") for d in per_show}
+            for d in search_word_docs(
+                query, top=top_per_show,
+                show_names=[show], doc_types=doc_types, question_types=question_types,
+            ):
+                if d.get("chunk_id") in seen_local:
+                    continue
+                per_show.append(d)
+                if len(per_show) >= top_per_show:
+                    break
         if per_show:
             shows_with_hits += 1
         for doc in per_show:

@@ -925,16 +925,20 @@ def _fetch_word_docs(plan: _RetrievalPlan, query: str, word_top: int) -> list[di
         targets = plan.target_show_names
         if plan.coverage and len(targets) > 1:
             # Coverage = "quote/compare EVERY drama". Breadth beats depth here:
-            # take the single best-matching chunk PER show so all ~15-17
-            # strategy-bearing dramas fit the budget (top_per_show=2 capped at 24
-            # only reached 12/17). No hard doc_type/question_type filter — that can
-            # drop shows whose strategy section isn't tagged exactly "אסטרטגיה";
-            # the semantic query already biases toward the right chunk per show.
+            # one best chunk PER show so all ~15-17 dramas fit the budget.
+            # When the question is specifically about strategy ("אסטרטגיה",
+            # "מכירה", "סלוגן", "בריף"), prefer each show's strategy/slogan
+            # section — short strategy answers rank low semantically, so without
+            # this bias the strategy chunk is missed even when it's indexed.
+            prefer = None
+            if re.search(r"אסטרטגי|מכירה|סלוגן|בריף|פוזישנינג|מיצוב", query):
+                prefer = ["אסטרטגיה", "סלוגן"]
             return fetch_word_docs_per_show(
                 query,
                 targets,
                 top_per_show=1,
                 max_total=20,
+                prefer_question_types=prefer,
             )
         word_kwargs = {
             "show_names": targets or None,

@@ -203,6 +203,34 @@ def test_synthesis_phrasing_triggers_strategic_intent():
     assert not _STRATEGIC_INTENT_PATTERNS.search("מה היה הרייטינג של הראש בעונה 1?")
 
 
+def test_per_show_fetch_prefers_strategy_section(monkeypatch):
+    """Regression (2026-06-03): for a 'quote the strategies' coverage query, each
+    show's strategy chunk must be pulled FIRST — short strategy answers rank low
+    semantically, so without the prefer bias the (now-indexed) פאלו אלטו strategy
+    chunk was retrieved-but-not-surfaced."""
+    import app.search_word_docs as swd
+
+    monkeypatch.setattr(swd, "_WORD_METADATA_FILTERS_ENABLED", True)
+
+    calls = []
+
+    def fake_search(query, top=5, **kwargs):
+        calls.append(kwargs.get("question_types"))
+        qt = kwargs.get("question_types")
+        if qt == ["אסטרטגיה", "סלוגן"]:
+            return [{"chunk_id": "strat", "question_type": "אסטרטגיה", "show_name": "S"}]
+        return [{"chunk_id": "tovanot", "question_type": "תובנות", "show_name": "S"}]
+
+    monkeypatch.setattr(swd, "search_word_docs", fake_search)
+
+    docs = swd.fetch_word_docs_per_show(
+        "q", ["S"], top_per_show=1, prefer_question_types=["אסטרטגיה", "סלוגן"]
+    )
+    # The strategy chunk was preferred over the higher-ranked 'תובנות' chunk:
+    assert docs and docs[0]["chunk_id"] == "strat"
+    assert ["אסטרטגיה", "סלוגן"] in calls  # tier-1 preferred fetch happened first
+
+
 def test_launch_selector_keeps_launch_rows_first():
     import app.service as svc
 
