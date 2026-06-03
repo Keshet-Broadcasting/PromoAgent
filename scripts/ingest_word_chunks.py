@@ -31,6 +31,8 @@ import json
 import logging
 import os
 
+import time
+
 import httpx
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents import SearchClient
@@ -88,8 +90,23 @@ def embed_texts(
         batch = non_empty[batch_start : batch_start + EMBED_BATCH_SIZE]
         indices, batch_texts = zip(*batch)
 
-        response = http.post(url, json={"input": list(batch_texts)})
-        response.raise_for_status()
+        # Retry transient network/proxy stalls — a single slow batch must not
+        # abort the whole doc (which would leave the index with deleted-but-not-
+        # re-uploaded chunks). Up to 4 attempts with exponential backoff.
+        response = None
+        for attempt in range(4):
+            try:
+                response = http.post(url, json={"input": list(batch_texts)})
+                response.raise_for_status()
+                break
+            except (httpx.TimeoutException, httpx.TransportError, httpx.HTTPStatusError) as exc:
+                if attempt == 3:
+                    raise
+                logger.warning(
+                    "    embed batch %d attempt %d failed (%s) — retrying ...",
+                    batch_start // EMBED_BATCH_SIZE, attempt + 1, type(exc).__name__,
+                )
+                time.sleep(2 ** attempt)
 
         for item in response.json()["data"]:
             vectors[indices[item["index"]]] = item["embedding"]
@@ -207,7 +224,7 @@ def main(dry_run: bool = False, doc_filter: str | None = None) -> None:
     )
     openai_http = httpx.Client(
         headers={"api-key": AZURE_OPENAI_KEY, "Content-Type": "application/json"},
-        timeout=60.0,
+        timeout=180.0,
     )
 
     # List JSON blobs, optionally filtered to a single document

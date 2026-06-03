@@ -664,6 +664,27 @@ def _is_secondary_split(para: dict, inside_block: bool) -> bool:
 # ---------------------------------------------------------------------------
 
 
+def _is_meaningful_short_section(chunk: dict) -> bool:
+    """A below-min-size chunk is still worth keeping when it is a real, labeled
+    Q&A section — its header is a recognized secondary anchor (e.g. 'מה האסטרטגיה',
+    'מה הסלוגן') or primary show signal. Such sections carry concise but real
+    answers (a one-line strategy or slogan) and must not be discarded as trivia.
+
+    Regression this guards: פאלו אלטו's 'מה האסטרטגיה' answer is 114 chars (< the
+    150 min) and was silently dropped, so the bot could never quote it. ~190 such
+    labeled sections across the GPT docs were being lost the same way. Genuinely
+    headerless fragments (no recognized header) are still discarded.
+    """
+    header = (chunk.get("header") or "").strip()
+    if not header:
+        return False
+    if any(header.startswith(anchor) for anchor in _SECONDARY_ANCHORS):
+        return True
+    if any(signal in header for signal in _PRIMARY_TEXT_SIGNALS):
+        return True
+    return False
+
+
 def _apply_semantic_guardrails(
     chunks: list[dict],
 ) -> list[dict]:
@@ -679,8 +700,9 @@ def _apply_semantic_guardrails(
     for chunk in chunks:
         text = chunk["chunk"].strip()
 
-        # Min-size filter
-        if len(text) < SEMANTIC_CHUNK_MIN_CHARS:
+        # Min-size filter — discard trivial fragments, but KEEP short chunks that
+        # are real labeled Q&A sections (concise strategy/slogan answers).
+        if len(text) < SEMANTIC_CHUNK_MIN_CHARS and not _is_meaningful_short_section(chunk):
             continue
 
         # Atomic sections (tables) — keep as-is regardless of size

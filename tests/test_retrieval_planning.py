@@ -143,6 +143,50 @@ def test_drama_genre_query_targets_only_drama_shows(monkeypatch):
         assert reality_show not in targets
 
 
+def test_coverage_intent_set_for_all_dramas_query(monkeypatch):
+    """Regression (2026-06-03): 'quote ALL the dramas' must set plan.coverage so
+    retrieval fetches per-show (every drama represented) instead of a single
+    top-N that omitted אף אחד לא עוזב את פאלו אלטו despite its 33 mentions."""
+    monkeypatch.setenv("BROAD_RETRIEVAL_ENABLED", "true")
+    import app.service as svc
+    importlib.reload(svc)
+
+    plan = svc._build_retrieval_plan(
+        "word_quote",
+        "צטט במדוייק את האסטרטגיות מכירה של כל הדרמות בשנה האחרונה",
+        ranking=False,
+        season_filter=None,
+    )
+    assert plan.coverage is True
+    assert plan.broad_word is True
+    assert len(plan.target_show_names) > 1
+    # A single-show quote must NOT trigger coverage (stays a focused lookup):
+    narrow = svc._build_retrieval_plan(
+        "word_quote", "צטט את אסטרטגיית ההשקה של הראש", ranking=False, season_filter=None
+    )
+    assert narrow.coverage is False
+
+
+def test_per_show_fetch_falls_back_when_filters_disabled(monkeypatch):
+    """Without the show_name filter, per-show calls would all return the same
+    unfiltered set — so the helper must fall back to a single search instead."""
+    import app.search_word_docs as swd
+
+    calls = {"n": 0}
+
+    def fake_search(query, top=5, **kwargs):
+        calls["n"] += 1
+        return [{"chunk_id": f"c{calls['n']}", "show_name": "X"}]
+
+    monkeypatch.setattr(swd, "_WORD_METADATA_FILTERS_ENABLED", False)
+    monkeypatch.setattr(swd, "search_word_docs", fake_search)
+
+    docs = swd.fetch_word_docs_per_show("q", ["A", "B", "C"], top_per_show=2)
+    # One fallback search, not one-per-show:
+    assert calls["n"] == 1
+    assert len(docs) == 1
+
+
 def test_synthesis_phrasing_triggers_strategic_intent():
     """Regression (2026-06-03): summarization/synthesis phrasing must raise
     word_top to 12. Previously only recommendation phrasing matched, so
@@ -157,6 +201,34 @@ def test_synthesis_phrasing_triggers_strategic_intent():
         assert _STRATEGIC_INTENT_PATTERNS.search(q), q
     # A plain numeric lookup must NOT trigger the strategic (wide) path:
     assert not _STRATEGIC_INTENT_PATTERNS.search("מה היה הרייטינג של הראש בעונה 1?")
+
+
+def test_per_show_fetch_prefers_strategy_section(monkeypatch):
+    """Regression (2026-06-03): for a 'quote the strategies' coverage query, each
+    show's strategy chunk must be pulled FIRST — short strategy answers rank low
+    semantically, so without the prefer bias the (now-indexed) פאלו אלטו strategy
+    chunk was retrieved-but-not-surfaced."""
+    import app.search_word_docs as swd
+
+    monkeypatch.setattr(swd, "_WORD_METADATA_FILTERS_ENABLED", True)
+
+    calls = []
+
+    def fake_search(query, top=5, **kwargs):
+        calls.append(kwargs.get("question_types"))
+        qt = kwargs.get("question_types")
+        if qt == ["אסטרטגיה", "סלוגן"]:
+            return [{"chunk_id": "strat", "question_type": "אסטרטגיה", "show_name": "S"}]
+        return [{"chunk_id": "tovanot", "question_type": "תובנות", "show_name": "S"}]
+
+    monkeypatch.setattr(swd, "search_word_docs", fake_search)
+
+    docs = swd.fetch_word_docs_per_show(
+        "q", ["S"], top_per_show=1, prefer_question_types=["אסטרטגיה", "סלוגן"]
+    )
+    # The strategy chunk was preferred over the higher-ranked 'תובנות' chunk:
+    assert docs and docs[0]["chunk_id"] == "strat"
+    assert ["אסטרטגיה", "סלוגן"] in calls  # tier-1 preferred fetch happened first
 
 
 def test_launch_selector_keeps_launch_rows_first():
