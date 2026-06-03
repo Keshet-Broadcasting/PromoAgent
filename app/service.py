@@ -954,7 +954,15 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
     # Strategic synthesis benefits from more chunks for cross-show context.
     # Other routes use fewer chunks to stay within latency/token budgets.
     # Target: keep typical input tokens under 6,000 (p90 was 9–13k before this).
-    strategic_intent = bool(re.search(r"מה הייתי|מה היית|תמליץ|הצע|מה כדאי|כיצד הייתי|תחשוב מה", query))
+    # Includes synthesis/summarization phrasing ("סכם", "תובנות", "פתרונות",
+    # "דפוסים", "מאפיין") — cross-show summary questions need more chunks than a
+    # single-show lookup, otherwise the model sees only 5-6 chunks across ~17
+    # shows and produces shallow, partial coverage.
+    strategic_intent = bool(re.search(
+        r"מה הייתי|מה היית|תמליץ|הצע|מה כדאי|כיצד הייתי|תחשוב מה"
+        r"|סכם|תובנות|פתרונות|דפוסים|מאפיין|מאפיינים",
+        query,
+    ))
     word_top = 12 if strategic_intent else 6
 
     def _fetch_excel() -> list[dict]:

@@ -101,7 +101,8 @@ class ChatProvider(ABC):
 
 
 _LLM_TIMEOUT   = int(os.getenv("LLM_TIMEOUT_SECONDS",  "90"))
-_MAX_TOKENS    = int(os.getenv("MAX_ANSWER_TOKENS",    "1000"))  # industry default for RAG: 800-1200
+_MAX_TOKENS    = int(os.getenv("MAX_ANSWER_TOKENS",    "1800"))  # shared with the <thinking> block, so a long
+                                                                 # cross-show synthesis was being cut off at 1000
 # OpenAI "seed" is best-effort reproducibility (GPU non-determinism still
 # applies, but materially reduces variance between repeat eval runs).
 # Default is fixed so reruns are comparable; override via env var only if you
