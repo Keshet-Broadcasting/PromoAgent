@@ -623,8 +623,11 @@ _CF_REPLACEMENTS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"אקדח\s+לראש"),        "[נשק מכוון]"),
     # General weapon references
     (re.compile(r"אקדח"),               "[נשק]"),
-    # Shooting verbs / nouns
-    (re.compile(r"ירייה|יריות|ירי"),    "[תקיפה]"),
+    # Shooting verbs / nouns. The bare "ירי" must be word-bounded (Hebrew
+    # negative lookarounds) — without it, it matched INSIDE benign words and
+    # names: אי(ירי)ס → corrupted "איריס אברמוב", מכ(ירי)ם → "מכ[תקיפה]ם".
+    # The longer "ירייה"/"יריות" forms are distinctive and stay unanchored.
+    (re.compile(r"ירייה|יריות|(?<![א-ת])ירי(?![א-ת])"), "[תקיפה]"),
     (re.compile(r"יורה"),               "[תוקף]"),
     # "נורה " with trailing space/punct to avoid matching "נורא" (terrible)
     (re.compile(r"נורה(?=[\s,.\-\u05d0-\u05ea])"), "[נפגע]"),
