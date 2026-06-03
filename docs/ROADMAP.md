@@ -219,6 +219,32 @@ PromoAgent is a RAG-based chatbot for Keshet TV's promo department, replacing a 
 
 ## Remaining Work
 
+### ⏳ Pending to prod — branch `fix/genre-contamination-truncation` (2026-06-03)
+
+A large branch is **pushed but not merged**. Merging to `main` deploys it (Azure
+DevOps CI/CD → staging → prod). It contains, all tested:
+- Genre filter activation, answer-truncation fix (`MAX_ANSWER_TOKENS` 1800)
+- Per-show coverage + Coverage Mode + strategy-section bias ("quote all dramas":
+  3 → ~15 shows incl. פאלו אלטו)
+- Word-chunking min-size fix (`_is_meaningful_short_section`) — recovered ~267
+  short labeled sections on the two large docs; **index re-ingested** (667 → 934:
+  drama 174→262, reality 423→602)
+- Ingest robustness (180s timeout + retry); startup warning when broad retrieval off
+- Content-filter sanitizer fix (`ירי` no longer corrupts איריס/מכירים)
+- **Pipeline env flags** added to staging+prod: `BROAD_RETRIEVAL_ENABLED=true`,
+  `WORD_METADATA_FILTERS_ENABLED=true` (these were never set → the prod bug)
+
+**Action items still open:**
+1. **Merge the branch to `main`** → deploys code + flags. (PR:
+   github.com/Keshet-Broadcasting/PromoAgent/pull/new/fix/genre-contamination-truncation)
+2. **SharePoint fallback**: config wired, `SP_ENRICHMENT_ENABLED=false`. To enable:
+   grant the Container App managed identity `Sites.Selected` on `/sites/Promo`
+   (no client secret — uses MI), then flip the flag.
+3. **Source-doc typo**: `מסמך דרמות GPT.docx` has "בפר הזיום" (→ "בפרק הסיום") in
+   הראש's strategy section. Fix in the doc + re-ingest that one doc if it matters.
+4. **Re-judge** the eval with the flags ON to measure the gain (see Score Tracking).
+5. Remove dead `SP_CLIENT_*` vars from local `.env` (unused — auth is via MI).
+
 ### Phase 8 — UI Parity with Custom GPT
 
 **Priority:** Medium | **Effort:** 1 week
