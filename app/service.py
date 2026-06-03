@@ -84,6 +84,18 @@ load_dotenv()
 
 log = logging.getLogger(__name__)
 
+# Broad retrieval applies the genre/show metadata filter that keeps a drama
+# question from pulling reality-show content (and vice versa). It is high-impact
+# and easily lost (e.g. when .env is regenerated from .env.example), so warn
+# loudly at import when it is off — a silent default here caused the 2026-06-03
+# genre-contamination prod bug.
+if not _BROAD_RETRIEVAL:
+    log.warning(
+        "BROAD_RETRIEVAL_ENABLED is OFF — genre/show retrieval filtering is "
+        "disabled. Cross-genre queries (e.g. 'summarize the drama insights') may "
+        "pull off-genre content. Set BROAD_RETRIEVAL_ENABLED=true to enable."
+    )
+
 
 # ---------------------------------------------------------------------------
 # Show nickname expansion
