@@ -116,6 +116,49 @@ def test_broad_retrieval_plan_for_drama_reality_comparison(monkeypatch):
     assert "reality" in plan.genres
 
 
+def test_drama_genre_query_targets_only_drama_shows(monkeypatch):
+    """Regression (2026-06-03): a drama-only synthesis question (no show named)
+    must scope retrieval to drama shows only. The prod bug leaked reality shows
+    (מאסטר שף, חתונה ממבט ראשון) into a drama question because broad retrieval
+    was off; here we assert the plan target is drama-only when it IS on."""
+    monkeypatch.setenv("BROAD_RETRIEVAL_ENABLED", "true")
+    import app.service as svc
+    importlib.reload(svc)
+
+    plan = svc._build_retrieval_plan(
+        "hybrid",
+        "סכם את כל התובנות של סדרות הדרמה עם הרייטינג הגבוה והבא את הפתרונות",
+        ranking=False,
+        season_filter=None,
+    )
+
+    assert plan.genres == ["drama"]
+    assert plan.broad_scope is True
+    assert plan.broad_word is True
+
+    targets = plan.target_show_names
+    assert "אור ראשון" in targets and "חולי אהבה" in targets  # drama shows present
+    # No reality shows may leak into a drama-only plan:
+    for reality_show in ("מאסטר שף", "חתונה ממבט ראשון", "רוקדים עם כוכבים", "הזמר במסכה"):
+        assert reality_show not in targets
+
+
+def test_synthesis_phrasing_triggers_strategic_intent():
+    """Regression (2026-06-03): summarization/synthesis phrasing must raise
+    word_top to 12. Previously only recommendation phrasing matched, so
+    'סכם את התובנות' got the thin 6-chunk path."""
+    from app.service import _STRATEGIC_INTENT_PATTERNS
+
+    for q in (
+        "סכם את כל התובנות של סדרות הדרמה והבא את הפתרונות המרכזיים",
+        "מה הדפוסים החוזרים בפרומואים המצליחים?",
+        "מה מאפיין את הקמפיינים שהביאו לצפייה בלייב?",
+    ):
+        assert _STRATEGIC_INTENT_PATTERNS.search(q), q
+    # A plain numeric lookup must NOT trigger the strategic (wide) path:
+    assert not _STRATEGIC_INTENT_PATTERNS.search("מה היה הרייטינג של הראש בעונה 1?")
+
+
 def test_launch_selector_keeps_launch_rows_first():
     import app.service as svc
 

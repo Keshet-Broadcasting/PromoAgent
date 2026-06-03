@@ -84,6 +84,18 @@ load_dotenv()
 
 log = logging.getLogger(__name__)
 
+# Broad retrieval applies the genre/show metadata filter that keeps a drama
+# question from pulling reality-show content (and vice versa). It is high-impact
+# and easily lost (e.g. when .env is regenerated from .env.example), so warn
+# loudly at import when it is off — a silent default here caused the 2026-06-03
+# genre-contamination prod bug.
+if not _BROAD_RETRIEVAL:
+    log.warning(
+        "BROAD_RETRIEVAL_ENABLED is OFF — genre/show retrieval filtering is "
+        "disabled. Cross-genre queries (e.g. 'summarize the drama insights') may "
+        "pull off-genre content. Set BROAD_RETRIEVAL_ENABLED=true to enable."
+    )
+
 
 # ---------------------------------------------------------------------------
 # Show nickname expansion
@@ -211,6 +223,16 @@ _RANKING_PATTERNS = re.compile(
 # phrased as rankings, so _RANKING_PATTERNS misses them — detect them separately
 # so complete fetch_show_promos still fires.
 _RATING_INTENT_PATTERNS = re.compile(r"רייטינג|נקודת פתיחה|נקודות פתיחה|אחוזי צפייה|שֵיר|share")
+
+# Strategic / synthesis questions need MORE word chunks for cross-show context
+# (word_top=12 instead of 6). Includes recommendation phrasing ("מה הייתי", "תמליץ")
+# AND summarization/pattern phrasing ("סכם", "תובנות", "פתרונות", "דפוסים",
+# "מאפיין") — a cross-show "summarize the insights" question must not be served
+# from only 5-6 chunks spread across ~17 shows, or coverage is shallow/partial.
+_STRATEGIC_INTENT_PATTERNS = re.compile(
+    r"מה הייתי|מה היית|תמליץ|הצע|מה כדאי|כיצד הייתי|תחשוב מה"
+    r"|סכם|תובנות|פתרונות|דפוסים|מאפיין|מאפיינים"
+)
 
 _LAST_SEASON_PATTERNS = re.compile(
     # Require "עונה" to be near the temporal word — avoids false positives on
@@ -954,7 +976,7 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
     # Strategic synthesis benefits from more chunks for cross-show context.
     # Other routes use fewer chunks to stay within latency/token budgets.
     # Target: keep typical input tokens under 6,000 (p90 was 9–13k before this).
-    strategic_intent = bool(re.search(r"מה הייתי|מה היית|תמליץ|הצע|מה כדאי|כיצד הייתי|תחשוב מה", query))
+    strategic_intent = bool(_STRATEGIC_INTENT_PATTERNS.search(query))
     word_top = 12 if strategic_intent else 6
 
     def _fetch_excel() -> list[dict]:
