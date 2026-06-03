@@ -15,9 +15,17 @@ back **four layers**, each a real fix:
 1. **Genre contamination** — `BROAD_RETRIEVAL_ENABLED` was off → fixed (prior session).
 2. **Retrieval breadth** — single top-N gave ~3 shows → per-show fetch gives 16/17. Fixed.
 3. **LLM enumeration** — model listed a subset → Coverage Mode prompt. Fixed.
-4. **Extraction gap (ROOT)** — פאלו אלטו's strategy section **exists in the source doc but is
-   missing from the Azure word-docs index**, because the >4 MB ingestion fallback drops it.
-   **Not fixable in retrieval/prompt code — requires re-ingestion.**
+4. **Min-size guardrail dropped it (ROOT — now pinned down exactly)** — פאלו אלטו's strategy
+   section IS in the source, IS extracted into the chunk stream, and IS emitted as a chunk
+   (`show=פאלו אלטו`, `question_type=אסטרטגיה`, 114 chars). But `_apply_semantic_guardrails`
+   **discards any chunk < `SEMANTIC_CHUNK_MIN_CHARS` (150)** as "trivia" — so the 114-char
+   strategy answer was silently dropped. **~369 short but real labeled Q&A sections** (strategy/
+   slogan/short answers) were lost the same way across the 4 GPT docs. **Fixed in code**
+   (commit `f68b9c5`); requires re-ingestion to land in the index.
+
+> The earlier hypothesis in §2 below (a >4 MB extraction/structure gap) was **disproven**: the
+> text is a normal `<w:p>` at body index 13, present in `_to_para_stream_docx`'s output. The
+> loss is the size guardrail, not extraction. §2/§3 are corrected accordingly.
 
 ## 1. The decisive evidence
 
@@ -32,44 +40,58 @@ back **four layers**, each a real fix:
 **Conclusion:** the source HAS the text (Graph extracts it; the docs-Claude quoted it
 verbatim), but the repo's preprocessing does NOT extract it → it never reaches the index.
 
-## 2. Root cause
+## 2. Root cause (definitive)
 
-- `preprocess_word_docs.py` routes files **>4 MB to a python-docx/XML fallback**
-  (`extract_chunks_docx` → `split_semantic` over `_to_para_stream_docx`). `מסמך דרמות GPT.docx`
-  is **~25.5 MB**; `מסמך ריאליטי GPT.docx` is **~36.3 MB** — both take this path.
-- That fallback extracts MOST content (178 chunks) but **drops this section's content**. The
-  exact XML structure it misses (text box / shape / a specific table layout) is not yet
-  pinned down, but Microsoft Graph extracts the same section correctly — so it IS extractable.
-- Corroboration (Amit's Drive note "index with claude"): these two large docs previously hit
-  the **16 MB Basic-tier limit** and were indexed **metadata-only** at one point. Large-doc
-  handling for these two files has been fragile throughout.
+Traced on the **exact ingested file** (`C:\Users\amit.rosen\Downloads\docx\מסמך דרמות GPT.docx`,
+26,719,791 bytes — byte-size matches Amit's Drive note for the indexed file):
 
-**Impact:** likely affects **multiple shows' strategy sections** across both large docs
-(the index had only ~6 `אסטרטגיה` chunks across 17 dramas) — silently capping answer quality
-on exactly the strategic/quote questions the promo team cares about most.
+- The strategy text is present in the docx as **normal body text** (a `<w:p>` at body child
+  index 13; body has only `p`/`tbl`/`sectPr` — no text boxes/content controls). `iter(w:t)`
+  finds it; **`_to_para_stream_docx` includes it** in the stream the chunker sees.
+- `split_semantic` emits it as a real chunk: `header="מה האסטרטגיה של הסדרה אף אחד..."`,
+  `show_name=אף אחד לא עוזב את פאלו אלטו`, `question_type=אסטרטגיה`, **body = 114 chars**.
+- **`_apply_semantic_guardrails` then discards it** because `114 < SEMANTIC_CHUNK_MIN_CHARS`
+  (150). The min-size filter was meant to drop "trivial 1-liners" but also kills short *labeled*
+  answers (a one-line strategy, a slogan).
 
-## 3. Fix options (data layer)
+**Scale of the loss (measured per doc, pre-fix):**
 
-1. **Re-ingest via the M365 MCP / Graph extraction** (recommended). Graph already extracts the
-   content the repo fallback misses. Pull the doc text via the MCP, chunk, and upload to the
-   `word-docs` index. This also directly serves the goal of **surfacing documents not yet in
-   the index** (new/updated docs) — i.e. a SharePoint→index catalog-sync built on the MCP.
-2. **Fix `extract_chunks_docx`** to capture the missing structure (e.g. `w:txbxContent` text
-   boxes / shapes), then re-ingest `מסמך דרמות GPT.docx` and `מסמך ריאליטי GPT.docx`.
-3. Either way: **re-ingest must be delete-first** for the affected doc (data-invariant), and
-   verify the פאלו אלטו `question_type='אסטרטגיה'` chunk lands afterward.
+| Doc | chunks kept (≥150) | dropped <150 | of dropped: **real headed sections** |
+|---|---|---|---|
+| דרמות | 174 | 103 | **88** |
+| בידור | 127 | 85 | **70** |
+| תוכניות נוספות | 67 | 41 | **32** |
+| ריאליטי | 423 | ~? | **179** |
+
+→ **~369 real labeled Q&A sections** silently dropped across the four docs (the index had only
+~6 `אסטרטגיה` chunks across 17 dramas for exactly this reason). The >4 MB python-docx fallback
+and the historical 16 MB Basic-tier metadata-only episode are real context but are **not** the
+cause here — the content was extracted fine; the size guardrail discarded it.
+
+## 3. Fix (shipped) + re-ingest
+
+**Code fix — commit `f68b9c5` (`scripts/preprocess_word_docs.py`):** keep a below-min-size
+chunk when it is a real labeled Q&A section (`_is_meaningful_short_section`: header matches a
+recognized `_SECONDARY_ANCHORS` / `_PRIMARY_TEXT_SIGNALS`); still discard genuinely headerless
+fragments. **Verified additive** — every chunk already ≥150 chars is byte-for-byte unchanged
+(174/127/67/423 preserved exactly); only the ~369 headed short sections are recovered, and
+פאלו אלטו's strategy is now present. Word pipeline only — Excel (`tv-promos`) untouched.
+Regression tests in `tests/test_preprocess_chunking.py`.
+
+**Required next: re-ingest** the 4 GPT docs (delete-first per doc, data-invariant) so the index
+picks up the recovered chunks. Verify after: index search for "מקרה רצח שעלול להבעיר" returns a
+chunk and פאלו אלטו has a `question_type='אסטרטגיה'` chunk.
 
 ## 4. Action items
 
 ### P0
-- Re-ingest the two large GPT docs so their full content (incl. all strategy sections) is in
-  the index. Verify with: index search for "מקרה רצח שעלול להבעיר" returns a chunk; פאלו אלטו
-  has a `question_type='אסטרטגיה'` chunk.
+- **Re-ingest the 4 GPT docs** with the fixed chunker (preprocess → ingest, delete-first).
+  Expected index growth: דרמות 174→262, בידור 127→197, תוכניות 67→99, ריאליטי 423→602.
 
 ### P1
-- Stand up the **M365-MCP catalog-sync** (SharePoint `DocLib4` → `word-docs`) so new/updated
-  docs are picked up automatically — closes the "documents not in the index" gap and prevents
-  the source/index drift that produced this bug.
+- **M365-MCP catalog-sync** (SharePoint `DocLib4` → `word-docs`) — a *separate* improvement for
+  freshness/new docs (the query-time fallback stays score-gated SP enrichment; index = primary).
+  Not the fix for this bug, but prevents source/index drift going forward.
 - Add an ingestion **completeness check**: after ingest, assert each GPT doc's expected
   question-type sections (אסטרטגיה/שיקול/תובנות) exist per show; fail loudly on gaps.
 
