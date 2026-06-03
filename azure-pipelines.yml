@@ -92,6 +92,11 @@ stages:
       ALLOW_DEBUG: 'false'
       RATE_LIMIT: '20/minute'
       OTEL_SERVICE_NAME: 'promobot-api'
+      # Retrieval feature flags — required for genre filtering + per-show coverage.
+      # Without these the agent falls back to single semantic top-N (the
+      # 2026-06-03 "quote all dramas" bug: only ~3 shows, no פאלו אלטו).
+      WORD_METADATA_FILTERS_ENABLED: 'true'
+      BROAD_RETRIEVAL_ENABLED: 'true'
     stagingSecretVars:
       LANGFUSE_SECRET_KEY: '$(LANGFUSE-SECRET-KEY)'
       LANGFUSE_PUBLIC_KEY: '$(LANGFUSE-PUBLIC-KEY)'
@@ -125,6 +130,11 @@ stages:
       ALLOW_DEBUG: 'false'
       RATE_LIMIT: '10/minute'
       OTEL_SERVICE_NAME: 'promobot-api'
+      # Retrieval feature flags — required for genre filtering + per-show coverage.
+      # Without these the agent falls back to single semantic top-N (the
+      # 2026-06-03 "quote all dramas" bug: only ~3 shows, no פאלו אלטו).
+      WORD_METADATA_FILTERS_ENABLED: 'true'
+      BROAD_RETRIEVAL_ENABLED: 'true'
 
     # Production: secret vars
     prodSecretVars:
