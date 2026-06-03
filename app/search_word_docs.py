@@ -405,6 +405,72 @@ def fetch_many_show_promos(show_names: Sequence[str], top_per_show: int = 500) -
     return docs
 
 
+def fetch_word_docs_per_show(
+    query: str,
+    show_names: Sequence[str],
+    top_per_show: int = 2,
+    max_total: int = 24,
+    *,
+    doc_types: Sequence[str] | None = None,
+    question_types: Sequence[str] | None = None,
+) -> list[dict]:
+    """Run the semantic Word search once PER show, so every show is represented.
+
+    A single `search_word_docs(top=N, show_names=[many])` call ranks all shows'
+    chunks together, so a few "loud" shows can take every slot and others (e.g.
+    אף אחד לא עוזב את פאלו אלטו) get zero chunks — even when they're heavily
+    documented. For "quote/compare ALL the dramas" coverage queries we instead
+    query each show separately and merge, guaranteeing per-show coverage.
+
+    Shows with no chunks simply contribute nothing (the word docs only cover some
+    shows — that's a content gap, not an error). Results are deduped by chunk_id
+    and capped at `max_total` to protect the token budget.
+
+    Requires WORD_METADATA_FILTERS_ENABLED=true; without the show_name filter
+    every per-show call returns the same unfiltered set, so we fall back to a
+    single search instead.
+    """
+    if not _WORD_METADATA_FILTERS_ENABLED:
+        logger.info(
+            "  per-show Word fetch requested but WORD_METADATA_FILTERS_ENABLED=false"
+            " — falling back to a single semantic search."
+        )
+        return search_word_docs(
+            query, top=max_total,
+            doc_types=doc_types, question_types=question_types,
+        )
+
+    docs: list[dict] = []
+    seen: set[str] = set()
+    shows_with_hits = 0
+    for show in show_names:
+        per_show = search_word_docs(
+            query, top=top_per_show,
+            show_names=[show],
+            doc_types=doc_types,
+            question_types=question_types,
+        )
+        if per_show:
+            shows_with_hits += 1
+        for doc in per_show:
+            cid = doc.get("chunk_id", "")
+            if cid in seen:
+                continue
+            seen.add(cid)
+            docs.append(doc)
+            if len(docs) >= max_total:
+                logger.info(
+                    "  per-show Word fetch: hit max_total=%d cap (%d/%d shows covered)",
+                    max_total, shows_with_hits, len(show_names),
+                )
+                return docs
+    logger.info(
+        "  per-show Word fetch: %d chunk(s) across %d/%d shows with content",
+        len(docs), shows_with_hits, len(show_names),
+    )
+    return docs
+
+
 def search_both(query: str, top: int = 5) -> dict:
     """Query both indexes and return combined results.
 

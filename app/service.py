@@ -62,7 +62,13 @@ from .domain_catalog import (
     official_show_names,
     shows_for_genres,
 )
-from .search_word_docs import fetch_many_show_promos, fetch_show_promos, search_excel_promos, search_word_docs
+from .search_word_docs import (
+    fetch_many_show_promos,
+    fetch_show_promos,
+    fetch_word_docs_per_show,
+    search_excel_promos,
+    search_word_docs,
+)
 
 # SharePoint fallback — optional; skipped gracefully when not configured.
 try:
@@ -367,6 +373,7 @@ class _RetrievalPlan:
     comparison: bool = False
     conversion: bool = False
     ranking: bool = False
+    coverage: bool = False
     season_filter: str | None = None
 
     @property
@@ -581,6 +588,14 @@ _BROAD_SCOPE_PATTERNS = re.compile(
     r"כל ה|כל ה?תוכניות|כל ה?סדרות|כל הדרמות|כל הריאליטי|לעומת|השווה|השוואה"
     r"|דפוסים|משותפים|רוחבי|מכפיל|יחס המרה|כוונות צפייה.*רייטינג|רייטינג.*כוונות צפייה"
 )
+# "Quote / list / compare EACH of many shows" — the user wants every show
+# represented, not a blended synthesis. Triggers a per-show Word fetch so a few
+# heavily-documented shows can't crowd the others out of the top-N (the bug where
+# "צטט את כל הדרמות" omitted אף אחד לא עוזב את פאלו אלטו despite 33 mentions).
+_COVERAGE_INTENT_PATTERNS = re.compile(
+    r"כל ה?דרמות|כל ה?תוכניות|כל ה?סדרות|כל ה?תכניות|כל ה?ריאליטי"
+    r"|של כל ה|לכל אחת|לכל אחד|כל אחת מ|כל אחד מ"
+)
 _LAUNCH_PATTERNS = re.compile(r"השקה|השקת|פתיחה|פרק ראשון|פרק 1")
 # Metric/column name "נקודת (ה)פתיחה" — stripped before launch detection so it
 # doesn't false-trigger launch intent (the "פתיחה" inside it is not a launch).
@@ -674,6 +689,10 @@ def _build_retrieval_plan(route: str, query: str, ranking: bool, season_filter: 
     # a compact evidence pack so the model sees enough rows without token blowup.
     if ranking and len(show_names) <= 1 and not genres:
         broad_scope = False
+    # Coverage = the user wants EACH of many shows represented ("כל הדרמות",
+    # "לכל אחת", or an explicit multi-show comparison) — triggers per-show Word
+    # retrieval instead of a single top-N that lets a few shows crowd the rest.
+    coverage = bool(_COVERAGE_INTENT_PATTERNS.search(query)) or (comparison and len(show_names) > 1)
     return _RetrievalPlan(
         route=route,
         query=query,
@@ -684,6 +703,7 @@ def _build_retrieval_plan(route: str, query: str, ranking: bool, season_filter: 
         comparison=comparison,
         conversion=conversion,
         ranking=ranking,
+        coverage=coverage,
         season_filter=season_filter,
     )
 
@@ -893,6 +913,36 @@ def _single_show_word_kwargs(plan: _RetrievalPlan) -> dict:
     return {}
 
 
+def _fetch_word_docs(plan: _RetrievalPlan, query: str, word_top: int) -> list[dict]:
+    """Choose the right Word-retrieval strategy for this plan.
+
+    - broad + coverage (e.g. "quote ALL the dramas") → per-show fetch so every
+      target show is represented (a single top-N lets loud shows crowd others).
+    - broad (no coverage)                            → one filtered semantic search.
+    - single show                                    → scoped search, wider top.
+    """
+    if plan.broad_word:
+        targets = plan.target_show_names
+        if plan.coverage and len(targets) > 1:
+            return fetch_word_docs_per_show(
+                query,
+                targets,
+                doc_types=_doc_types_for_plan(plan) or None,
+                question_types=_question_types_for_plan(plan) or None,
+            )
+        word_kwargs = {
+            "show_names": targets or None,
+            "doc_types": _doc_types_for_plan(plan) or None,
+            "question_types": _question_types_for_plan(plan) or None,
+        }
+    else:
+        word_kwargs = _single_show_word_kwargs(plan)
+    # When scoped to a single show (few chunks total), pull more of them so a
+    # low-ranked but on-topic chunk (e.g. the promo-test result) isn't cut off.
+    wt = 15 if word_kwargs.get("show_names") and not plan.broad_word else word_top
+    return search_word_docs(query, top=wt, **word_kwargs)
+
+
 # ---------------------------------------------------------------------------
 # Retriever  (private)
 # ---------------------------------------------------------------------------
@@ -1029,19 +1079,7 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
         return _RetrievalResult(context=context, excel_docs=selected_docs)
 
     if route == "word_quote":
-        word_kwargs = {}
-        if plan.broad_word:
-            word_kwargs = {
-                "show_names": plan.target_show_names or None,
-                "doc_types": _doc_types_for_plan(plan) or None,
-                "question_types": _question_types_for_plan(plan) or None,
-            }
-        else:
-            word_kwargs = _single_show_word_kwargs(plan)
-        # When scoped to a single show (few chunks total), pull more of them so a
-        # low-ranked but on-topic chunk (e.g. the promo-test result) isn't cut off.
-        wt = 15 if word_kwargs.get("show_names") and not plan.broad_word else word_top
-        docs = search_word_docs(query, top=wt, **word_kwargs)
+        docs = _fetch_word_docs(plan, query, word_top)
         if season_filter:
             docs = _rerank_word_docs_by_season(docs, season_filter)
         log.info("  Word hits: %d | Excel hits: 0", len(docs))
@@ -1082,17 +1120,7 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
     if route == "hybrid":
         excel_docs = _fetch_excel()
         selected_excel_docs = _select_excel_rows_for_plan(excel_docs, plan) if plan.broad_excel else excel_docs
-        word_kwargs = {}
-        if plan.broad_word:
-            word_kwargs = {
-                "show_names": plan.target_show_names or None,
-                "doc_types": _doc_types_for_plan(plan) or None,
-                "question_types": _question_types_for_plan(plan) or None,
-            }
-        else:
-            word_kwargs = _single_show_word_kwargs(plan)
-        wt = 15 if word_kwargs.get("show_names") and not plan.broad_word else word_top
-        word_docs  = search_word_docs(query, top=wt, **word_kwargs)
+        word_docs  = _fetch_word_docs(plan, query, word_top)
         if season_filter:
             word_docs = _rerank_word_docs_by_season(word_docs, season_filter)
         log.info("  Excel hits: %d | Word hits: %d | season_filter=%s | ranking_show=%s",
