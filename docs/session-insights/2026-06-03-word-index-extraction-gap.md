@@ -37,8 +37,10 @@ back **four layers**, each a real fix:
 | `preprocess_word_docs.py --preview-doc "מסמך דרמות GPT.docx"` (dry run, the actual pipeline) | 178 chunks, 6 "מה האסטרטגיה" sections, 36 פאלו אלטו mentions — but **0** occurrences of פאלו אלטו's strategy phrases |
 | **M365 MCP** read of SharePoint `DocLib4/עבודה ChatGPT/מסמך דרמות GPT.docx` (mod 2026-02-25) | **Contains all three strategy phrases** ✅ |
 
-**Conclusion:** the source HAS the text (Graph extracts it; the docs-Claude quoted it
-verbatim), but the repo's preprocessing does NOT extract it → it never reaches the index.
+**Conclusion (refined in §2):** the source HAS the text AND the repo *does* extract it into a
+chunk — but the min-size guardrail discarded that 114-char chunk, so it never reached the index.
+(The probes above pre-date that finding; they observe the *symptom* — absent from the index — not
+the cause.) Now fixed + re-ingested.
 
 ## 2. Root cause (definitive)
 
@@ -54,33 +56,48 @@ Traced on the **exact ingested file** (`C:\Users\amit.rosen\Downloads\docx\מס�
   (150). The min-size filter was meant to drop "trivial 1-liners" but also kills short *labeled*
   answers (a one-line strategy, a slogan).
 
-**Scale of the loss (measured per doc, pre-fix):**
+**Which docs are affected — two code paths.** `preprocess_word_docs.py` routes **>4 MB docs to
+the python-docx fallback** (`extract_chunks_docx` → `split_semantic`) and **≤4 MB docs to
+Document Intelligence** (`extract_chunks_di`). The min-size drop bites the **fallback path**
+(large docs); the DI path produces coarser chunks and is unaffected.
 
-| Doc | chunks kept (≥150) | dropped <150 | of dropped: **real headed sections** |
-|---|---|---|---|
-| דרמות | 174 | 103 | **88** |
-| בידור | 127 | 85 | **70** |
-| תוכניות נוספות | 67 | 41 | **32** |
-| ריאליטי | 423 | ~? | **179** |
+| Doc | path | old index | new (re-ingested) | recovered |
+|---|---|---|---|---|
+| מסמך דרמות GPT (25.5 MB) | fallback | 174 | **262** | **+88** |
+| מסמך ריאליטי GPT (34.6 MB) | fallback | 423 | **602** | **+179** |
+| GPT מסמך בידור (0.7 MB) | DI | 45 | 45 | 0 (unaffected) |
+| GPT מסמך תוכניות נוספות (0.6 MB) | DI | 25 | 25 | 0 (unaffected) |
 
-→ **~369 real labeled Q&A sections** silently dropped across the four docs (the index had only
-~6 `אסטרטגיה` chunks across 17 dramas for exactly this reason). The >4 MB python-docx fallback
-and the historical 16 MB Basic-tier metadata-only episode are real context but are **not** the
-cause here — the content was extracted fine; the size guardrail discarded it.
+→ **~267 real labeled Q&A sections recovered** on the two large docs (which is where the
+strategy sections live; the index previously had only ~6 `אסטרטגיה` chunks across 17 dramas).
+The small docs were already correct (DI path). The historical 16 MB Basic-tier metadata-only
+episode is real context but not the cause — the content was extracted fine; the size guardrail
+discarded it.
+
+> Caveat for future readers: an earlier draft of this doc cited +70/+32 for the two small docs.
+> That was measured by running the *fallback* extractor on local copies — NOT the DI path prod
+> uses for ≤4 MB docs. In production those two are unchanged at 45/25.
 
 ## 3. Fix (shipped) + re-ingest
 
 **Code fix — commit `f68b9c5` (`scripts/preprocess_word_docs.py`):** keep a below-min-size
 chunk when it is a real labeled Q&A section (`_is_meaningful_short_section`: header matches a
 recognized `_SECONDARY_ANCHORS` / `_PRIMARY_TEXT_SIGNALS`); still discard genuinely headerless
-fragments. **Verified additive** — every chunk already ≥150 chars is byte-for-byte unchanged
-(174/127/67/423 preserved exactly); only the ~369 headed short sections are recovered, and
-פאלו אלטו's strategy is now present. Word pipeline only — Excel (`tv-promos`) untouched.
-Regression tests in `tests/test_preprocess_chunking.py`.
+fragments. **Verified additive** — every chunk already ≥150 chars is byte-for-byte unchanged.
+Word pipeline only — Excel (`tv-promos`) untouched. Tests in `tests/test_preprocess_chunking.py`.
 
-**Required next: re-ingest** the 4 GPT docs (delete-first per doc, data-invariant) so the index
-picks up the recovered chunks. Verify after: index search for "מקרה רצח שעלול להבעיר" returns a
-chunk and פאלו אלטו has a `question_type='אסטרטגיה'` chunk.
+**Re-ingest — DONE (2026-06-03).** Re-chunked + re-ingested the two large docs (delete-first):
+דרמות 174→**262**, ריאליטי 423→**602** (index 667→**934**). Small docs skipped (unchanged).
+Two follow-on fixes surfaced during ingest (commit `bbf83c3`):
+- **Ingest robustness** — embedding aborted the whole doc on one transient proxy stall (60s,
+  no retry), briefly leaving דרמות with 0 chunks. Now 180s timeout + 4-attempt backoff retry.
+- **Coverage precision** — even once indexed, פאלו אלטו's short strategy chunk ranked too low to
+  be the per-show top-1. Added `fetch_word_docs_per_show(prefer_question_types=...)` to pull each
+  show's אסטרטגיה/סלוגן section first for strategy-intent coverage queries.
+
+**Verified end-to-end:** "צטט את האסטרטגיות מכירה של כל הדרמות" now quotes פאלו אלטו's strategy
+(strategy phrase present) and covers 12 dramas (was 7). Index search for "מקרה רצח שעלול להבעיר"
+returns a chunk; פאלו אלטו has a `question_type='אסטרטגיה'` chunk. ✅
 
 ## 4. Action items
 
