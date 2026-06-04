@@ -234,7 +234,16 @@ DevOps CI/CD → staging → prod). It contains, all tested:
 - **Pipeline env flags** added to staging+prod: `BROAD_RETRIEVAL_ENABLED=true`,
   `WORD_METADATA_FILTERS_ENABLED=true` (these were never set → the prod bug)
 
+Also in this branch (eval/quality): judge **rubric loosened** (gold = partial reference,
+additions ≠ hallucination) → cluster judge 54.2%→66.7%; **id=1 gold** rewritten to the full
+documented drama set; **Coverage Mode + Concrete-Specifics** prompt rules. Full session writeup:
+`docs/session-insights/2026-06-03-session-summary.md`.
+
 **Action items still open:**
+0. **Re-judge / re-baseline** the full 62-case eval with the new rubric+flags (was ~48%); and
+   apply the id=1-style gold-comprehensiveness fix to other short-gold coverage/strategy cases.
+0b. **Gemini re-test** (judge and/or agent) on clean post-fix data — the May-19 comparison
+   (Foundry 53.8% vs Gemini 39.3%) ran on broken pre-Phase-6c data and is no longer valid.
 1. **Merge the branch to `main`** → deploys code + flags. (PR:
    github.com/Keshet-Broadcasting/PromoAgent/pull/new/fix/genre-contamination-truncation)
 2. **SharePoint fallback**: config wired, `SP_ENRICHMENT_ENABLED=false`. To enable:
