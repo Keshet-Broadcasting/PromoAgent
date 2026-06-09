@@ -38,7 +38,7 @@ jobs:
         uses: anthropics/claude-code-action@beta
         with:
           anthropic_api_key: ${{ secrets.OPENROUTER_API_KEY }}
-          model: anthropic/claude-sonnet-4-5
+          model: anthropic/claude-sonnet-4.5
           timeout_minutes: 12
           allowed_tools: "Bash,Read,Glob,Grep"
           direct_prompt: |
