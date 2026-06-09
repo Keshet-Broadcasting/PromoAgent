@@ -6,7 +6,7 @@ Answers questions in Hebrew from two structured data sources:
 - **Excel files** — broadcast ratings, season statistics, episode-level metrics (`tv-promos` index)
 - **Word documents** — strategy briefs, campaign slogans, marketing phrasing (`word-docs` index)
 
-The system routes each question to the right source automatically and returns grounded, cited answers — no hallucinations. It supports multi-turn conversations with per-user memory persistence.
+The system routes each question to the right source automatically and returns grounded, cited answers — no hallucinations. It supports multi-turn conversations with per-user memory persistence. Deployable on Azure App Service with a React/TypeScript front-end.
 
 ---
 
