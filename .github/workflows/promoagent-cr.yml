@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  id-token: write
 
 jobs:
   code-review:
@@ -30,8 +31,10 @@ jobs:
       - name: Run PromoAgent Code Review
         uses: anthropics/claude-code-action@beta
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          model: claude-sonnet-4-5
+          anthropic_api_key: ${{ secrets.OPENROUTER_API_KEY }}
+          model: anthropic/claude-sonnet-4-5
+        env:
+          ANTHROPIC_BASE_URL: https://openrouter.ai/api/v1
           timeout_minutes: 12
           allowed_tools: "Bash,Read,Glob,Grep"
           direct_prompt: |
