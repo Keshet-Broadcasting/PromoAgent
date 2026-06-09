@@ -305,7 +305,13 @@ IMPORTANT scoring rules:
     as the main insight is present and the additional content is factually correct.
   - DO NOT require word-for-word phrase matching. Semantic equivalence is enough.
     Example: gold says 'פטריוטי' and model says 'רגש לאומי' — these are equivalent.
-  - DO penalize hallucinations and factual errors (e.g. wrong show name, wrong number).
+  - The GOLD ANSWER is a PARTIAL reference, not an exhaustive one. Additional shows,
+    examples, quotes, or details that are NOT in the gold are NOT hallucinations —
+    do NOT penalize them. (This is a RAG system; extra content is typically pulled
+    from the source documents.) Treat content beyond the gold as neutral-to-positive.
+  - DO penalize ONLY genuine fabrication or contradiction: a wrong number, a quote
+    attributed to the wrong show, or a claim that is internally inconsistent or
+    factually impossible. "Not mentioned in the gold" is NOT a fabrication.
   - DO penalize missing the main insight even if the model writes a lot of correct
     surrounding content.
 

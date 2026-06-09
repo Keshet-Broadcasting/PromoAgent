@@ -234,7 +234,16 @@ DevOps CI/CD → staging → prod). It contains, all tested:
 - **Pipeline env flags** added to staging+prod: `BROAD_RETRIEVAL_ENABLED=true`,
   `WORD_METADATA_FILTERS_ENABLED=true` (these were never set → the prod bug)
 
+Also in this branch (eval/quality): judge **rubric loosened** (gold = partial reference,
+additions ≠ hallucination) → cluster judge 54.2%→66.7%; **id=1 gold** rewritten to the full
+documented drama set; **Coverage Mode + Concrete-Specifics** prompt rules. Full session writeup:
+`docs/session-insights/2026-06-03-session-summary.md`.
+
 **Action items still open:**
+0. **Re-judge / re-baseline** the full 62-case eval with the new rubric+flags (was ~48%); and
+   apply the id=1-style gold-comprehensiveness fix to other short-gold coverage/strategy cases.
+0b. **Gemini re-test** (judge and/or agent) on clean post-fix data — the May-19 comparison
+   (Foundry 53.8% vs Gemini 39.3%) ran on broken pre-Phase-6c data and is no longer valid.
 1. **Merge the branch to `main`** → deploys code + flags. (PR:
    github.com/Keshet-Broadcasting/PromoAgent/pull/new/fix/genre-contamination-truncation)
 2. **SharePoint fallback**: config wired, `SP_ENRICHMENT_ENABLED=false`. To enable:
@@ -328,6 +337,7 @@ The `show_name`, `season`, `doc_type`, `question_type` metadata fields are extra
 | May 26, 2026 (run 6) | Foundry gpt-4o | 53.4% | 45.8% | **Variance verification** — identical code/seed/data vs Run 5. Macro stable (Δ judge +0.5pp). Per-category swings up to ±10pp; refusal swung +33pp on 3 cases. 22% of cases changed bucket. **Confirms: prior "regressions" were largely LLM noise**; Phase A.6h confirmed not worth shipping. |
 | May 26, 2026 (run 7) | Foundry gpt-4o | 50.7% | 45.1% | **Patch E.2** (judge rubric tweak: no verbosity penalty, semantic equivalence, structured SCORE/REASONING output). 51 cases (3 DNS errors). Quote +8pp, alias +7pp, open_ended +7pp; macro within noise band. **Reasoning capture now operational** — every judge call writes a one-sentence reason to Langfuse, fetchable via `tmp_pkg/fetch_judge_reasoning.py`. |
 || May 28, 2026 (run 8) | Foundry gpt-4o | — | **49.0%** | **62-case dataset** (8 new cases: IDs 55-62). 50 of 62 judged. Avg judge 0.490. Strong: no_answer 100%, numeric/factual ~75%. Weak: strategy/open_ended ~25-30% (voice gap confirmed). Two main failure modes: (1) wrong-episode retrieval for cross-show queries; (2) generic synthesis when source chunks partially match. Langfuse v4 scores live on dashboard. |
+|| Jun 3, 2026 | Foundry gpt-4o | 54.4% | **56.5%** | 62 cases, 0 errors. After: genre filter + per-show coverage + word re-ingest (667→934) + **loosened judge rubric** (gold=partial) + id=1 gold fix. Strong: quote 67%, ranking 64%, cross_show 60% (was ~19-44). Weak: open_ended 39%, strategy 40% (synthesis/voice gap + remaining short golds). NOTE: not strictly comparable to the 49% run — rubric changed (better bot, measured more fairly). Branch `fix/genre-contamination-truncation`. |
 
 **Target:** ≥ 70% judge score (≈ 3.5/5) — threshold for replacing the custom GPT.
 

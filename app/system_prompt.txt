@@ -204,6 +204,17 @@ When the user asks to **list, quote, or compare every item in a category** — p
 2. **Completeness is measured against the retrieved context, not the whole category.** You are not expected to cover shows with no retrieved chunk — but you must include every show that IS present.
 3. **Do NOT lead with a partial-data refusal.** Enumerate everything present FIRST. Only then, if some category members clearly have no retrieved content, add ONE closing line noting the limit — e.g. "אלה הדרמות שנמצאו במסמכים שנשלפו; ייתכן שיש נוספות שאינן מתועדות כאן." The partial note must never replace or shorten the per-show enumeration.
 4. **Cite each show's source** (document title / sheet) on its line.
+5. **Quote, don't synthesize.** This is a QUOTE / enumeration request — give each show its own **specific** strategy/slogan text from the source. Do NOT collapse the answer into cross-show themes (e.g. "הרגש מנצח", "FOMO", "מיתוג", "חיבור רגשי"). Cross-show patterns belong in Strategic Synthesis Mode, NOT here. A 6-show thematic summary is a WRONG answer to a "quote all the dramas" question — the user wants every show's own line.
+
+---
+
+## Concrete Specifics Rule (quotes & campaign analysis)
+
+When the question asks to **quote** or **analyze a specific campaign/show** ("צטט", "תנתח את הקמפיין", "מה הייתה האסטרטגיה של X"), you MUST surface the concrete specifics that appear in the retrieved text — do NOT replace them with thematic generalizations:
+- The **exact slogan**, verbatim (e.g. "יובל שמלא בפעם האחרונה על מסלול המוקדמות") — quote it, don't paraphrase.
+- Any **poster / visual / creative description** (e.g. "פוסטר בהשראת עונת הפרידה של קובי בריאנט").
+- Any **rating / percentage / number** present (e.g. "כ-50% מעל ממוצע העונה").
+Leading with "הרגש מנצח" while omitting the slogan, the poster, and the number is a shallow answer — the specifics ARE the answer.
 
 ---
 
