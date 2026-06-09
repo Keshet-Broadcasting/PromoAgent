@@ -70,7 +70,8 @@ User (Next.js UI / CLI)
 | `app/system_prompt.txt` | System prompt (grounding rules, few-shot examples, funnel structure) |
 | `app/chat_provider.py` | Provider abstraction: Azure OpenAI or Foundry |
 | `app/models.py` | Pydantic request/response models |
-| `app/search_word_docs.py` | Azure AI Search helpers (includes `fetch_show_promos` for full-scan retrieval) |
+| `app/search_word_docs.py` | Azure AI Search helpers — `fetch_show_promos`, `fetch_many_show_promos` (broad retrieval), `_build_word_filter` (Phase 6b metadata filter) |
+| `app/domain_catalog.py` | Single source of truth — show names, aliases, genre patterns, alias expansion (`expand_aliases`), show extraction (`extract_show_names`), genre detection (`genres_for_query`) |
 | `app/memory.py` | Persistent user memory via Azure Table Storage |
 | `app/fact_extractor.py` | Background fact extraction from multi-turn conversations |
 | `app/tools/sharepoint_tool.py` | SharePoint MCP client (Agent 365 integration) |
@@ -84,11 +85,15 @@ User (Next.js UI / CLI)
 | `scripts/ingest_word_chunks.py` | Embed JSON chunks and upload to `word-docs` index |
 | `scripts/diagnose_excel_tabs.py` | Read-only: which Excel tabs are missing from the index |
 | `scripts/diagnose_word_docs.py` | Read-only: chunk quality report for `word-docs` index |
-| `scripts/list_show_names.py` | Print unique show names in `tv-promos` (used to populate `_KNOWN_SHOWS`) |
+| `scripts/list_show_names.py` | Print unique show names in `tv-promos` (used to populate `SHOWS` in `app/domain_catalog.py`) |
 | **Tests & Eval** | |
 | `tests/test_agent.py` | Regression tests (router, live LLM, conversation history) |
 | `tests/test_prod_hardening.py` | Production hardening tests (auth, rate limiting, debug gating) |
+| `tests/test_retrieval_planning.py` | Unit tests for alias expansion, genre detection, broad-scope planner |
+| `tests/test_data_health.py` | Data-quality guardrails — catalog integrity, word-docs index health (no doc-type-as-show_name garbage, ≥80% show_name coverage, ≥30 catalog overlap), tv-promos sanity. Mix of offline + `@pytest.mark.live` |
+| `tests/test_sharepoint_tool.py` | SharePoint client tests (KQL construction, folder scoping) |
 | `tests/eval_dataset.py` | Evaluation harness against `dataset.jsonl` (numeric + LLM-as-judge) |
+| `tests/conftest.py` | Pytest config — loads `.env` so live tests can read Azure creds, registers `live` marker |
 | `run_eval_judge.py` | Wrapper to run judge eval in a detached process (Windows-safe) |
 | `dataset.jsonl` | Gold-standard evaluation dataset (54 cases) |
 | **Docs** | |
@@ -180,7 +185,20 @@ Optional variables:
 | `CORS_ORIGINS` | Comma-separated allowed origins | `*` (warns in prod) |
 | `ALLOW_DEBUG` | Enable debug trace in responses | `false` |
 | `LLM_TIMEOUT_SECONDS` | LLM call timeout | `90` |
+| `LLM_SEED` | Seed for chat completions (best-effort reproducibility) | `42` |
+| `MAX_ANSWER_TOKENS` | Max tokens per LLM answer | `1000` |
 | `ENVIRONMENT` | `dev` / `staging` / `production` | `dev` |
+| `CHAT_PROVIDER` | `azure_openai` (default) / `foundry` / `gemini` | `azure_openai` |
+| **Retrieval flags** | | |
+| `BROAD_RETRIEVAL_ENABLED` | Activate broad-Excel + broad-Word retrieval for cross-show / genre queries | `false` |
+| `WORD_METADATA_FILTERS_ENABLED` | Allow `search_word_docs` to filter by `show_name`/`season`/`doc_type`/`question_type` (requires Phase 6b schema migration) | `false` |
+| `SP_ENRICHMENT_ENABLED` | Score-gated SharePoint enrichment for low-confidence Word queries | `false` |
+| `SP_SCORE_THRESHOLD` | Azure reranker score below which SP enrichment fires (0–4 scale) | `2.5` |
+| `SP_ENRICHMENT_TOP` | Max SP docs appended to context | `3` |
+| **Langfuse (optional)** | | |
+| `LANGFUSE_PUBLIC_KEY` | Public key for trace export | — |
+| `LANGFUSE_SECRET_KEY` | Secret key for trace export | — |
+| `LANGFUSE_HOST` | Self-hosted URL or leave unset for cloud | `https://cloud.langfuse.com` |
 
 ---
 
@@ -289,12 +307,21 @@ Run `az login` before using `cli` credential locally.
 ## Tests
 
 ```bash
-# Fast offline tests (router only — no LLM calls)
+# Fast offline tests (router + data-health + catalog — no Azure calls)
 python -m pytest tests/ -m "not live" -v
 
-# Full live tests (LLM + retrieval — costs tokens)
+# Full tests including live Azure (LLM + Azure Search — costs tokens)
 python -m pytest tests/ -v
+
+# Data-health only (catalog integrity + index health — ~7s with live, no LLM cost)
+python -m pytest tests/test_data_health.py -v
 ```
+
+The `test_data_health.py` suite is the canonical guardrail against catalog/index
+drift: it asserts that the live word-docs index has no `'השקה'`/`'גמר'`/etc.
+garbage as `show_name`, that show_name coverage stays ≥80%, and that ≥30
+catalog shows have at least one matching chunk. Run it any time you touch
+`scripts/preprocess_word_docs.py`, `app/domain_catalog.py`, or after re-ingest.
 
 ## Evaluation
 
@@ -417,3 +444,5 @@ PromoAgent/
 ├── requirements.txt
 └── README.md
 ```
+ 
+ 
