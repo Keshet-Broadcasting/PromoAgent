@@ -40,8 +40,6 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.OPENROUTER_API_KEY }}
           model: anthropic/claude-sonnet-4-5
-          claude_env: |
-            ANTHROPIC_BASE_URL=https://openrouter.ai/api/v1
           timeout_minutes: 12
           allowed_tools: "Bash,Read,Glob,Grep"
           direct_prompt: |
@@ -105,5 +103,6 @@ jobs:
 
             **Limits**: Max 20 inline comments. Skip pure formatting/linting issues. Only review changed lines.
         env:
+          ANTHROPIC_BASE_URL: https://openrouter.ai/api/v1
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
