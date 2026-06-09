@@ -1,0 +1,99 @@
+name: PromoAgent Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  code-review:
+    # Run on PRs, or on comments that say /review
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request != null &&
+       contains(github.event.comment.body, '/review'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run PromoAgent Code Review
+        uses: anthropics/claude-code-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          model: claude-sonnet-4-5
+          timeout_minutes: 12
+          allowed_tools: "Bash,Read,Glob,Grep"
+          direct_prompt: |
+            You are a senior code reviewer for the **PromoAgent** project — a Hebrew-language RAG system for Keshet's Promo department.
+            The system uses Python/FastAPI backend, Next.js/TypeScript frontend, Azure AI Search, Azure OpenAI, and Azure Container Apps.
+
+            ## Your Task
+
+            Review the pull request #${{ github.event.pull_request.number || github.event.issue.number }}.
+
+            Run these commands to understand the changes:
+            ```bash
+            git diff origin/${{ github.base_ref || 'main' }}...HEAD --name-only
+            git diff origin/${{ github.base_ref || 'main' }}...HEAD
+            ```
+
+            Then perform a thorough review. Focus on:
+
+            ### Python / FastAPI (app/)
+            - **Security**: JWT/Entra ID auth logic, rate limiting bypasses, prompt injection in user queries sent to Azure OpenAI
+            - **Secrets**: Any API keys, connection strings, or tokens hardcoded (even in comments)
+            - **Error handling**: Unhandled exceptions, Azure SDK errors leaking to users
+            - **Hebrew text**: Encoding issues, RTL edge cases in string operations
+            - **Async**: Missing `await`, sync calls that should be async, N+1 patterns against Azure AI Search
+            - **Types**: Missing type hints, incorrect return types
+
+            ### Next.js / TypeScript (promobot-ui/)
+            - **Type safety**: `any` types, missing null checks
+            - **Security**: XSS risks, auth tokens stored in localStorage instead of httpOnly cookies
+            - **Hebrew/RTL**: Missing `dir="rtl"`, hardcoded LTR styles breaking Hebrew UI
+            - **Error states**: Missing loading/error handling around API calls
+
+            ### Tests (tests/)
+            - Missing coverage for new code paths
+            - Empty assertions (`assert True`)
+            - Changes that could corrupt the 54 gold-standard eval cases
+
+            ### Infrastructure (Dockerfile, azure-pipelines.yml, deploy/)
+            - Secrets in env var definitions
+            - Missing health checks or resource limits
+
+            ## Output Instructions
+
+            Use the GitHub CLI to post your review:
+
+            For each issue found, post an inline comment:
+            ```bash
+            gh pr review $PR_NUMBER --comment \
+              --body "FILE: path/to/file.py LINE: N\n\n🔴 Critical / 🟠 Important / 🟡 Suggestion\n\n**Problem**: ...\n**Why it matters**: ...\n**Fix**: ..."
+            ```
+
+            Then submit a final review:
+            - If critical/important issues: `gh pr review $PR_NUMBER --request-changes --body "..."`
+            - If only suggestions: `gh pr review $PR_NUMBER --comment --body "..."`
+            - If all good: `gh pr review $PR_NUMBER --approve --body "..."`
+
+            The final review body must include:
+            1. Overall summary
+            2. "What looks good" section
+            3. Footer: *— PromoAgent CR Agent*
+
+            **Limits**: Max 20 inline comments. Skip pure formatting/linting issues. Only review changed lines.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
