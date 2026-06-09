@@ -37,7 +37,7 @@ jobs:
       - name: Run PromoAgent Code Review
         uses: anthropics/claude-code-action@beta
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_api_key: ${{ secrets.OPENROUTER_API_KEY }}
           model: claude-sonnet-4-5
           timeout_minutes: 12
           allowed_tools: "Bash,Read,Glob,Grep"
@@ -102,5 +102,6 @@ jobs:
 
             **Limits**: Max 20 inline comments. Skip pure formatting/linting issues. Only review changed lines.
         env:
+          ANTHROPIC_BASE_URL: https://openrouter.ai/api/v1
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
