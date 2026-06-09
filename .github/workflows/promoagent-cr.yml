@@ -37,7 +37,6 @@ jobs:
       - name: Run PromoAgent Code Review
         uses: anthropics/claude-code-action@beta
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.OPENROUTER_API_KEY }}
           model: anthropic/claude-sonnet-4-5
           timeout_minutes: 12
