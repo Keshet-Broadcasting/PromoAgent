@@ -29,12 +29,15 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         with:
           fetch-depth: 0
 
       - name: Run PromoAgent Code Review
         uses: anthropics/claude-code-action@beta
         with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.OPENROUTER_API_KEY }}
           model: anthropic/claude-sonnet-4-5
           claude_env: |
