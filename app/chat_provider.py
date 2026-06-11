@@ -32,6 +32,14 @@ Environment variables
 CHAT_PROVIDER                   azure_openai | foundry | gemini  (default: azure_openai)
 AZURE_CREDENTIAL_TYPE           cli | managed_identity | default
                                 (default: cli, Foundry only)
+MODEL_PARAM_STYLE               auto | classic | reasoning  (default: auto)
+                                gpt-5 family / o-series deployments need the
+                                "reasoning" parameter style (max_completion_tokens,
+                                no temperature/seed); auto detects by name.
+MAX_ANSWER_TOKENS_REASONING     completion budget for reasoning models — includes
+                                their invisible reasoning tokens (default: 10000)
+REASONING_EFFORT                minimal | low | medium | high | "" to omit
+                                (default: low)
 
 Azure OpenAI provider
     AZURE_OPENAI_CHAT_ENDPOINT
@@ -53,6 +61,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from abc import ABC, abstractmethod
 
 try:
@@ -110,6 +119,44 @@ _MAX_TOKENS    = int(os.getenv("MAX_ANSWER_TOKENS",    "3000"))  # shared with t
 # need different sampling for a one-off experiment.
 _LLM_SEED      = int(os.getenv("LLM_SEED",             "42"))
 
+# --- Reasoning-model parameter style (gpt-5 family, o-series) ---------------
+# These models reject temperature/seed/max_tokens on chat completions; they
+# require max_completion_tokens, and their INVISIBLE reasoning tokens count
+# against that budget — so it needs headroom above the visible-answer cap.
+_MAX_TOKENS_REASONING = int(os.getenv("MAX_ANSWER_TOKENS_REASONING", "10000"))
+# minimal | low | medium | high. "low" keeps latency chat-friendly; set
+# REASONING_EFFORT="" to omit the param (model default, currently medium).
+_REASONING_EFFORT = os.getenv("REASONING_EFFORT", "low")
+
+# Matches gpt-5* and o1/o3/o4-style names without catching gpt-4o / gpt-4o-mini
+# ("o" must be followed by a digit and not preceded by a letter or digit).
+_REASONING_NAME_RE = re.compile(r"gpt-?5|(^|[^a-z0-9])o\d", re.IGNORECASE)
+
+
+def _is_reasoning_model(model_name: str) -> bool:
+    """Decide which chat-completions parameter style a deployment needs.
+
+    MODEL_PARAM_STYLE=classic|reasoning overrides the name heuristic — needed
+    because Azure deployment names are user-chosen and may not contain the
+    model family.
+    """
+    style = os.getenv("MODEL_PARAM_STYLE", "auto").lower()
+    if style == "classic":
+        return False
+    if style == "reasoning":
+        return True
+    return bool(_REASONING_NAME_RE.search(model_name or ""))
+
+
+def _completion_kwargs(model_name: str) -> dict:
+    """Sampling/limit kwargs for chat.completions.create(), per model family."""
+    if _is_reasoning_model(model_name):
+        kwargs: dict = {"max_completion_tokens": _MAX_TOKENS_REASONING}
+        if _REASONING_EFFORT:
+            kwargs["reasoning_effort"] = _REASONING_EFFORT
+        return kwargs
+    return {"temperature": 0, "seed": _LLM_SEED, "max_tokens": _MAX_TOKENS}
+
 
 class AzureOpenAIProvider(ChatProvider):
     """Azure OpenAI via the openai SDK — key-based auth, no changes to existing logic."""
@@ -138,10 +185,8 @@ class AzureOpenAIProvider(ChatProvider):
         resp = self._client.chat.completions.create(
             model=self.deployment,
             messages=messages,
-            temperature=0,
-            seed=_LLM_SEED,
-            max_tokens=_MAX_TOKENS,
             timeout=_LLM_TIMEOUT,
+            **_completion_kwargs(self.deployment),
         )
         content = resp.choices[0].message.content
         if not content:
@@ -260,10 +305,8 @@ class FoundryProvider(ChatProvider):
         resp = openai_client.chat.completions.create(
             model=self.model,
             messages=messages,
-            temperature=0,
-            seed=_LLM_SEED,
-            max_tokens=_MAX_TOKENS,
             timeout=_LLM_TIMEOUT,
+            **_completion_kwargs(self.model),
         )
         content = resp.choices[0].message.content
         if not content:
