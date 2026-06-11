@@ -95,9 +95,44 @@ is planned for the next evaluation round.
 - Also fixed: `slowapi` was missing from the venv (in requirements.txt), which failed 13
   offline tests; stale `MAX_ANSWER_TOKENS` docs in api.py/README corrected.
 
-## 6. Follow-ups
+## 6. UPDATE (same day) — gpt-5.4-mini A/B: ceiling confirmed AND solved
 
-1. Stronger Foundry deployment A/B on ids 4,12,16,19,23,24,26,30,31,32,43,45,46,52,55,56,57,58,59,61 (~$1).
+Amit deployed **gpt-5.4-mini** (Global Standard, 400k context). Code prep:
+`chat_provider.py` now selects the completion-parameter style per model family —
+reasoning models (gpt-5*/o-series, name heuristic + `MODEL_PARAM_STYLE` override) get
+`max_completion_tokens` (default 10000, includes invisible reasoning tokens) +
+`reasoning_effort` (default low) instead of `temperature=0/seed/max_tokens`, which they
+reject with HTTP 400. Tests: `tests/test_chat_provider_params.py` (incl. the gpt-4o
+"o"-in-name trap).
+
+**A/B result (same 20-case subset, same prompt/retrieval, same gpt-4o judge via the
+two-phase generate→rejudge method):**
+
+| Model | Overall | Judge | Latency | GND |
+|---|---|---|---|---|
+| gpt-4o (prompt-v3 guard) | 52.9% | 57.5% | 21.9s | 80% |
+| **gpt-5.4-mini, effort=low** | **62.4%** | **67.5%** | **10.3s** | **100%** |
+
+All four "model-ceiling" cases flipped: id=46 judge **5/5**, id=56 **5/5** (the 18.5%
+finally appears — NUM 0→0.5), id=57 0.75, id=26 0.75 — note id=26 (the judgment-heavy
+pregnancy case) stayed broken at effort=low and flipped only at **effort=medium** (27.8s
+vs ~10s). gpt-5.4-mini is also cheaper per token than gpt-4o.
+
+**Verdict: gpt-5.4-mini is the production candidate.** Extrapolating +10pp judge over the
+58.1% full-62 baseline puts the bot at the doorstep of the 70% target.
+
+**Switching caveat (judge coupling):** the eval judge follows `get_provider()` — after
+flipping `.env` to gpt-5.4-mini, full `--judge` runs get a 5.4-mini judge → scores form a
+NEW baseline, not comparable to the gpt-4o-judged history. Acceptable: the planned
+~200-question dataset is a re-baseline anyway. Alternative if continuity matters: pin the
+judge via a separate deployment env var (not yet implemented).
+
+## 7. Follow-ups
+
+1. ~~Stronger Foundry deployment A/B~~ **DONE — see §6.** Next: flip `.env`
+   (`AZURE_AI_MODEL_DEPLOYMENT_NAME=gpt-5.4-mini`), consider `REASONING_EFFORT=medium`
+   for quality vs `low` for latency, and watch the `<thinking>`-block behavior (natively
+   reasoning model + prompt-CoT = the Gemini-style leak risk; none observed in 21 answers).
 2. Fix golds for 46 + 57 → `--rejudge --only 46,57` (≈free).
 3. Gemini leak fix if the Gemini option stays alive after the stronger-model test.
 4. 45k-token context outlier on ranking+strategy hybrids (spawned as separate task).
