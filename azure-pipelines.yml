@@ -79,11 +79,14 @@ stages:
       AZURE_OPENAI_EMBEDDING_DEPLOYMENT: 'text-embedding-3-small'
       AZURE_OPENAI_API_VERSION: '2024-02-01'
       AZURE_OPENAI_CHAT_ENDPOINT: 'https://keshet-foundry.openai.azure.com/openai/v1'
-      AZURE_OPENAI_CHAT_DEPLOYMENT: 'gpt-4o-1'
+      AZURE_OPENAI_CHAT_DEPLOYMENT: 'gpt-5.4-mini'
       CHAT_PROVIDER: 'foundry'
       AZURE_CREDENTIAL_TYPE: 'managed_identity'
       AZURE_AI_PROJECT_ENDPOINT: 'https://Keshet-Foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry'
-      AZURE_AI_MODEL_DEPLOYMENT_NAME: 'gpt-4o-1'
+      AZURE_AI_MODEL_DEPLOYMENT_NAME: 'gpt-5.4-mini'
+      # gpt-5 family = reasoning model: minimal|low|medium|high. "low" keeps
+      # chat latency ~10s; "medium" adds judgment quality at ~25-30s.
+      REASONING_EFFORT: 'low'
       AZURE_STORAGE_CONTAINER_NAME: 'promo-docs-poc'
       AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT: 'https://documentintelegencepilot.cognitiveservices.azure.com/'
       ENTRA_TENANT_ID: '94c43ca5-8a89-42a8-b6d6-f1a37cdff68f'
@@ -124,11 +127,14 @@ stages:
       AZURE_OPENAI_EMBEDDING_DEPLOYMENT: 'text-embedding-3-small'
       AZURE_OPENAI_API_VERSION: '2024-02-01'
       AZURE_OPENAI_CHAT_ENDPOINT: 'https://keshet-foundry.openai.azure.com/openai/v1'
-      AZURE_OPENAI_CHAT_DEPLOYMENT: 'gpt-4o-1'
+      AZURE_OPENAI_CHAT_DEPLOYMENT: 'gpt-5.4-mini'
       CHAT_PROVIDER: 'foundry'
       AZURE_CREDENTIAL_TYPE: 'managed_identity'
       AZURE_AI_PROJECT_ENDPOINT: 'https://Keshet-Foundry.services.ai.azure.com/api/projects/Keshet-AI-Foundry'
-      AZURE_AI_MODEL_DEPLOYMENT_NAME: 'gpt-4o-1'
+      AZURE_AI_MODEL_DEPLOYMENT_NAME: 'gpt-5.4-mini'
+      # gpt-5 family = reasoning model: minimal|low|medium|high. "low" keeps
+      # chat latency ~10s; "medium" adds judgment quality at ~25-30s.
+      REASONING_EFFORT: 'low'
       AZURE_STORAGE_CONTAINER_NAME: 'promo-docs-poc'
       AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT: 'https://documentintelegencepilot.cognitiveservices.azure.com/'
       ENTRA_TENANT_ID: '94c43ca5-8a89-42a8-b6d6-f1a37cdff68f'
