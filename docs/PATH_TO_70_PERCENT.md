@@ -1,10 +1,13 @@
 # PromoAgent — Path to 70% Judge Score (Handoff Plan)
 
-**Written:** 2026-05-25 · **Revised:** 2026-05-28 (Phase E.1 + B.1-B.3 + A.1-A.3 + C.1-C.3 + D.1-D.3 done)
+**Written:** 2026-05-25 · **Revised:** 2026-06-11 (Strategic Synthesis Mode rebuild — see session-insights/2026-06-11)
 **Audience:** the next agent (or future self) picking up where we left off
-**Current state:** judge ~49% (Run 8: 49.0% on 62-case dataset), overall ~50-53%
+**Current state:** judge **58.1%** (2026-06-11, 62 cases, all-time high), overall 57.0%
 **Target:** judge ≥ 70% to declare ready for Custom GPT replacement
-**Honest gap:** +24-25pp judge
+**Honest gap:** +12pp judge. **Bottleneck is now confirmed model-tier** (Langfuse-verified:
+evidence in context, gpt-4o ignores it — see 2026-06-11 session insights §4). Next lever:
+stronger Foundry deployment A/B, then the expanded ~200-question dataset, then the
+promo-team side-by-side.
 
 This document is the strategic roadmap from where we are now to a defensible "ready
 to replace Custom GPT" state. It is not a list of tasks — it is reasoning about
