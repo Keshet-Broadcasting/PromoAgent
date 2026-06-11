@@ -235,6 +235,8 @@ _RATING_INTENT_PATTERNS = re.compile(r"רייטינג|נקודת פתיחה|נק
 # AND summarization/pattern phrasing ("סכם", "תובנות", "פתרונות", "דפוסים",
 # "מאפיין") — a cross-show "summarize the insights" question must not be served
 # from only 5-6 chunks spread across ~17 shows, or coverage is shallow/partial.
+# Keep in sync with the "Strategic Synthesis Mode" trigger list in
+# system_prompt.txt — tests/test_retrieval_planning.py enforces the overlap.
 _STRATEGIC_INTENT_PATTERNS = re.compile(
     r"מה הייתי|מה היית|תמליץ|הצע|מה כדאי|כיצד הייתי|תחשוב מה"
     r"|סכם|תובנות|פתרונות|דפוסים|מאפיין|מאפיינים"

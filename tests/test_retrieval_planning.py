@@ -203,6 +203,27 @@ def test_synthesis_phrasing_triggers_strategic_intent():
     assert not _STRATEGIC_INTENT_PATTERNS.search("מה היה הרייטינג של הראש בעונה 1?")
 
 
+def test_strategic_mode_prompt_triggers_match_retrieval_triggers():
+    """Regression (2026-06-11): the retrieval layer widens for synthesis phrasing
+    (סכם/תובנות/פתרונות), but the prompt-level Strategic Synthesis Mode trigger
+    list contained only recommendation phrasing — so the model received 12 wide
+    chunks and still answered in Coverage/summary style instead of thesis-first
+    strategy (the 'analyst vs strategist' gap vs the team's Custom GPT). The
+    prompt section must keep the synthesis triggers and the precedence rule over
+    Coverage Mode."""
+    from app.prompts import SYSTEM_PROMPT
+
+    start = SYSTEM_PROMPT.index("## Strategic Synthesis Mode")
+    section = SYSTEM_PROMPT[start:]
+
+    # Synthesis phrasing from _STRATEGIC_INTENT_PATTERNS must appear as triggers:
+    for phrase in ("סכם", "תובנות", "פתרונות", "דפוסים", "מאפיין"):
+        assert phrase in section, f"synthesis trigger missing from prompt: {phrase}"
+    # Precedence over Coverage Mode and thesis-first must be stated:
+    assert "Coverage Mode" in section
+    assert "thesis" in section
+
+
 def test_per_show_fetch_prefers_strategy_section(monkeypatch):
     """Regression (2026-06-03): for a 'quote the strategies' coverage query, each
     show's strategy chunk must be pulled FIRST — short strategy answers rank low

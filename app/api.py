@@ -20,7 +20,7 @@ Environment variables
     RATE_LIMIT          per-user per-minute limit (default "20/minute")
     RATE_LIMIT_DAILY    per-user daily limit (default "200/day")
     MAX_QUESTION_LENGTH max input characters per request (default 500)
-    MAX_ANSWER_TOKENS   max LLM output tokens per request (default 1000)
+    MAX_ANSWER_TOKENS   max LLM output tokens per request (default 3000)
 
 Authentication
 --------------

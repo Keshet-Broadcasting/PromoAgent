@@ -186,7 +186,7 @@ Optional variables:
 | `ALLOW_DEBUG` | Enable debug trace in responses | `false` |
 | `LLM_TIMEOUT_SECONDS` | LLM call timeout | `90` |
 | `LLM_SEED` | Seed for chat completions (best-effort reproducibility) | `42` |
-| `MAX_ANSWER_TOKENS` | Max tokens per LLM answer | `1000` |
+| `MAX_ANSWER_TOKENS` | Max tokens per LLM answer (shared with the `<thinking>` block) | `3000` |
 | `ENVIRONMENT` | `dev` / `staging` / `production` | `dev` |
 | `CHAT_PROVIDER` | `azure_openai` (default) / `foundry` / `gemini` | `azure_openai` |
 | **Retrieval flags** | | |
