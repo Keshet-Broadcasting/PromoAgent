@@ -127,6 +127,60 @@ NEW baseline, not comparable to the gpt-4o-judged history. Acceptable: the plann
 ~200-question dataset is a re-baseline anyway. Alternative if continuity matters: pin the
 judge via a separate deployment env var (not yet implemented).
 
+## 6b. UPDATE (2026-06-15) — Creative Director Layer + Langfuse production insights
+
+Across three more blind comparisons vs the Custom GPT (drama live-viewing, רוקדים lives,
+drama finale), one consistent pattern: **gpt-5.4-mini now BEATS Coral on analysis/grounding
+in every comparison, but loses on creative VOICE** — it writes like a media-planner
+("הפוך לאירוע, צור FOMO") while Coral writes like a creative director ("מה יקרה לדמות
+שאוהבים"). Gemini's read: the bot gives the packaging, not the emotional fuel.
+
+**Key finding — Coral's system prompt has ZERO creative instruction.** Amit shared it: 15
+rules, all data-discipline (retrieve from Excel, cite the sheet, double-check, present all
+values, don't guess). Coral's voice is the frontier base model + full documents, not
+prompting. So there is nothing to copy; the lesson is partly SUBTRACTIVE — our heavy
+structural mandates were making answers read like a framework deck.
+
+**Fix — "Creative Director Layer" added to Strategic Synthesis Mode** (system_prompt.txt):
+dual register (evidence precise+cited; recommendation sensory+bold), translate each
+principle to "איך זה נראה ומרגיש על המסך", reframe live-urgency emotionally (catharsis with
+the country, not "so no one spoils it"), speak the team's register (טונייט/פרומו/השקה), and
+"structure serves the voice" (the numbered skeleton is a toolkit, not a mandatory template).
+Plus a planning (forward, creative) vs retrospective (backward, numbers-first) split — which
+the Langfuse data below shows is the real usage shape.
+
+**The stubborn dimension and how it cracked — few-shot > prose.** "Lead the thesis with the
+human truth, not a media tactic" resisted THREE rounds of prose rules (even at effort=medium,
+even with the evidence verified in context — not a retrieval gap). Root cause: the **Strategic
+Synthesis few-shot exemplar opened with a tactic** ("הייתי נזהר מאוד מלהפוך את 'החדש'..."),
+and the model imitates the exemplar over prose. Rewriting that one opening to lead with the
+viewer ("צופים לא מתאהבים בפורמט — הם מתאהבים באנשים") + a hard constraint ("first sentence
+must not begin with הטעות/צריך/האסטרטגיה; begin with צופים/הקהל/אנשים") flipped it. Verified
+on the finale question: opening is now "צופים לא חוזרים לפרק סיום כדי לקבל עוד הסבר — הם
+חוזרים בשביל הכרעה רגשית..." — Coral's altitude WITH the bot's numbers and citations.
+20-case guard: 62.7%/66.2% judge, grounded 100% — no regression.
+
+**Decision: the voice subagent is NOT being built.** The one gap that looked like it needed a
+second pass closed in-prompt — cheaper, no added latency, no new failure surface. Remaining
+bot-vs-Coral differences are taste-level (best judged by the team), not capability.
+
+### Langfuse production insights (extracted via the public API, PowerShell)
+
+- **Prod is on gpt-5.4-mini since 2026-06-11T12:00Z** (first prod generation). 72 prod
+  generations on it as of 2026-06-15.
+- **Token usage:** input avg 15.2k / max 22.4k; output avg 1.7k / max 6.25k. **Zero hit the
+  10k reasoning cap; zero empty/content-filtered.** The reasoning budget has healthy headroom.
+- **Cost:** $0.86 for 72 prod queries ≈ **$0.012/query**.
+- **Latency:** median 9.9s, max 36s (the medium-effort synthesis tail).
+- **What the team actually asks (validates the whole direction):** prod questions are
+  overwhelmingly **strategic/creative + tonight-promo planning** — "מה הנוסחה לבניית טונייט
+  אפקטיבי", "אסטרטגיה כשעונה מקבלת רייטינג נמוך", "כאיש קריאייטיב, נקודות לפתיחת פרומו",
+  "כללי עשה ואל תעשה לטונייטים", plus some pure-analytical comparisons ("השווה נקודות פתיחה
+  בין X/Y/Z"). The team lives in Strategic Synthesis Mode — exactly what this session
+  optimized. Langfuse is a viable ongoing source for: cap-hit/truncation monitoring,
+  empty/filtered-answer alerts, latency/cost tracking, and prioritizing prompt work by the
+  most common real question shapes.
+
 ## 7. Follow-ups
 
 1. ~~Stronger Foundry deployment A/B~~ **DONE — see §6.** Next: flip `.env`
