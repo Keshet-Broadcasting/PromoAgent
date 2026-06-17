@@ -572,13 +572,13 @@ def print_summary(results: list[CaseResult], use_judge: bool) -> None:
     log.info("EVAL SUMMARY — %d cases (%d errors)", len(ok), len(errors))
     log.info("=" * 64)
     log.info("  Overall score:    %.1f%%", avg_overall * 100)
-    log.info("  Numeric accuracy: %.1f%%", avg_numeric * 100)
-    log.info("  Keyword coverage: %.1f%%", avg_keyword * 100)
-    log.info("  Groundedness:     %.1f%%", avg_grounded * 100)
+    log.info("  Numeric accuracy: %s", _fmt_pct(avg_numeric))
+    log.info("  Keyword coverage: %s", _fmt_pct(avg_keyword))
+    log.info("  Groundedness:     %s", _fmt_pct(avg_grounded))
     if avg_refusal >= 0:
-        log.info("  Refusal accuracy: %.1f%%", avg_refusal * 100)
+        log.info("  Refusal accuracy: %s", _fmt_pct(avg_refusal))
     if use_judge:
-        log.info("  LLM Judge:        %.1f%%", avg_judge * 100)
+        log.info("  LLM Judge:        %s", _fmt_pct(avg_judge))
     log.info("-" * 64)
 
     by_cat: dict[str, list[CaseResult]] = {}
@@ -596,8 +596,9 @@ def print_summary(results: list[CaseResult], use_judge: bool) -> None:
         nm = _safe_avg([r.numeric_score for r in cat_results if r.numeric_score is not None])
         kw = _safe_avg([r.keyword_score for r in cat_results if r.keyword_score is not None])
         gd = _safe_avg([r.grounded_score for r in cat_results if r.grounded_score is not None])
-        log.info("  %-14s  %5d  %4.0f%%  %4.0f%%  %4.0f%%  %4.0f%%",
-                 cat, n, sc * 100, nm * 100, kw * 100, gd * 100)
+        log.info("  %-14s  %5d  %5s  %5s  %5s  %5s",
+                 cat, n, _fmt_pct(sc, decimals=0), _fmt_pct(nm, decimals=0),
+                 _fmt_pct(kw, decimals=0), _fmt_pct(gd, decimals=0))
 
     avg_time = sum(r.elapsed_s for r in ok) / len(ok)
     total_time = sum(r.elapsed_s for r in results)
@@ -613,6 +614,12 @@ def _safe_avg(values: list[float]) -> float:
     if not values:
         return -1.0
     return sum(values) / len(values)
+
+
+def _fmt_pct(value: float, decimals: int = 1) -> str:
+    if value < 0:
+        return "n/a"
+    return f"{value * 100:.{decimals}f}%"
 
 
 def results_to_json(results: list[CaseResult]) -> str:

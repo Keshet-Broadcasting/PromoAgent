@@ -101,6 +101,13 @@ _DRAMA_CONTENT_TYPE_RE = re.compile(
 
 _OFFICIAL_BY_NAME = {show.official: show for show in SHOWS}
 
+# Common spelling variants that hurt retrieval recall but are not show aliases.
+# Keep this list intentionally small and evidence-backed.
+_TERM_VARIANTS: tuple[tuple[str, str], ...] = (
+    ("אולסטרס", "אולסטארס"),
+    ("מאסטרשף", "מאסטר שף"),
+)
+
 # כוכב + season number: seasons ≥10 use "הכוכב הבא לאירוויזיון"; seasons <10 use "הכוכב הבא"
 # Handles: "כוכב עונה 11", "כוכב בעונה 11", "כוכב 11"
 _KOCHAV_SEASON_RE = re.compile(r"\bכוכב\s+(?:ב?עונה\s+)?(\d+)\b")
@@ -133,8 +140,16 @@ def aliases() -> list[tuple[str, str]]:
     return sorted(pairs, key=lambda item: len(item[0]), reverse=True)
 
 
+def normalize_query_terms(query: str) -> str:
+    """Normalize known spelling variants before routing and retrieval."""
+    normalized = query
+    for source, target in _TERM_VARIANTS:
+        normalized = normalized.replace(source, target)
+    return normalized
+
+
 def expand_aliases(query: str) -> str:
-    expanded = query
+    expanded = normalize_query_terms(query)
     # Context-aware כוכב: "כוכב עונה N" → correct show name based on season number
     expanded = _KOCHAV_SEASON_RE.sub(_expand_kochav_season, expanded)
     for alias, official in aliases():
