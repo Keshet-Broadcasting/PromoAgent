@@ -208,6 +208,21 @@ def _extract_show_names(query: str) -> list[str]:
     return _catalog_extract_show_names(query)
 
 
+_HISTORY_CONTEXT_MAX_CHARS = 600
+_CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+def _safe_history_content(turn: object) -> str:
+    """Return bounded text from a history turn for retrieval-only context."""
+    if not isinstance(turn, dict):
+        return ""
+    content = turn.get("content")
+    if content is None:
+        return ""
+    text = _CONTROL_CHARS_RE.sub(" ", str(content))
+    return text[:_HISTORY_CONTEXT_MAX_CHARS]
+
+
 def _contextualize_followup_query(query: str, history: list[dict] | None) -> str:
     """Append recent campaign context for retrieval when the user uses anaphora.
 
@@ -224,7 +239,11 @@ def _contextualize_followup_query(query: str, history: list[dict] | None) -> str
         return query
 
     recent_turns = history[-6:]
-    recent_text = " ".join(_expand_aliases(str(turn.get("content") or "")) for turn in recent_turns)
+    recent_text = " ".join(
+        _expand_aliases(text)
+        for text in (_safe_history_content(turn) for turn in recent_turns)
+        if text
+    )
 
     context_terms: list[str] = []
     for show_name in _extract_show_names(recent_text):

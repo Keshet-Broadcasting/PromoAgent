@@ -254,6 +254,30 @@ def test_followup_retrieval_query_uses_recent_campaign_context():
     assert "אולסטארס" in contextualized
 
 
+def test_followup_retrieval_query_handles_empty_or_malformed_history():
+    """Malformed client history should not break retrieval contextualization."""
+    from app.service import _contextualize_followup_query
+
+    query = "היו בפרומואים של העונה הזו מנות?"
+
+    assert _contextualize_followup_query(query, []) == query
+
+    contextualized = _contextualize_followup_query(
+        query,
+        [
+            None,
+            "bad-turn",
+            {"role": "user", "content": None},
+            {"role": "user", "content": "מאסטר שף VIP נבחרת החלומות\x00\x01" * 300},
+        ],
+    )
+
+    assert "מאסטר שף" in contextualized
+    assert "נבחרת החלומות" in contextualized
+    assert "\x00" not in contextualized
+    assert "\x01" not in contextualized
+
+
 def test_hybrid_prompt_guards_against_campaign_role_overstatement():
     """Case 64 regression: appearing in promos does not prove central campaign role."""
     from app.prompts import build_messages
