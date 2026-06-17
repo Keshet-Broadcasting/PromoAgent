@@ -41,6 +41,11 @@ Quality follow-up for case `64`:
 - The prompt now forces the answer to distinguish between an element merely appearing in promos and being the main launch-branding anchor.
 - It also requires comparing launch branding against ongoing / tonight / finale / proof-of-level usage before concluding.
 
+Quick win follow-up for case `63` / single-campaign retrospectives:
+- Added a narrow Word-route answer shape for retrospective campaign questions.
+- The prompt now tells the model to open with a one-sentence strategic thesis, then explain the campaign arc by phase, then add inline supporting citations.
+- If the sources show that branding changed over time, the answer must reflect the change rather than only the initial rationale.
+
 # Tradeoffs Or Alternatives Considered
 
 Keeping strict grounding is valuable and should not be removed. The better fix is to route these campaign-why / campaign-usage questions into a richer Word or hybrid analysis path, while preserving inline citations.
@@ -57,6 +62,7 @@ Added eval-reporting regression test:
 
 Added prompt-quality regression test:
 - `tests/test_retrieval_planning.py::test_hybrid_prompt_guards_against_campaign_role_overstatement`
+- `tests/test_retrieval_planning.py::test_word_prompt_enforces_single_campaign_retrospective_shape`
 
 Added dataset cases:
 - `63` — MasterChef VIP naming / "נבחרת החלומות" vs "אולסטארס"
@@ -69,12 +75,15 @@ Verified:
 - `python -m pytest tests/test_retrieval_planning.py tests/test_eval_dataset_reporting.py -q` -> 20 passed
 - `python tests/eval_dataset.py --rejudge --only 63,64` -> overall 64.4%, groundedness 100%, numeric n/a
 - `python tests/eval_dataset.py --judge --only 64` -> judge 5/5, overall 88.1%, groundedness 100%, numeric n/a
+- `python -m pytest tests/test_retrieval_planning.py tests/test_eval_dataset_reporting.py -q` -> 21 passed
+- `python tests/eval_dataset.py --judge --only 63` -> judge 5/5, overall 87.9%, groundedness 100%, numeric n/a
 - `ReadLints` on edited files -> no linter errors
 
 Targeted eval result:
 - Case `63`: judge 4/5. The answer captured the naming logic and de-emphasis of "נבחרת החלומות" in favor of the main "מאסטר שף" brand.
 - Case `64`: judge 2/5. Retrieval/routing worked, but generation over-interpreted the evidence and said dishes were the central campaign anchor. Gold says the opposite nuance: dishes existed, but mainly as secondary proof / ongoing promo material rather than the launch-branding anchor.
 - After the prompt follow-up, case `64` improved to judge 5/5. The answer now says dishes appeared, but frames their role as proof of culinary level / competition and separates that from the campaign's main launch branding.
+- After the single-campaign retrospective follow-up, case `63` improved to judge 5/5. The answer opens with the strategic naming thesis, then explains the early use and later retreat from "נבחרת החלומות".
 
 # Lessons Learned
 
@@ -83,5 +92,5 @@ For this product, "why did we call it X", "why not Y", "did we use Z in promos",
 # Follow-Up Actions
 
 - P0/P1 are complete mechanically, and the immediate case `64` quality follow-up is fixed in the prompt layer.
-- Consider a strategic answer shape for single-campaign retrospectives: thesis first, campaign arc second, citations inline.
+- The single-campaign retrospective answer shape quick win is complete for Word-route questions.
 - Consider extending this pattern beyond hybrid questions if future Word-only campaign-role questions show the same overstatement behavior.

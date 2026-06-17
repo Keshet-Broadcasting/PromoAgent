@@ -270,6 +270,22 @@ def test_hybrid_prompt_guards_against_campaign_role_overstatement():
     assert "קמפיין ההשקה" in system
 
 
+def test_word_prompt_enforces_single_campaign_retrospective_shape():
+    """Campaign retrospectives should open with the thesis, not a source dump."""
+    from app.prompts import build_messages
+
+    messages = build_messages(
+        "word_quote",
+        "ctx",
+        "למה בעונה הקודמת של מאסטר שף VIP קראנו לזה נבחרת החלומות ולא אולסטארס?",
+    )
+
+    system = messages[0]["content"]
+    assert "מסקנה אסטרטגית" in system
+    assert "קשת הקמפיין" in system
+    assert "ציטוטים" in system
+
+
 def test_strategic_mode_prompt_triggers_match_retrieval_triggers():
     """Regression (2026-06-11): the retrieval layer widens for synthesis phrasing
     (סכם/תובנות/פתרונות), but the prompt-level Strategic Synthesis Mode trigger
