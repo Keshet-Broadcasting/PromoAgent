@@ -363,6 +363,30 @@ def test_campaign_prompt_preserves_hebrew_utf8_roundtrip():
     assert "עבד חלקית" in system
 
 
+def test_build_messages_bounds_and_sanitizes_history():
+    """Prompt history should tolerate malformed turns and strip control chars."""
+    from app.prompts import build_messages
+
+    messages = build_messages(
+        "hybrid",
+        "ctx",
+        "האם זה עבד?",
+        history=[
+            None,
+            "bad-turn",
+            {"role": "tool", "content": "ignored"},
+            {"role": "user", "content": "מאסטר שף\x00\x01" + ("א" * 700)},
+        ],
+    )
+
+    history_messages = messages[1:-1]
+    assert len(history_messages) == 1
+    assert history_messages[0]["role"] == "user"
+    assert "\x00" not in history_messages[0]["content"]
+    assert "\x01" not in history_messages[0]["content"]
+    assert len(history_messages[0]["content"]) <= 601
+
+
 def test_word_prompt_enforces_single_campaign_retrospective_shape():
     """Campaign retrospectives should open with the thesis, not a source dump."""
     from app.prompts import build_messages

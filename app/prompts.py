@@ -24,6 +24,7 @@ Usage (from agent.py)
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -39,6 +40,10 @@ if not _PROMPT_FILE.exists():
     )
 
 SYSTEM_PROMPT: str = _PROMPT_FILE.read_text(encoding="utf-8").strip()
+
+_CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+_MAX_HISTORY_CHARS = 600
+_ALLOWED_HISTORY_ROLES = {"user", "assistant"}
 
 
 # ---------------------------------------------------------------------------
@@ -151,6 +156,22 @@ def _format_context(context: str) -> str:
     return f"## נתוני מקור שנשלפו\n\n{context.strip()}"
 
 
+def _safe_history_turn(turn: object) -> dict | None:
+    """Return a bounded chat-history turn, or None when malformed."""
+    if not isinstance(turn, dict):
+        return None
+    role = turn.get("role")
+    if role not in _ALLOWED_HISTORY_ROLES:
+        return None
+    content = turn.get("content")
+    if content is None:
+        return None
+    text = _CONTROL_CHARS_RE.sub(" ", str(content))
+    if len(text) > _MAX_HISTORY_CHARS:
+        text = text[:_MAX_HISTORY_CHARS] + "…"
+    return {"role": role, "content": text}
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -190,12 +211,10 @@ def build_messages(
 
     messages: list[dict] = [{"role": "system", "content": system_content}]
 
-    _MAX_HISTORY_CHARS = 600
     for turn in (history or []):
-        content = turn["content"]
-        if len(content) > _MAX_HISTORY_CHARS:
-            content = content[:_MAX_HISTORY_CHARS] + "…"
-        messages.append({"role": turn["role"], "content": content})
+        safe_turn = _safe_history_turn(turn)
+        if safe_turn:
+            messages.append(safe_turn)
 
     user_content = f"{_format_context(context)}\n\n## שאלת המשתמש\n\n{user_query}"
     messages.append({"role": "user", "content": user_content})
