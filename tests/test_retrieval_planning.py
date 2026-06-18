@@ -257,6 +257,15 @@ def test_excel_json_conversion_preserves_masterchef_vip_season_suffix():
     assert parse_season("מאסטר שף עונה 11") == 11
 
 
+def test_excel_json_conversion_dependencies_are_declared():
+    """Pipeline installs requirements.txt, so script imports must be declared there."""
+    from pathlib import Path
+
+    requirements = Path("requirements.txt").read_text(encoding="utf-8")
+
+    assert "pandas" in requirements
+
+
 def test_followup_retrieval_query_uses_recent_campaign_context():
     """Retrieval should see the prior campaign when the user asks 'העונה הזו'."""
     from app.service import _contextualize_followup_query
