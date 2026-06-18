@@ -69,6 +69,10 @@ HYBRID_FORCE_PATTERNS: list[re.Pattern] = [
         r"מחקר כוונות",
         r"בדיקת פרומו",
         r"בדיקת שטח",
+        # Promo-usage retrospectives need both Excel promo_text and Word strategy context.
+        r"היו\s+בפרומואים",
+        r"בפרומואים[^?]*מנות",
+        r"פרומואים[^?]*מנות",
     ]
 ]
 
@@ -109,6 +113,14 @@ WORD_QUOTE_PATTERNS: list[re.Pattern] = [
         r"איך לשווק",
         r"פרומו לעונה",
         r"שלבי קמפיין",
+        # Retrospective campaign naming / positioning questions.
+        r"למה[^?]*קראנו",
+        r"קראנו\s+לזה",
+        r"בחרנו\s+לקרוא",
+        r"מיתגנו",
+        r"נבחרת\s+החלומות",
+        r"אולסטארס",
+        r"אולסטרס",
         # Strategic / creative synthesis questions
         # NOTE: r"מה היית" was intentionally removed — it is a prefix of
         # "מה הייתה" (past-tense factual queries like "מה הייתה נקודת הפתיחה")

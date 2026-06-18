@@ -208,6 +208,57 @@ def _extract_show_names(query: str) -> list[str]:
     return _catalog_extract_show_names(query)
 
 
+_HISTORY_CONTEXT_MAX_CHARS = 600
+_CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+def _safe_history_content(turn: object) -> str:
+    """Return bounded text from a history turn for retrieval-only context."""
+    if not isinstance(turn, dict):
+        return ""
+    content = turn.get("content")
+    if content is None:
+        return ""
+    text = _CONTROL_CHARS_RE.sub(" ", str(content))
+    return text[:_HISTORY_CONTEXT_MAX_CHARS]
+
+
+def _contextualize_followup_query(query: str, history: list[object] | None) -> str:
+    """Append recent campaign context for retrieval when the user uses anaphora.
+
+    The UI-visible question remains unchanged; this enriched string is only used
+    for classification/retrieval so follow-ups like "העונה הזו" can search with
+    the show/campaign from the previous turn.
+    """
+    if not history or not _FOLLOWUP_CONTEXT_PATTERNS.search(query):
+        return query
+
+    # If the user already named the show in this turn, the retrieval query is
+    # self-contained and does not need history-derived context.
+    if _extract_show_names(query):
+        return query
+
+    recent_turns = history[-6:]
+    recent_text = " ".join(
+        _expand_aliases(text)
+        for text in (_safe_history_content(turn) for turn in recent_turns)
+        if text
+    )
+
+    context_terms: list[str] = []
+    for show_name in _extract_show_names(recent_text):
+        if show_name not in context_terms:
+            context_terms.append(show_name)
+    for term in _CAMPAIGN_CONTEXT_TERMS:
+        if term in recent_text and term not in context_terms:
+            context_terms.append(term)
+
+    if not context_terms:
+        return query
+
+    return f"{query} (בהקשר מהשיחה הקודמת: {', '.join(context_terms)})"
+
+
 # ---------------------------------------------------------------------------
 # Temporal qualifier detection
 # ---------------------------------------------------------------------------
@@ -240,6 +291,19 @@ _RATING_INTENT_PATTERNS = re.compile(r"רייטינג|נקודת פתיחה|נק
 _STRATEGIC_INTENT_PATTERNS = re.compile(
     r"מה הייתי|מה היית|תמליץ|הצע|מה כדאי|כיצד הייתי|תחשוב מה"
     r"|סכם|תובנות|פתרונות|דפוסים|מאפיין|מאפיינים"
+)
+
+_FOLLOWUP_CONTEXT_PATTERNS = re.compile(
+    r"העונה\s+הזו|העונה\s+הזאת"
+    r"|הקמפיין\s+הזה|הקמפיין\s+הזו|הקמפיין\s+הזאת"
+    r"|השם\s+הזה|הפורמט\s+הזה"
+    r"|התוכנית\s+הזו|התוכנית\s+הזאת|התכנית\s+הזו|התכנית\s+הזאת"
+)
+
+_CAMPAIGN_CONTEXT_TERMS: tuple[str, ...] = (
+    "נבחרת החלומות",
+    "VIP",
+    "אולסטארס",
 )
 
 _LAST_SEASON_PATTERNS = re.compile(
@@ -1305,8 +1369,19 @@ def run_query(
         log.info("[%s] Alias expansion: %r → %r", trace_id, question[:60], expanded[:60])
     question = expanded
 
+    # Step 0c — enrich retrieval-only query for follow-ups like "העונה הזו".
+    # The user-facing prompt still receives the original current question.
+    retrieval_query = _contextualize_followup_query(question, history)
+    if retrieval_query != question:
+        log.info(
+            "[%s] Retrieval query contextualized: %r → %r",
+            trace_id,
+            question[:80],
+            retrieval_query[:120],
+        )
+
     # Step 1 — classify
-    route_result = classify(question)
+    route_result = classify(retrieval_query)
     route = route_result.route
     log.info("[%s] Route: %s | numeric=%s | quote=%s | analysis=%s",
              trace_id, route,
@@ -1316,7 +1391,7 @@ def run_query(
 
     # Step 2 — retrieve from primary sources (Azure AI Search)
     try:
-        retrieval = _retrieve(route, question)
+        retrieval = _retrieve(route, retrieval_query)
     except EnvironmentError:
         raise  # bubble up — api.py returns 503
     except Exception as exc:
@@ -1328,7 +1403,7 @@ def run_query(
     # This keeps latency impact zero for the vast majority of queries.
     if _is_context_insufficient(retrieval):
         log.info("[%s] Primary retrieval empty — trying SharePoint fallback", trace_id)
-        sp_docs = _fetch_sharepoint_fallback(question, top=5)
+        sp_docs = _fetch_sharepoint_fallback(retrieval_query, top=5)
         if sp_docs:
             retrieval.sharepoint_docs = sp_docs
             sp_section = (
