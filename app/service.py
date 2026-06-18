@@ -324,9 +324,50 @@ _FIRST_SEASON_PATTERNS = re.compile(
 def _season_as_int(season_val) -> int:
     """Parse a season value (int, float, or string) to int for sorting. Returns -1 on failure."""
     try:
-        return int(float(str(season_val).strip()))
+        text = str(season_val).strip()
+        match = re.search(r"\d+", text)
+        if match:
+            return int(match.group(0))
+        return int(float(text))
     except (ValueError, TypeError):
         return -1
+
+
+def _filter_vip_campaign_excel_rows(docs: list[dict], query: str) -> list[dict]:
+    """Prefer populated VIP-season Excel rows for explicit VIP campaign queries."""
+    if not docs or not _VIP_CAMPAIGN_PATTERNS.search(query):
+        return docs
+
+    vip_docs = [
+        doc for doc in docs
+        if "VIP" in str(doc.get("season") or "") and (doc.get("promo_text") or "").strip()
+    ]
+    if vip_docs:
+        latest_vip_season = max(_season_as_int(doc.get("season")) for doc in vip_docs)
+        filtered = [
+            doc for doc in vip_docs
+            if _season_as_int(doc.get("season")) == latest_vip_season
+        ]
+        if filtered:
+            return filtered
+
+    # Some existing tv-promos rows were ingested from the JSON pipeline before
+    # the VIP suffix was preserved, so "מאסטר שף עונה 11 VIP" currently appears
+    # in production as season "11". Keep this fallback narrow and evidence-based.
+    campaign_season_hints = {
+        "נבחרת החלומות": 11,
+    }
+    for term, season in campaign_season_hints.items():
+        if term not in query:
+            continue
+        hinted_docs = [
+            doc for doc in docs
+            if _season_as_int(doc.get("season")) == season and (doc.get("promo_text") or "").strip()
+        ]
+        if hinted_docs:
+            return hinted_docs
+
+    return docs
 
 
 def _max_season_in_text(text: str) -> int:
@@ -669,6 +710,8 @@ _OPENING_METRIC_RE = re.compile(r"נקוד[התו]+\s+ה?פתיחה")
 _FINALE_PATTERNS = re.compile(r"גמר|סיום|פרק סיום|פינאל")
 _TONIGHT_PATTERNS = re.compile(r"טונייט|טונייטים|שוטף|פרומואים שוטפים")
 _CONVERSION_PATTERNS = re.compile(r"מכפיל|יחס המרה|כוונות צפייה.*רייטינג|רייטינג.*כוונות צפייה")
+_PROMO_CONTENT_PATTERNS = re.compile(r"בפרומו|פרומואים|פרומו|מנות|אוכל|קולינר")
+_VIP_CAMPAIGN_PATTERNS = re.compile(r"\bVIP\b|וי\s?איי\s?פי|נבחרת\s+החלומות")
 # "except launch and finale" / "regular (not launch, not finale)" — drops BOTH.
 _EXCLUDE_LAUNCH_FINALE_RE = re.compile(
     r"למעט.{0,15}(?:השק|גמר)|חוץ מ.{0,15}(?:השק|גמר)|פרט ל.{0,10}(?:השק|גמר)"
@@ -1083,11 +1126,18 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
     # name `ranking_show` for the downstream Excel-selection wiring.
     rating_intent = bool(_RATING_INTENT_PATTERNS.search(query))
     single_show = len(plan.show_names) == 1 and not plan.genres
+    vip_campaign_excel_intent = bool(
+        route == "hybrid"
+        and single_show
+        and _VIP_CAMPAIGN_PATTERNS.search(query)
+        and _PROMO_CONTENT_PATTERNS.search(query)
+    )
     ranking_show: str | None = (
         plan.show_names[0]
         if single_show and (
             ranking_intent
             or rating_intent
+            or vip_campaign_excel_intent
             or plan.event_intent in ("launch", "finale", "tonight")
             or season_filter is not None
         )
@@ -1122,6 +1172,8 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
             log.info("  broad retrieval requested without catalog target → semantic fallback")
         if ranking_show:
             docs = fetch_show_promos(ranking_show, top=500)
+            if vip_campaign_excel_intent:
+                docs = _filter_vip_campaign_excel_rows(docs, query)
             # A complete fetch ignores semantic ranking, so a "last/first season"
             # qualifier must still be applied here to narrow to the target season.
             if season_filter:
@@ -1198,7 +1250,10 @@ def _retrieve(route: str, query: str) -> _RetrievalResult:
 
     if route == "hybrid":
         excel_docs = _fetch_excel()
-        selected_excel_docs = _select_excel_rows_for_plan(excel_docs, plan) if plan.broad_excel else excel_docs
+        selected_excel_docs = (
+            _select_excel_rows_for_plan(excel_docs, plan)
+            if plan.broad_excel or ranking_show else excel_docs
+        )
         word_docs  = _fetch_word_docs(plan, query, word_top)
         if season_filter:
             word_docs = _rerank_word_docs_by_season(word_docs, season_filter)
