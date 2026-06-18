@@ -24,8 +24,11 @@ Usage (from agent.py)
 
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Base system prompt — loaded once from file
@@ -158,15 +161,18 @@ def _format_context(context: str) -> str:
     return f"## נתוני מקור שנשלפו\n\n{context.strip()}"
 
 
-def _safe_history_turn(turn: object) -> dict | None:
+def _safe_history_turn(turn: object) -> dict[str, str] | None:
     """Return a bounded chat-history turn, or None when malformed."""
     if not isinstance(turn, dict):
+        log.debug("Skipping non-dict history turn: %r", type(turn))
         return None
     role = turn.get("role")
     if not isinstance(role, str) or role not in _ALLOWED_HISTORY_ROLES:
+        log.debug("Skipping history turn with invalid role: %r", role)
         return None
     content = turn.get("content")
     if not isinstance(content, str):
+        log.debug("Skipping history turn with non-string content: %r", type(content))
         return None
     text = _CONTROL_CHARS_RE.sub(" ", content)
     if len(text) > _MAX_HISTORY_CHARS:

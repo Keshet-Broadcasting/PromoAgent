@@ -31,6 +31,7 @@ Documentation lagged behind the final PR-review hardening commits. The session i
 - Hardened `build_messages()` history handling: malformed turns are skipped, only `user` / `assistant` roles are preserved, control characters are stripped, and prior-turn content remains capped.
 - Tightened prompt-history hardening after a follow-up review: non-string history content is skipped instead of stringified, and the Hebrew prompt test now checks that bidi override controls are not introduced.
 - Added final PR-review edge coverage: non-string history roles are skipped, truncated history must end with an ellipsis, and mixed Hebrew/English campaign-role phrasing still routes to campaign analysis.
+- Added `logging.debug` statements to `_safe_history_turn` for each skip path, and tightened return type to `dict[str, str] | None`.
 
 # Tradeoffs Or Alternatives Considered
 
