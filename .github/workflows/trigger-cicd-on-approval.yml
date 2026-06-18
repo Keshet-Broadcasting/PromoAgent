@@ -1,0 +1,113 @@
+# Triggers the Azure DevOps CI/CD pipeline after PR approval.
+# Pipeline config: .ado/pipeline.json  |  Org secret: ADO_PAT
+# See kst.ai_pipelines docs/PR_WORKFLOW.md
+
+name: Trigger CI/CD on Approval
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: read
+
+jobs:
+  trigger-ado-pipeline:
+    if: github.event.review.state == 'approved'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Start Azure DevOps CI/CD pipeline
+        env:
+          ADO_PAT: ${{ secrets.ADO_PAT }}
+          ADO_ORG_OVERRIDE: ${{ vars.ADO_ORG }}
+          ADO_PROJECT_OVERRIDE: ${{ vars.ADO_PROJECT }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          PR_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${ADO_PAT:-}" ]; then
+            echo "::error::Missing ADO_PAT secret. Create an org-level secret with Build (Read & execute) scope."
+            exit 1
+          fi
+
+          if [ ! -f .ado/pipeline.json ]; then
+            echo "::error::Missing .ado/pipeline.json — copy templates/github/.ado/pipeline.json and set pipelineId."
+            exit 1
+          fi
+
+          python3 <<'PY'
+          import json, os, sys, urllib.request, urllib.error, base64
+
+          with open(".ado/pipeline.json") as f:
+              cfg = json.load(f)
+
+          org = os.environ.get("ADO_ORG_OVERRIDE") or cfg.get("organization", "KESHETDEV")
+          project = os.environ.get("ADO_PROJECT_OVERRIDE") or cfg.get("project", "Keshet-AI")
+          pipeline_id = cfg.get("pipelineId") or 0
+          pipeline_name = cfg.get("pipelineName", "")
+          pat = os.environ["ADO_PAT"]
+          pr_branch = os.environ["PR_BRANCH"]
+          pr_sha = os.environ["PR_SHA"]
+          pr_number = os.environ["PR_NUMBER"]
+
+          auth = base64.b64encode(f":{pat}".encode()).decode()
+          headers = {
+              "Authorization": f"Basic {auth}",
+              "Content-Type": "application/json",
+          }
+          base = f"https://dev.azure.com/{org}/{project}/_apis"
+
+          def api(method, url, body=None):
+              data = json.dumps(body).encode() if body is not None else None
+              req = urllib.request.Request(url, data=data, headers=headers, method=method)
+              try:
+                  with urllib.request.urlopen(req) as resp:
+                      return resp.status, json.loads(resp.read())
+              except urllib.error.HTTPError as e:
+                  err = e.read().decode()
+                  print(f"::error::ADO API {method} {url} failed (HTTP {e.code}): {err}")
+                  sys.exit(1)
+
+          if not pipeline_id and pipeline_name:
+              status, result = api("GET", f"{base}/pipelines?api-version=7.1")
+              matches = [p for p in result.get("value", []) if p.get("name") == pipeline_name]
+              if not matches:
+                  print(f"::error::Pipeline '{pipeline_name}' not found in {org}/{project}")
+                  sys.exit(1)
+              pipeline_id = matches[0]["id"]
+              print(f"Resolved pipeline '{pipeline_name}' → ID {pipeline_id}")
+
+          if not pipeline_id:
+              print("::error::Set pipelineId or pipelineName in .ado/pipeline.json")
+              sys.exit(1)
+
+          body = {
+              "resources": {
+                  "repositories": {
+                      "self": {
+                          "refName": f"refs/heads/{pr_branch}",
+                          "version": pr_sha,
+                      }
+                  }
+              },
+              "variables": {
+                  "triggeredBy": {"value": "pr-approval"},
+                  "prNumber": {"value": pr_number},
+              },
+          }
+
+          status, result = api(
+              "POST",
+              f"{base}/pipelines/{pipeline_id}/runs?api-version=7.1",
+              body,
+          )
+
+          run_id = result["id"]
+          run_url = f"https://dev.azure.com/{org}/{project}/_build/results?buildId={run_id}"
+          print(f"CI/CD pipeline started: {run_url}")
+          PY
