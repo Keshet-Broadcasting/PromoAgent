@@ -2,7 +2,10 @@ name: PromoAgent Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    # Only review when the PR is first opened or explicitly reopened.
+    # Omitting 'synchronize' prevents a new review on every pushed commit.
+    # Use '/review' comment to re-trigger after a batch of follow-up commits.
+    types: [opened, reopened]
   issue_comment:
     types: [created]
 
