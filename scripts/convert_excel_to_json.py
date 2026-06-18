@@ -108,10 +108,11 @@ def to_float(value):
 
 
 def parse_season(sheet_name: str):
-    """Extract Hebrew season number, e.g. 'עונה 6' -> 6."""
-    m = re.search(r"עונה\s*(\d+)", sheet_name)
+    """Extract Hebrew season label, preserving VIP suffix when present."""
+    m = re.search(r"עונה\s*(\d+)(?:\s*(VIP))?", sheet_name, flags=re.IGNORECASE)
     if m:
-        return int(m.group(1))
+        season = m.group(1)
+        return f"{season} VIP" if m.group(2) else int(season)
     m = re.search(r"(\d+)\s*$", sheet_name.strip())
     if m:
         return int(m.group(1))

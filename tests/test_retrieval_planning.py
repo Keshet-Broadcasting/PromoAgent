@@ -249,6 +249,14 @@ def test_campaign_term_normalization_covers_allstars_variant():
     assert "אולסטרס" not in normalized
 
 
+def test_excel_json_conversion_preserves_masterchef_vip_season_suffix():
+    """The JSON ingest path must not collapse 'מאסטר שף עונה 11 VIP' to season 11."""
+    from scripts.convert_excel_to_json import parse_season
+
+    assert parse_season("מאסטר שף עונה 11 VIP") == "11 VIP"
+    assert parse_season("מאסטר שף עונה 11") == 11
+
+
 def test_followup_retrieval_query_uses_recent_campaign_context():
     """Retrieval should see the prior campaign when the user asks 'העונה הזו'."""
     from app.service import _contextualize_followup_query
@@ -330,7 +338,145 @@ def test_hybrid_prompt_guards_against_campaign_role_overstatement():
     system = messages[0]["content"]
     assert "הופיע בפרומואים" in system
     assert "עוגן מרכזי" in system
+    assert "עוגן תוכני" in system
+    assert "עוגן מיתוגי" in system
     assert "קמפיין ההשקה" in system
+
+
+def test_hybrid_vip_campaign_query_fetches_vip_excel_rows(monkeypatch):
+    """VIP campaign follow-ups should not rely on generic MasterChef semantic rows."""
+    import app.service as svc
+
+    semantic_called = False
+
+    def fake_fetch_show_promos(show_name, top=500):
+        assert show_name == "מאסטר שף"
+        return [
+            {
+                "show_name": "מאסטר שף",
+                "season": "10",
+                "episode_number": "1",
+                "date": "05.7.2022",
+                "promo_text": "שניצל וצ'יפס",
+                "opening_point": "19.0",
+                "rating": "18.0",
+                "competition": "",
+                "tab_name": "מעקבי פרומו.xlsx",
+                "score": 1.0,
+            },
+            {
+                "show_name": "מאסטר שף",
+                "season": "9 VIP",
+                "episode_number": "",
+                "date": "",
+                "promo_text": "",
+                "opening_point": "",
+                "rating": "",
+                "competition": "",
+                "tab_name": "מעקבי פרומו.xlsx",
+                "score": 1.0,
+            },
+            {
+                "show_name": "מאסטר שף",
+                "season": "11 VIP",
+                "episode_number": "1",
+                "date": "12.10.24",
+                "promo_text": "השקה",
+                "opening_point": "20.5",
+                "rating": "17.4",
+                "competition": "משחקי השף 10.4",
+                "tab_name": "מעקבי פרומו.xlsx",
+                "score": 1.0,
+            },
+            {
+                "show_name": "מאסטר שף",
+                "season": "11 VIP",
+                "episode_number": "2",
+                "date": "14.10.24",
+                "promo_text": "מנות ותחרות",
+                "opening_point": "18.0",
+                "rating": "16.0",
+                "competition": "",
+                "tab_name": "מעקבי פרומו.xlsx",
+                "score": 1.0,
+            },
+        ]
+
+    def fake_search_excel_promos(query, top=5):
+        nonlocal semantic_called
+        semantic_called = True
+        return []
+
+    monkeypatch.setattr(svc, "fetch_show_promos", fake_fetch_show_promos)
+    monkeypatch.setattr(svc, "search_excel_promos", fake_search_excel_promos)
+    monkeypatch.setattr(svc, "search_word_docs", lambda *args, **kwargs: [])
+
+    retrieval = svc._retrieve(
+        "hybrid",
+        "היו בפרומואים של מאסטר שף VIP / נבחרת החלומות מנות?",
+    )
+
+    assert semantic_called is False
+    assert retrieval.excel_docs
+    assert {doc["season"] for doc in retrieval.excel_docs} == {"11 VIP"}
+    assert all(doc.get("promo_text") for doc in retrieval.excel_docs)
+
+
+def test_hybrid_vip_campaign_query_handles_legacy_non_vip_season_metadata(monkeypatch):
+    """Current production index has MasterChef 11 VIP rows stored as season '11'."""
+    import app.service as svc
+
+    def fake_fetch_show_promos(show_name, top=500):
+        assert show_name == "מאסטר שף"
+        return [
+            {
+                "show_name": "מאסטר שף",
+                "season": "10",
+                "episode_number": "1",
+                "date": "05.7.2022",
+                "promo_text": "שניצל וצ'יפס",
+                "opening_point": "19.0",
+                "rating": "18.0",
+                "competition": "",
+                "tab_name": "מעקבי פרומו.xlsx",
+                "score": 1.0,
+            },
+            {
+                "show_name": "מאסטר שף",
+                "season": "11",
+                "episode_number": "1",
+                "date": "12.10.24",
+                "promo_text": "השקה",
+                "opening_point": "20.5",
+                "rating": "17.4",
+                "competition": "משחקי השף 10.4",
+                "tab_name": "מעקבי פרומו.xlsx",
+                "score": 1.0,
+            },
+            {
+                "show_name": "מאסטר שף",
+                "season": "12",
+                "episode_number": "1",
+                "date": "2025",
+                "promo_text": "עונה רגילה חדשה",
+                "opening_point": "17.0",
+                "rating": "15.0",
+                "competition": "",
+                "tab_name": "מעקבי פרומו.xlsx",
+                "score": 1.0,
+            },
+        ]
+
+    monkeypatch.setattr(svc, "fetch_show_promos", fake_fetch_show_promos)
+    monkeypatch.setattr(svc, "search_excel_promos", lambda *args, **kwargs: [])
+    monkeypatch.setattr(svc, "search_word_docs", lambda *args, **kwargs: [])
+
+    retrieval = svc._retrieve(
+        "hybrid",
+        "היו בפרומואים של מאסטר שף VIP / נבחרת החלומות מנות?",
+    )
+
+    assert {doc["season"] for doc in retrieval.excel_docs} == {"11"}
 
 
 def test_hybrid_prompt_shapes_campaign_effectiveness_answers():
