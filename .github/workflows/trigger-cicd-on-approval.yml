@@ -48,6 +48,10 @@ jobs:
 
           org = os.environ.get("ADO_ORG_OVERRIDE") or cfg.get("organization", "KESHETDEV")
           project = os.environ.get("ADO_PROJECT_OVERRIDE") or cfg.get("project", "Keshet-AI")
+          allowed = os.environ.get("ADO_ALLOWED_PROJECTS", "Keshet-AI").split(",")
+          if project not in allowed:
+              print(f"::error::Refusing to trigger ADO project '{project}'. Allowed: {allowed}")
+              sys.exit(1)
           pipeline_id = cfg.get("pipelineId") or 0
           pipeline_name = cfg.get("pipelineName", "")
           pat = os.environ["ADO_PAT"]
