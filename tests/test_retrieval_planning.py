@@ -220,6 +220,25 @@ def test_campaign_retrospective_phrasing_routes_out_of_unknown():
     assert promo_usage.route == ROUTE_HYBRID
 
 
+def test_campaign_role_phrasing_routes_to_campaign_analysis():
+    """P2: role/effectiveness phrasing should get campaign-analysis retrieval."""
+    from app.query_router import ROUTE_HYBRID, ROUTE_UNKNOWN, ROUTE_WORD, classify
+
+    role_question = classify("מה היה התפקיד של הזוגות בקמפיין ההשקה של המירוץ למיליון?")
+    character_role = classify("איזה תפקיד שיחק יובל שמלא בקמפיין של נינג'ה ישראל?")
+    effectiveness = classify("האם להראות את הזוגות ולדבר עליהם בקמפיין המירוץ למיליון? האם זה עבד?")
+    ambiguous = classify("האם הזוגות היו עוגן מרכזי בקמפיין ההשקה של המירוץ למיליון, והאם זה עבד?")
+    mixed_language = classify("מה היה התפקיד של couples בקמפיין ההשקה של המירוץ למיליון?")
+    unrelated = classify("מה צבע הלוגו של התוכנית?")
+
+    assert role_question.route == ROUTE_WORD
+    assert character_role.route == ROUTE_WORD
+    assert effectiveness.route == ROUTE_HYBRID
+    assert ambiguous.route == ROUTE_HYBRID
+    assert mixed_language.route == ROUTE_WORD
+    assert unrelated.route == ROUTE_UNKNOWN
+
+
 def test_campaign_term_normalization_covers_allstars_variant():
     """Users write אולסטרס, while source docs may use אולסטארס."""
     from app.domain_catalog import expand_aliases
@@ -314,6 +333,70 @@ def test_hybrid_prompt_guards_against_campaign_role_overstatement():
     assert "קמפיין ההשקה" in system
 
 
+def test_hybrid_prompt_shapes_campaign_effectiveness_answers():
+    """P2: 'did it work' answers should compare signal strength, not just list Excel."""
+    from app.prompts import build_messages
+
+    messages = build_messages(
+        "hybrid",
+        "ctx",
+        "האם חשיפת הזוגות בקמפיין המירוץ למיליון הוכיחה את עצמה?",
+    )
+
+    system = messages[0]["content"]
+    assert "עבד / עבד חלקית / לא עבד" in system
+    assert "סקרנות ראשונית" in system
+    assert "עומק" in system
+    assert system.index("פתח בפסק דין") < system.index("סקרנות ראשונית") < system.index("עומק")
+
+
+def test_campaign_prompt_preserves_hebrew_utf8_roundtrip():
+    """Hebrew/RTL prompt text should survive UTF-8 encoding intact."""
+    from app.prompts import build_messages
+
+    system = build_messages(
+        "hybrid",
+        "ctx",
+        "האם חשיפת הזוגות בקמפיין המירוץ למיליון הוכיחה את עצמה?",
+    )[0]["content"]
+
+    assert system.encode("utf-8").decode("utf-8") == system
+    assert "סקרנות ראשונית" in system
+    assert "עבד חלקית" in system
+    assert "\u202d" not in system
+    assert "\u202e" not in system
+
+
+def test_build_messages_bounds_and_sanitizes_history():
+    """Prompt history should tolerate malformed turns and strip control chars."""
+    from app.prompts import build_messages
+
+    messages = build_messages(
+        "hybrid",
+        "ctx",
+        "האם זה עבד?",
+        history=[
+            None,
+            "bad-turn",
+            {"role": "tool", "content": "ignored"},
+            {"role": ["user"], "content": "ignored"},
+            {"role": "assistant", "content": {"nested": "ignored"}},
+            {"role": "assistant", "content": ["ignored"]},
+            {"role": "user", "content": "מאסטר שף\x00\x01\u202e" + ("א" * 700)},
+        ],
+    )
+
+    history_messages = messages[1:-1]
+    assert len(history_messages) == 1
+    assert history_messages[0]["role"] == "user"
+    assert "\x00" not in history_messages[0]["content"]
+    assert "\x01" not in history_messages[0]["content"]
+    assert "\u202e" not in history_messages[0]["content"]  # RTL Override stripped
+    assert "\u202d" not in history_messages[0]["content"]  # LTR Override stripped
+    assert len(history_messages[0]["content"]) <= 601
+    assert history_messages[0]["content"].endswith("…")
+
+
 def test_word_prompt_enforces_single_campaign_retrospective_shape():
     """Campaign retrospectives should open with the thesis, not a source dump."""
     from app.prompts import build_messages
@@ -328,6 +411,22 @@ def test_word_prompt_enforces_single_campaign_retrospective_shape():
     assert "מסקנה אסטרטגית" in system
     assert "קשת הקמפיין" in system
     assert "ציטוטים" in system
+
+
+def test_word_prompt_guards_campaign_role_overstatement():
+    """P2: role questions in Word route also need launch-vs-ongoing caution."""
+    from app.prompts import build_messages
+
+    messages = build_messages(
+        "word_quote",
+        "ctx",
+        "מה היה התפקיד של הזוגות בקמפיין ההשקה של המירוץ למיליון?",
+    )
+
+    system = messages[0]["content"]
+    assert "עוגן מרכזי" in system
+    assert "קמפיין ההשקה" in system
+    assert "תפקיד של אלמנט" in system
 
 
 def test_strategic_mode_prompt_triggers_match_retrieval_triggers():

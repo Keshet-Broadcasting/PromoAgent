@@ -24,7 +24,11 @@ Usage (from agent.py)
 
 from __future__ import annotations
 
+import logging
+import re
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Base system prompt — loaded once from file
@@ -39,6 +43,14 @@ if not _PROMPT_FILE.exists():
     )
 
 SYSTEM_PROMPT: str = _PROMPT_FILE.read_text(encoding="utf-8").strip()
+
+# Strip non-printing control characters and Unicode bidi-override characters
+# (\u202a–\u202e) from chat history before it is sent back to the model as
+# prior conversation context. Bidi overrides can silently reverse rendered text
+# and are sometimes used in prompt-injection payloads.
+_CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\u202a-\u202e]")
+_MAX_HISTORY_CHARS = 600
+_ALLOWED_HISTORY_ROLES = {"user", "assistant"}
 
 
 # ---------------------------------------------------------------------------
@@ -79,6 +91,8 @@ _ROUTE_ADDENDUM: dict[str, str] = {
 8. בשאלות רטרוספקטיבה על קמפיין יחיד ("למה קראנו לזה", "למה לא", "מה קרה לשם/מיתוג") — אל תפתח ברשימת מקורות.
    פתח ב-**מסקנה אסטרטגית** במשפט אחד, המשך ב-**קשת הקמפיין** לפי שלבים (השקה / אמצע / גמר או שינוי מיתוג), ורק אז שלב **ציטוטים** או מקורות תומכים inline.
    אם המקורות מצביעים על שינוי לאורך זמן, המסקנה חייבת לשקף את השינוי ולא רק את הרציונאל הראשוני.
+9. בשאלות על תפקיד של אלמנט בקמפיין — הבחנה קריטית: עצם אזכור של X אינו מוכיח ש-X היה **עוגן מרכזי**.
+   הפרד בין **קמפיין ההשקה / מיתוג ראשי** לבין שימוש שוטף, הוכחת רמה, דמות עוגן, או חיזוק נקודתי.
 """.strip(),
 
     "hybrid": """
@@ -96,6 +110,9 @@ _ROUTE_ADDENDUM: dict[str, str] = {
    לפני מסקנה, הפרד בין **קמפיין ההשקה / מיתוג ראשי** לבין **שוטף / טונייטים / גמר / הוכחת רמה**.
    מותר לכתוב "X היה עוגן מרכזי" רק אם מסמכי Word אומרים במפורש שזה היה בפרונט, המסר המרכזי, הרציונאל, או עוגן הקמפיין.
    אם Excel מראה ש-X הופיע אבל מסמכי Word מצביעים על רציונאל אחר — כתוב: "כן, X הופיע בפרומואים, אבל לא כעוגן המרכזי; הוא שימש כהוכחה/חומר שוטף/חיזוק בהמשך."
+6. בשאלות אפקטיביות ("האם זה עבד", "הוכיח את עצמו") — פתח בפסק דין: **עבד / עבד חלקית / לא עבד**.
+   לאחר מכן הפרד בין **סקרנות ראשונית** (פתיחה, חשיפה, באזז) לבין **עומק / שימור / תפקיד אסטרטגי לאורך הקמפיין**.
+   אל תסיק "עבד" רק מנתון פתיחה טוב אם המסמכים מצביעים על מגבלה אסטרטגית.
 """.strip(),
 
     "unknown": """
@@ -146,6 +163,25 @@ def _format_context(context: str) -> str:
     return f"## נתוני מקור שנשלפו\n\n{context.strip()}"
 
 
+def _safe_history_turn(turn: object) -> dict[str, str] | None:
+    """Return a bounded chat-history turn, or None when malformed."""
+    if not isinstance(turn, dict):
+        log.debug("Skipping non-dict history turn: %r", type(turn))
+        return None
+    role = turn.get("role")
+    if not isinstance(role, str) or role not in _ALLOWED_HISTORY_ROLES:
+        log.debug("Skipping history turn with invalid role: %r", role)
+        return None
+    content = turn.get("content")
+    if not isinstance(content, str):
+        log.debug("Skipping history turn with non-string content: %r", type(content))
+        return None
+    text = _CONTROL_CHARS_RE.sub(" ", content)
+    if len(text) > _MAX_HISTORY_CHARS:
+        text = text[:_MAX_HISTORY_CHARS] + "…"
+    return {"role": role, "content": text}
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -183,14 +219,12 @@ def build_messages(
         addendum = f"{addendum}\n\n{_BROAD_RETRIEVAL_ADDENDUM}"
     system_content = f"{SYSTEM_PROMPT}\n\n{addendum}"
 
-    messages: list[dict] = [{"role": "system", "content": system_content}]
+    messages: list[dict[str, str]] = [{"role": "system", "content": system_content}]
 
-    _MAX_HISTORY_CHARS = 600
     for turn in (history or []):
-        content = turn["content"]
-        if len(content) > _MAX_HISTORY_CHARS:
-            content = content[:_MAX_HISTORY_CHARS] + "…"
-        messages.append({"role": turn["role"], "content": content})
+        safe_turn = _safe_history_turn(turn)
+        if safe_turn:
+            messages.append(safe_turn)
 
     user_content = f"{_format_context(context)}\n\n## שאלת המשתמש\n\n{user_query}"
     messages.append({"role": "user", "content": user_content})

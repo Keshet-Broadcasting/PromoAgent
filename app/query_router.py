@@ -73,6 +73,9 @@ HYBRID_FORCE_PATTERNS: list[re.Pattern] = [
         r"היו\s+בפרומואים",
         r"בפרומואים[^?]*מנות",
         r"פרומואים[^?]*מנות",
+        # Effectiveness retrospectives need strategy plus performance evidence.
+        r"האם\s+זה\s+עבד",
+        r"הוכיח(?:ה)?\s+את\s+עצמ",
     ]
 ]
 
@@ -121,6 +124,11 @@ WORD_QUOTE_PATTERNS: list[re.Pattern] = [
         r"נבחרת\s+החלומות",
         r"אולסטארס",
         r"אולסטרס",
+        # Campaign-role retrospectives beyond a specific show/campaign name.
+        r"תפקיד[^?]*בקמפיין",
+        r"בקמפיין[^?]*תפקיד",
+        r"תפקיד\s+שיחק",
+        r"קמפיין\s+ההשקה",
         # Strategic / creative synthesis questions
         # NOTE: r"מה היית" was intentionally removed — it is a prefix of
         # "מה הייתה" (past-tense factual queries like "מה הייתה נקודת הפתיחה")
