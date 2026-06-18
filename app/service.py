@@ -223,7 +223,7 @@ def _safe_history_content(turn: object) -> str:
     return text[:_HISTORY_CONTEXT_MAX_CHARS]
 
 
-def _contextualize_followup_query(query: str, history: list[dict] | None) -> str:
+def _contextualize_followup_query(query: str, history: list[object] | None) -> str:
     """Append recent campaign context for retrieval when the user uses anaphora.
 
     The UI-visible question remains unchanged; this enriched string is only used

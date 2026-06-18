@@ -50,15 +50,24 @@ Quick win follow-up for case `63` / single-campaign retrospectives:
 
 Keeping strict grounding is valuable and should not be removed. The better fix is to route these campaign-why / campaign-usage questions into a richer Word or hybrid analysis path, while preserving inline citations.
 
+# Risks
+
+- Follow-up contextualization can add a small amount of retrieval latency, but it only scans the last six turns and caps each turn before extracting known show/campaign terms.
+- History text is not copied into the final prompt as instructions; it is used only to derive bounded retrieval context terms.
+- Prompt-specific answer shapes improve the known MasterChef VIP cases, but future campaign formats may need additional regression cases if they introduce different phrasing.
+
 # Tests Added Or Updated
 
 Added offline regression tests in `tests/test_retrieval_planning.py`:
 - `test_campaign_retrospective_phrasing_routes_out_of_unknown`
 - `test_campaign_term_normalization_covers_allstars_variant`
 - `test_followup_retrieval_query_uses_recent_campaign_context`
+- `test_followup_retrieval_query_handles_empty_or_malformed_history`
+- `test_followup_retrieval_query_does_not_copy_history_instructions`
 
 Added eval-reporting regression test:
 - `tests/test_eval_dataset_reporting.py::test_summary_renders_non_applicable_numeric_as_na`
+- `tests/test_eval_dataset_reporting.py::test_fmt_pct_renders_edges`
 
 Added prompt-quality regression test:
 - `tests/test_retrieval_planning.py::test_hybrid_prompt_guards_against_campaign_role_overstatement`

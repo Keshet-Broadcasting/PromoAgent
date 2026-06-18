@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from tests.eval_dataset import CaseResult, print_summary
+from tests.eval_dataset import CaseResult, _fmt_pct, print_summary
 
 
 def test_summary_renders_non_applicable_numeric_as_na(caplog):
@@ -33,3 +33,10 @@ def test_summary_renders_non_applicable_numeric_as_na(caplog):
     output = caplog.text
     assert "Numeric accuracy: n/a" in output
     assert "-100" not in output
+
+
+def test_fmt_pct_renders_edges():
+    assert _fmt_pct(-1) == "n/a"
+    assert _fmt_pct(0) == "0.0%"
+    assert _fmt_pct(1) == "100.0%"
+    assert _fmt_pct(0.125, decimals=0) == "12%"
