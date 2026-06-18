@@ -228,12 +228,14 @@ def test_campaign_role_phrasing_routes_to_campaign_analysis():
     character_role = classify("איזה תפקיד שיחק יובל שמלא בקמפיין של נינג'ה ישראל?")
     effectiveness = classify("האם להראות את הזוגות ולדבר עליהם בקמפיין המירוץ למיליון? האם זה עבד?")
     ambiguous = classify("האם הזוגות היו עוגן מרכזי בקמפיין ההשקה של המירוץ למיליון, והאם זה עבד?")
+    mixed_language = classify("מה היה התפקיד של couples בקמפיין ההשקה של המירוץ למיליון?")
     unrelated = classify("מה צבע הלוגו של התוכנית?")
 
     assert role_question.route == ROUTE_WORD
     assert character_role.route == ROUTE_WORD
     assert effectiveness.route == ROUTE_HYBRID
     assert ambiguous.route == ROUTE_HYBRID
+    assert mixed_language.route == ROUTE_WORD
     assert unrelated.route == ROUTE_UNKNOWN
 
 
@@ -377,6 +379,7 @@ def test_build_messages_bounds_and_sanitizes_history():
             None,
             "bad-turn",
             {"role": "tool", "content": "ignored"},
+            {"role": ["user"], "content": "ignored"},
             {"role": "assistant", "content": {"nested": "ignored"}},
             {"role": "assistant", "content": ["ignored"]},
             {"role": "user", "content": "מאסטר שף\x00\x01" + ("א" * 700)},
@@ -389,6 +392,7 @@ def test_build_messages_bounds_and_sanitizes_history():
     assert "\x00" not in history_messages[0]["content"]
     assert "\x01" not in history_messages[0]["content"]
     assert len(history_messages[0]["content"]) <= 601
+    assert history_messages[0]["content"].endswith("…")
 
 
 def test_word_prompt_enforces_single_campaign_retrospective_shape():

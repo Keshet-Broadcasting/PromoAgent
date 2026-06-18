@@ -163,7 +163,7 @@ def _safe_history_turn(turn: object) -> dict | None:
     if not isinstance(turn, dict):
         return None
     role = turn.get("role")
-    if role not in _ALLOWED_HISTORY_ROLES:
+    if not isinstance(role, str) or role not in _ALLOWED_HISTORY_ROLES:
         return None
     content = turn.get("content")
     if not isinstance(content, str):
