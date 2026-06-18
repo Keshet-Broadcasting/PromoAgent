@@ -22,7 +22,7 @@ ENV WEB_CONCURRENCY=2
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
 
 USER appuser
 CMD ["sh", "-c", "echo '=== Startup diag ===' && ls /code/app/ && python -c 'import app; print(app.__file__)' && uvicorn app.api:app --host 0.0.0.0 --port 8000 --workers ${WEB_CONCURRENCY:-2}"]

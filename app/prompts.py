@@ -44,9 +44,11 @@ if not _PROMPT_FILE.exists():
 
 SYSTEM_PROMPT: str = _PROMPT_FILE.read_text(encoding="utf-8").strip()
 
-# Strip non-printing control characters from chat history before it is sent back
-# to the model as prior conversation context.
-_CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+# Strip non-printing control characters and Unicode bidi-override characters
+# (\u202a–\u202e) from chat history before it is sent back to the model as
+# prior conversation context. Bidi overrides can silently reverse rendered text
+# and are sometimes used in prompt-injection payloads.
+_CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\u202a-\u202e]")
 _MAX_HISTORY_CHARS = 600
 _ALLOWED_HISTORY_ROLES = {"user", "assistant"}
 
@@ -217,7 +219,7 @@ def build_messages(
         addendum = f"{addendum}\n\n{_BROAD_RETRIEVAL_ADDENDUM}"
     system_content = f"{SYSTEM_PROMPT}\n\n{addendum}"
 
-    messages: list[dict] = [{"role": "system", "content": system_content}]
+    messages: list[dict[str, str]] = [{"role": "system", "content": system_content}]
 
     for turn in (history or []):
         safe_turn = _safe_history_turn(turn)

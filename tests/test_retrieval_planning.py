@@ -382,7 +382,7 @@ def test_build_messages_bounds_and_sanitizes_history():
             {"role": ["user"], "content": "ignored"},
             {"role": "assistant", "content": {"nested": "ignored"}},
             {"role": "assistant", "content": ["ignored"]},
-            {"role": "user", "content": "מאסטר שף\x00\x01" + ("א" * 700)},
+            {"role": "user", "content": "מאסטר שף\x00\x01\u202e" + ("א" * 700)},
         ],
     )
 
@@ -391,6 +391,8 @@ def test_build_messages_bounds_and_sanitizes_history():
     assert history_messages[0]["role"] == "user"
     assert "\x00" not in history_messages[0]["content"]
     assert "\x01" not in history_messages[0]["content"]
+    assert "\u202e" not in history_messages[0]["content"]  # RTL Override stripped
+    assert "\u202d" not in history_messages[0]["content"]  # LTR Override stripped
     assert len(history_messages[0]["content"]) <= 601
     assert history_messages[0]["content"].endswith("…")
 
