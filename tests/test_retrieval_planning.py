@@ -361,6 +361,8 @@ def test_campaign_prompt_preserves_hebrew_utf8_roundtrip():
     assert system.encode("utf-8").decode("utf-8") == system
     assert "סקרנות ראשונית" in system
     assert "עבד חלקית" in system
+    assert "\u202d" not in system
+    assert "\u202e" not in system
 
 
 def test_build_messages_bounds_and_sanitizes_history():
@@ -375,6 +377,8 @@ def test_build_messages_bounds_and_sanitizes_history():
             None,
             "bad-turn",
             {"role": "tool", "content": "ignored"},
+            {"role": "assistant", "content": {"nested": "ignored"}},
+            {"role": "assistant", "content": ["ignored"]},
             {"role": "user", "content": "מאסטר שף\x00\x01" + ("א" * 700)},
         ],
     )

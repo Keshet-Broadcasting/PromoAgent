@@ -41,6 +41,8 @@ if not _PROMPT_FILE.exists():
 
 SYSTEM_PROMPT: str = _PROMPT_FILE.read_text(encoding="utf-8").strip()
 
+# Strip non-printing control characters from chat history before it is sent back
+# to the model as prior conversation context.
 _CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 _MAX_HISTORY_CHARS = 600
 _ALLOWED_HISTORY_ROLES = {"user", "assistant"}
@@ -164,9 +166,9 @@ def _safe_history_turn(turn: object) -> dict | None:
     if role not in _ALLOWED_HISTORY_ROLES:
         return None
     content = turn.get("content")
-    if content is None:
+    if not isinstance(content, str):
         return None
-    text = _CONTROL_CHARS_RE.sub(" ", str(content))
+    text = _CONTROL_CHARS_RE.sub(" ", content)
     if len(text) > _MAX_HISTORY_CHARS:
         text = text[:_MAX_HISTORY_CHARS] + "…"
     return {"role": role, "content": text}

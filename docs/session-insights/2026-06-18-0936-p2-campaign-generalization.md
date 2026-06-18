@@ -29,6 +29,7 @@ Documentation lagged behind the final PR-review hardening commits. The session i
 - Extended the hybrid prompt so effectiveness questions open with a verdict: worked / partially worked / did not work, then separate initial curiosity from depth / retention / strategic role.
 - Added PR-review hardening coverage for ambiguous campaign queries, unrelated queries, Hebrew UTF-8 prompt roundtrip, and ordered effectiveness-prompt structure.
 - Hardened `build_messages()` history handling: malformed turns are skipped, only `user` / `assistant` roles are preserved, control characters are stripped, and prior-turn content remains capped.
+- Tightened prompt-history hardening after a follow-up review: non-string history content is skipped instead of stringified, and the Hebrew prompt test now checks that bidi override controls are not introduced.
 
 # Tradeoffs Or Alternatives Considered
 
@@ -47,6 +48,7 @@ Could have added only dataset cases and waited for more failures, but the routin
 - `python -m pytest tests/test_retrieval_planning.py tests/test_eval_dataset_reporting.py -q` -> 27 passed
 - `python -m pytest tests/test_retrieval_planning.py tests/test_eval_dataset_reporting.py -q` -> 28 passed after PR-review routing/prompt coverage
 - `python -m pytest tests/test_retrieval_planning.py tests/test_eval_dataset_reporting.py -q` -> 29 passed after prompt-history sanitization
+- `python -m pytest tests/test_retrieval_planning.py tests/test_eval_dataset_reporting.py -q` -> 29 passed after non-string history and bidi-control coverage
 - `ReadLints` on edited files -> no linter errors
 - `python tests/eval_dataset.py --judge --only 25` -> judge 5/5, overall 85.4%, groundedness 100%
 - `python tests/eval_dataset.py --judge --only 56` -> judge 4/5, groundedness 100%
