@@ -43,7 +43,7 @@ Could have added only dataset cases and waited for more failures, but the routin
 - `python tests/eval_dataset.py --judge --only 25` -> judge 5/5, overall 85.4%, groundedness 100%
 - `python tests/eval_dataset.py --judge --only 56` -> judge 4/5, groundedness 100%
 
-Note: live eval emitted Langfuse trace-export SSL errors, but the eval commands completed and agent scoring succeeded.
+Note: live eval emitted Langfuse trace-export SSL errors. These affected observability export only; the retrieval, generation, judge scoring, and eval summary completed. Treat as a separate observability/certificate follow-up if clean tracing is required, not as a blocker for this P2 behavior change.
 
 # Lessons Learned
 

@@ -222,15 +222,19 @@ def test_campaign_retrospective_phrasing_routes_out_of_unknown():
 
 def test_campaign_role_phrasing_routes_to_campaign_analysis():
     """P2: role/effectiveness phrasing should get campaign-analysis retrieval."""
-    from app.query_router import ROUTE_HYBRID, ROUTE_WORD, classify
+    from app.query_router import ROUTE_HYBRID, ROUTE_UNKNOWN, ROUTE_WORD, classify
 
     role_question = classify("מה היה התפקיד של הזוגות בקמפיין ההשקה של המירוץ למיליון?")
     character_role = classify("איזה תפקיד שיחק יובל שמלא בקמפיין של נינג'ה ישראל?")
     effectiveness = classify("האם להראות את הזוגות ולדבר עליהם בקמפיין המירוץ למיליון? האם זה עבד?")
+    ambiguous = classify("האם הזוגות היו עוגן מרכזי בקמפיין ההשקה של המירוץ למיליון, והאם זה עבד?")
+    unrelated = classify("מה צבע הלוגו של התוכנית?")
 
     assert role_question.route == ROUTE_WORD
     assert character_role.route == ROUTE_WORD
     assert effectiveness.route == ROUTE_HYBRID
+    assert ambiguous.route == ROUTE_HYBRID
+    assert unrelated.route == ROUTE_UNKNOWN
 
 
 def test_campaign_term_normalization_covers_allstars_variant():
@@ -341,6 +345,22 @@ def test_hybrid_prompt_shapes_campaign_effectiveness_answers():
     assert "עבד / עבד חלקית / לא עבד" in system
     assert "סקרנות ראשונית" in system
     assert "עומק" in system
+    assert system.index("פתח בפסק דין") < system.index("סקרנות ראשונית") < system.index("עומק")
+
+
+def test_campaign_prompt_preserves_hebrew_utf8_roundtrip():
+    """Hebrew/RTL prompt text should survive UTF-8 encoding intact."""
+    from app.prompts import build_messages
+
+    system = build_messages(
+        "hybrid",
+        "ctx",
+        "האם חשיפת הזוגות בקמפיין המירוץ למיליון הוכיחה את עצמה?",
+    )[0]["content"]
+
+    assert system.encode("utf-8").decode("utf-8") == system
+    assert "סקרנות ראשונית" in system
+    assert "עבד חלקית" in system
 
 
 def test_word_prompt_enforces_single_campaign_retrospective_shape():
