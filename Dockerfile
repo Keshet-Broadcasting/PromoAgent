@@ -1,5 +1,12 @@
 FROM python:3.12-slim
 
+# Upgrade all OS packages to pick up security patches for ncurses (CVE-2025-69720),
+# libsqlite3-0 (CVE-2026-11822, CVE-2026-11824), and perl-base (CVE-2026-*).
+# perl-base is NOT purged — it is required by dpkg/apt internals.
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN adduser --disabled-password --gecos '' appuser
 
 WORKDIR /code

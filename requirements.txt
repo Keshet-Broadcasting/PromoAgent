@@ -14,7 +14,9 @@ pydantic>=2.0.0
 slowapi>=0.1.9
 
 # Auth — Entra ID JWT validation
-python-jose[cryptography]>=3.3.0
+# PyJWT replaces python-jose: python-jose pulls in the vulnerable `ecdsa` package
+# (CVE-2024-23342) even under [cryptography] extra. PyJWT uses `cryptography` directly.
+PyJWT[cryptography]>=2.8.0
 cryptography>=42.0.0
 
 # Observability

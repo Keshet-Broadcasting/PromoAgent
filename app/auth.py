@@ -16,11 +16,13 @@ Environment variables
 
 from __future__ import annotations
 
+import base64
 import logging
 import os
 from functools import lru_cache
 
 import httpx
+import jwt as pyjwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -42,6 +44,14 @@ _ISSUER = (
 )
 
 
+def _base64url_decode(data: bytes) -> bytes:
+    """Decode a base64url-encoded value, adding padding if necessary."""
+    rem = len(data) % 4
+    if rem:
+        data += b"=" * (4 - rem)
+    return base64.urlsafe_b64decode(data)
+
+
 @lru_cache(maxsize=1)
 def _get_signing_keys() -> dict[str, str]:
     """Fetch Microsoft's public signing keys (JWKS) and return {kid: pem} mapping.
@@ -52,13 +62,9 @@ def _get_signing_keys() -> dict[str, str]:
     if not _JWKS_URL:
         return {}
     try:
-        from jose.utils import base64url_decode
-        from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
         from cryptography.hazmat.backends import default_backend
-        from cryptography.hazmat.primitives.serialization import (
-            Encoding, PublicFormat,
-        )
-        import base64
+        from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
+        from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
         resp = httpx.get(_JWKS_URL, timeout=10)
         resp.raise_for_status()
@@ -67,8 +73,8 @@ def _get_signing_keys() -> dict[str, str]:
             if key_data.get("kty") != "RSA":
                 continue
             kid = key_data["kid"]
-            n_bytes = base64url_decode(key_data["n"].encode())
-            e_bytes = base64url_decode(key_data["e"].encode())
+            n_bytes = _base64url_decode(key_data["n"].encode())
+            e_bytes = _base64url_decode(key_data["e"].encode())
             n_int = int.from_bytes(n_bytes, "big")
             e_int = int.from_bytes(e_bytes, "big")
             pub_key = RSAPublicNumbers(e_int, n_int).public_key(default_backend())
@@ -83,8 +89,6 @@ def _get_signing_keys() -> dict[str, str]:
 
 def _validate_token(token: str) -> dict:
     """Decode and validate a JWT token against Entra ID public keys."""
-    from jose import jwt, JWTError
-
     signing_keys = _get_signing_keys()
     if not signing_keys:
         raise HTTPException(
@@ -92,7 +96,7 @@ def _validate_token(token: str) -> dict:
             detail="Auth service unavailable — could not load signing keys",
         )
 
-    unverified_header = jwt.get_unverified_header(token)
+    unverified_header = pyjwt.get_unverified_header(token)
     kid = unverified_header.get("kid")
     if kid not in signing_keys:
         _get_signing_keys.cache_clear()
@@ -103,21 +107,19 @@ def _validate_token(token: str) -> dict:
                 detail="Token signing key not recognized",
             )
 
-    # python-jose only accepts a single string for audience.
     # Entra ID v1 tokens carry api://{client_id} as the audience,
     # v2 tokens carry just {client_id}. Try both.
     for aud in (f"api://{_API_CLIENT_ID}", _API_CLIENT_ID):
         try:
-            payload = jwt.decode(
+            payload = pyjwt.decode(
                 token,
                 signing_keys[kid],
                 algorithms=["RS256"],
                 audience=aud,
                 issuer=_ISSUER,
-                options={"verify_exp": True, "verify_aud": True, "verify_iss": True},
             )
             return payload
-        except JWTError:
+        except pyjwt.exceptions.InvalidTokenError:
             continue
 
     raise HTTPException(
