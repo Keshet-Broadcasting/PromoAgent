@@ -1,0 +1,67 @@
+name: Deploy Frontend
+
+# Runs on every push to main that touches the UI or this workflow.
+# Builds the Next.js static export and uploads to Azure Blob Storage ($web).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "promobot-ui/**"
+      - ".github/workflows/deploy-frontend.yml"
+
+  # Allow manual trigger from the Actions tab (e.g. for a forced redeploy)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: promobot-ui/package-lock.json
+
+      - name: Install dependencies
+        working-directory: promobot-ui
+        run: npm ci
+
+      - name: Build static export
+        working-directory: promobot-ui
+        env:
+          # Baked into the JS bundle at build time — must point to the live API.
+          # Set this in GitHub → Settings → Secrets and variables → Actions → Variables
+          NEXT_PUBLIC_API_ENDPOINT: ${{ vars.NEXT_PUBLIC_API_ENDPOINT }}
+        run: npm run build
+
+      # Upload the `out/` folder to the $web container of the Azure Storage
+      # static website. Requires one repository secret:
+      #   AZURE_STORAGE_CONNECTION_STRING — connection string for aistoragekeshet
+      # Get it from: Azure Portal → Storage account → Security → Access keys → Connection string
+      - name: Deploy to Azure Storage ($web)
+        working-directory: promobot-ui
+        env:
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+        run: |
+          az storage blob upload-batch \
+            --connection-string "$AZURE_STORAGE_CONNECTION_STRING" \
+            --destination '$web' \
+            --source out/ \
+            --overwrite \
+            --content-cache-control "no-cache, no-store, must-revalidate"
+
+      - name: Purge CDN cache (if configured)
+        if: vars.CDN_PROFILE_NAME != ''
+        env:
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+        run: |
+          echo "CDN purge step — wire up az cdn endpoint purge here if you add a CDN in front of the storage account."
