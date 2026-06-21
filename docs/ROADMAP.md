@@ -1,6 +1,6 @@
 ﻿# PromoAgent — Roadmap
 
-**Last updated:** Jun 21, 2026 (service.py refactor — split into 5 focused sub-modules)
+**Last updated:** Jun 21, 2026 (frontend CI/CD workflow added; SAS token setup required)
 
 **Strategic plan for hitting 70%:** see [`docs/PATH_TO_70_PERCENT.md`](PATH_TO_70_PERCENT.md) — handoff document with phased plan, realistic ceiling math, observability upgrade, and decision points.
 
@@ -95,6 +95,23 @@ PromoAgent is a RAG-based chatbot for Keshet TV's promo department, replacing a 
 |----|------|--------|
 | 1.1 | Remove unnecessary buttons from chat UI | DONE |
 | 1.2 | Fix page scroll jump on bot response | DONE |
+| 1.3 | Copy-to-clipboard button on assistant messages | DONE (PR #24) |
+| 1.4 | Hebrew friendly validation error messages | DONE (PR #23) |
+
+### Frontend CI/CD
+
+The frontend (`promobot-ui`) is a Next.js static export deployed to Azure Blob Storage (`aistoragekeshet`, `$web` container) at `https://aistoragekeshet.z33.web.core.windows.net/`.
+
+**Automatic deployment** is handled by `.github/workflows/deploy-frontend.yml` — triggers on any push to `main` that touches `promobot-ui/`.
+
+**One-time setup required** (ask an Azure admin if you don't have Portal access):
+
+| What | Where | How |
+|------|-------|-----|
+| `AZURE_STORAGE_SAS_TOKEN` secret | GitHub → Settings → Secrets | Azure Portal → Storage accounts → `aistoragekeshet` → Shared access signature → Blob service, Container+Object, Read/Write/List/Create/Delete → Generate → copy **SAS token** field |
+| `NEXT_PUBLIC_API_ENDPOINT` variable | GitHub → Settings → Variables | The backend `/query` URL (e.g. `https://<container-app>/query`) |
+
+**Upgrading to zero-secrets auth (optional):** Replace SAS token with [Azure Workload Identity Federation](https://docs.github.com/en/actions/security-for-github-actions/security-hardening-your-deployments/configuring-openid-connect-in-azure) (OIDC). Requires an Azure admin to create a service principal, assign it `Storage Blob Data Contributor` on the storage account, and configure a federated credential for this repo. After that, no GitHub secrets are needed.
 
 ### Domain Knowledge
 
