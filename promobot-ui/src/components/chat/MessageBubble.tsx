@@ -20,13 +20,36 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   }).format(message.timestamp);
 
   const handleCopy = async () => {
+    const text = message.content;
+
+    // Modern Clipboard API (requires clipboard-write permission — may be blocked in iframes)
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+        return;
+      } catch {
+        // Fall through to legacy execCommand fallback
+      }
+    }
+
+    // Legacy fallback: works inside iframes without any special permission
     try {
-      await navigator.clipboard.writeText(message.content);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      if (ok) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
     } catch {
-      // Clipboard write failed (e.g. browser permission denied).
-      // The button stays in its default state — no copy confirmation shown.
+      // Both methods failed — button stays in default state
     }
   };
 
