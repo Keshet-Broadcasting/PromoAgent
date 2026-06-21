@@ -99,10 +99,10 @@ def test_genre_detection_for_broad_query():
 
 def test_broad_retrieval_plan_for_drama_reality_comparison(monkeypatch):
     monkeypatch.setenv("BROAD_RETRIEVAL_ENABLED", "true")
-    import app.service as svc
-    importlib.reload(svc)
+    import app.retrieval_plan as rp
+    importlib.reload(rp)
 
-    plan = svc._build_retrieval_plan(
+    plan = rp._build_retrieval_plan(
         "word_quote",
         "מה ההבדל בין אסטרטגיית השקה של דרמה לעומת ריאליטי?",
         ranking=False,
@@ -122,10 +122,10 @@ def test_drama_genre_query_targets_only_drama_shows(monkeypatch):
     (מאסטר שף, חתונה ממבט ראשון) into a drama question because broad retrieval
     was off; here we assert the plan target is drama-only when it IS on."""
     monkeypatch.setenv("BROAD_RETRIEVAL_ENABLED", "true")
-    import app.service as svc
-    importlib.reload(svc)
+    import app.retrieval_plan as rp
+    importlib.reload(rp)
 
-    plan = svc._build_retrieval_plan(
+    plan = rp._build_retrieval_plan(
         "hybrid",
         "סכם את כל התובנות של סדרות הדרמה עם הרייטינג הגבוה והבא את הפתרונות",
         ranking=False,
@@ -148,10 +148,10 @@ def test_coverage_intent_set_for_all_dramas_query(monkeypatch):
     retrieval fetches per-show (every drama represented) instead of a single
     top-N that omitted אף אחד לא עוזב את פאלו אלטו despite its 33 mentions."""
     monkeypatch.setenv("BROAD_RETRIEVAL_ENABLED", "true")
-    import app.service as svc
-    importlib.reload(svc)
+    import app.retrieval_plan as rp
+    importlib.reload(rp)
 
-    plan = svc._build_retrieval_plan(
+    plan = rp._build_retrieval_plan(
         "word_quote",
         "צטט במדוייק את האסטרטגיות מכירה של כל הדרמות בשנה האחרונה",
         ranking=False,
@@ -161,7 +161,7 @@ def test_coverage_intent_set_for_all_dramas_query(monkeypatch):
     assert plan.broad_word is True
     assert len(plan.target_show_names) > 1
     # A single-show quote must NOT trigger coverage (stays a focused lookup):
-    narrow = svc._build_retrieval_plan(
+    narrow = rp._build_retrieval_plan(
         "word_quote", "צטט את אסטרטגיית ההשקה של הראש", ranking=False, season_filter=None
     )
     assert narrow.coverage is False
