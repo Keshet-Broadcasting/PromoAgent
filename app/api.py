@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
@@ -170,16 +171,13 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
     for error in exc.errors():
         msg = error.get("msg", "")
         loc = error.get("loc", [])
-        
-        field_name = ""
-        if len(loc) > 0:
-            if loc[0] == "body":
-                field_name = " / ".join(str(x) for x in loc[1:])
-            else:
-                field_name = " / ".join(str(x) for x in loc)
-                
+
+        raw_parts = loc[1:] if loc and loc[0] == "body" else loc
+        field_name = " / ".join(
+            re.sub(r"[^\w\s/\-]", "", str(x)) for x in raw_parts
+        )
+
         if "String should have at most" in msg:
-            import re
             m = re.search(r"at most (\d+) characters", msg)
             if m:
                 limit = m.group(1)
