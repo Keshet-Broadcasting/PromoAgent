@@ -1,6 +1,6 @@
 # PromoAgent — Path to 70% Judge Score (Handoff Plan)
 
-**Written:** 2026-05-25 · **Revised:** 2026-06-11 (Strategic Synthesis Mode rebuild — see session-insights/2026-06-11)
+**Written:** 2026-05-25 · **Revised:** 2026-06-21 (architecture refactor — service.py split into 5 sub-modules)
 **Audience:** the next agent (or future self) picking up where we left off
 **Current state:** judge **58.1%** (2026-06-11, 62 cases, all-time high), overall 57.0%
 **Target:** judge ≥ 70% to declare ready for Custom GPT replacement

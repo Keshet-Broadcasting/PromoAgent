@@ -1,6 +1,6 @@
 # PromoAgent — Evaluation Report
 
-**Last updated:** May 28, 2026 (Phase A + Phase C + Phase D + router fix + dataset cases 8, 9, 48 fixed + language check fix)  
+**Last updated:** Jun 21, 2026 (service.py architecture refactor — no behaviour changes)  
 **Dataset:** `dataset.jsonl` — 62 cases  
 **Eval harness:** `tests/eval_dataset.py` (LLM-as-judge via GPT-4o)  
 **Observability:** Langfuse v4 — scores pushed per run to [cloud.langfuse.com](https://cloud.langfuse.com)  
@@ -137,6 +137,17 @@ Identical code + seed=42 across two runs → 22% of cases changed judge bucket. 
 **System prompt fix — case 21 (commit `5d2130b`):** Bot was answering "אנא שאל בעברית" for Hebrew query containing "Live+7/VOD" English tokens. Language check rule strengthened: now triggers ONLY when zero Hebrew Unicode characters (U+05D0–U+05EA) present. This was scoring 0% (judge=1) for a correctly answerable case.
 
 **Confirmed via live test:** הראש has 17 rich strategy chunks in `מסמך דרמות GPT.docx` including *"תובנות מהקמפיין (5 נקודות)"*, *"מה השיקול שעמד מאחורי כל פרומו"*, *"התלבטויות מיוחדות"* — all now reachable.
+
+## Architecture Refactor — Done (Jun 21, 2026)
+
+`app/service.py` split from 1569 lines into 5 focused sub-modules:
+- `formatters.py` — content-filter sanitizer + context formatters
+- `excel_selector.py` — date/launch/season/VIP row selection
+- `retrieval_plan.py` — intent patterns + `_RetrievalPlan` + planner
+- `sharepoint_helper.py` — SP fallback / enrichment helpers
+- `retriever.py` — `_retrieve` dispatcher + `_fetch_word_docs`
+
+`service.py` is now 410 lines (orchestration + history context + `run_query`). No behaviour changes. 33/33 tests green.
 
 ## What Needs Work (Priority Order)
 

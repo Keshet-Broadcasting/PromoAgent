@@ -1,7 +1,7 @@
 ﻿# PromoAgent — Improvement Plan
 ## Goal: Replace the Custom GPT on OpenAI Subscription
 
-**Written:** May 10, 2026 | **Last updated:** May 28, 2026 (Phase A + Phase C + Phase D + router brief fix shipped)  
+**Written:** May 10, 2026 | **Last updated:** Jun 21, 2026 (architecture refactor shipped)  
 **Current judge score:** 49.0% (≈ 2.45 / 5) — Foundry gpt-4o, 62-case dataset (Run 8, May 28); Phase A + C.1-C.3 + D.1-D.2 shipped, Run 9 eval pending  
 **Target judge score:** ≥ 70% (≈ 3.5 / 5 — "correct, complete, well-phrased")
 
@@ -471,3 +471,19 @@ Week 3:  Phase 6 (re-chunking Word docs) + Phase 7 (model check)
 Week 4+: Phase 8 (UI parity) + promo team user testing
          → Decision point: ready to replace custom GPT?
 ```
+
+---
+
+### Architecture Refactor — Done (Jun 21, 2026)
+
+`app/service.py` split from 1569 lines → 410 lines + 5 new focused sub-modules.
+
+| Sub-module | Responsibility | Lines |
+|---|---|---|
+| `formatters.py` | Content-filter sanitizer + context formatters | ~130 |
+| `excel_selector.py` | Date/launch/season/VIP row selection | ~250 |
+| `retrieval_plan.py` | Intent patterns + `_RetrievalPlan` + planner | ~220 |
+| `sharepoint_helper.py` | SP fallback / enrichment helpers | ~100 |
+| `retriever.py` | `_retrieve` dispatcher + `_fetch_word_docs` | ~250 |
+
+**Tests:** 33/33 passing. No behaviour changes. Branch: `refactor/split-service-py`.
