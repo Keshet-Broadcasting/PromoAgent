@@ -43,6 +43,7 @@ from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -160,6 +161,43 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 # Exception handlers — always return the ErrorResponse envelope
 # ---------------------------------------------------------------------------
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    log.warning("Validation error: %s", exc.errors())
+    friendly_messages = []
+    for error in exc.errors():
+        msg = error.get("msg", "")
+        loc = error.get("loc", [])
+        
+        field_name = ""
+        if len(loc) > 0:
+            if loc[0] == "body":
+                field_name = " / ".join(str(x) for x in loc[1:])
+            else:
+                field_name = " / ".join(str(x) for x in loc)
+                
+        if "String should have at most" in msg:
+            import re
+            m = re.search(r"at most (\d+) characters", msg)
+            if m:
+                limit = m.group(1)
+                friendly_messages.append(f"הטקסט ארוך מדי (עד {limit} תווים). אנא קצר אותו")
+            else:
+                friendly_messages.append("הטקסט ארוך מדי. אנא קצר אותו")
+        elif "Question is too long" in msg:
+            friendly_messages.append("השאלה ארוכה מדי. אנא נסח שאלה קצרה יותר")
+        elif "Field required" in msg:
+            friendly_messages.append(f"שדה חובה חסר: '{field_name}'")
+        else:
+            friendly_messages.append(f"שגיאה בנתונים ({field_name}): {msg}")
+            
+    error_text = " ; ".join(friendly_messages)
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content=ErrorResponse(error=error_text).model_dump(),
+    )
 
 
 @app.exception_handler(EnvironmentError)

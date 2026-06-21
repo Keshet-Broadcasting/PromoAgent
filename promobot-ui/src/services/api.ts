@@ -55,7 +55,7 @@ export const chatService = {
               .map((e: { msg?: string }) => e.msg ?? JSON.stringify(e))
               .join('; ');
           } else {
-            errorBody = errData.message || JSON.stringify(errData);
+            errorBody = errData.error || errData.message || JSON.stringify(errData);
           }
         } catch {
           errorBody = await response.text().catch(() => '');
