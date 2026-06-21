@@ -49,7 +49,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 
       {/* Message Content */}
       <div
-        className={`flex flex-col max-w-[80%] md:max-w-[70%] group ${
+        className={`flex flex-col max-w-[80%] md:max-w-[70%] ${
           isUser ? 'items-end' : 'items-start'
         }`}
       >
@@ -60,31 +60,30 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           <span className="text-[10px] text-slate-400">{timeString}</span>
         </div>
 
-        <div className="relative">
-          <div
-            className={`px-5 py-3.5 rounded-2xl shadow-sm text-[15px] leading-relaxed whitespace-pre-wrap ${
-              isUser
-                ? 'bg-blue-600 text-white rounded-tl-sm'
-                : 'bg-white text-slate-800 border border-slate-200 rounded-tr-sm'
-            }`}
-            dir="auto"
-          >
-            {message.content}
-          </div>
-          
-          {/* Copy Button for Assistant Messages */}
-          {!isUser && (
-            <div className="absolute -bottom-4 -left-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-              <button
-                onClick={handleCopy}
-                className="flex items-center justify-center w-8 h-8 bg-white border border-slate-200 rounded-full shadow-sm text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors"
-                title="העתק תשובה"
-              >
-                {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-              </button>
-            </div>
-          )}
+        <div
+          className={`px-5 py-3.5 rounded-2xl shadow-sm text-[15px] leading-relaxed whitespace-pre-wrap ${
+            isUser
+              ? 'bg-blue-600 text-white rounded-tl-sm'
+              : 'bg-white text-slate-800 border border-slate-200 rounded-tr-sm'
+          }`}
+          dir="auto"
+        >
+          {message.content}
         </div>
+
+        {/* Copy button — always visible below assistant messages */}
+        {!isUser && (
+          <button
+            onClick={handleCopy}
+            className="flex items-center gap-1.5 mt-1.5 px-2 py-1 text-[11px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
+            title="העתק תשובה"
+          >
+            {copied
+              ? <><Check size={12} className="text-green-500" /><span className="text-green-500">הועתק</span></>
+              : <><Copy size={12} /><span>העתק</span></>
+            }
+          </button>
+        )}
       </div>
     </div>
   );
