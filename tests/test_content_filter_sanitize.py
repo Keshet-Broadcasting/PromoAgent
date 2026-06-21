@@ -5,7 +5,7 @@ must NOT match inside benign Hebrew words/names (it was turning the name
 'איריס אברמוב' into 'אס' and 'מכירים' into 'מכ[תקיפה]ם' in quoted strategy text),
 while real shooting terms are still masked.
 """
-from app.service import _sanitize_for_content_filter as san
+from app.formatters import _sanitize_for_content_filter as san
 
 
 def test_iris_name_is_not_corrupted():
