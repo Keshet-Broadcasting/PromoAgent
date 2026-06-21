@@ -24,8 +24,9 @@ export function MessageBubble({ message }: MessageBubbleProps) {
       await navigator.clipboard.writeText(message.content);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy text: ', err);
+    } catch {
+      // Clipboard write failed (e.g. browser permission denied).
+      // The button stays in its default state — no copy confirmation shown.
     }
   };
 
