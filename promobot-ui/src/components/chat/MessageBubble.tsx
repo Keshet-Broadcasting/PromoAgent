@@ -97,6 +97,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         {/* Copy button — always visible below assistant messages */}
         {!isUser && (
           <button
+            type="button"
             onClick={handleCopy}
             className="flex items-center gap-1.5 mt-1.5 px-2 py-1 text-[11px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
             title="העתק תשובה"
