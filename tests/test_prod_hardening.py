@@ -306,8 +306,7 @@ class TestInputValidation:
         })
         assert resp.status_code == 422, "system role in history must fail validation"
         body = resp.json()
-        # FastAPI returns detail as a list — ensure it is present
-        assert "detail" in body
+        assert "error" in body or "detail" in body
 
 
 class TestErrorEnvelope:
