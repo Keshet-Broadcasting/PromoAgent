@@ -350,6 +350,8 @@ def test_hybrid_prompt_guards_against_campaign_role_overstatement():
     assert "עוגן תוכני" in system
     assert "עוגן מיתוגי" in system
     assert "קמפיין ההשקה" in system
+    assert "מאסטר שף VIP / נבחרת החלומות, עונה 11" in system
+    assert "אל תכתוב שהממצא חלקי" in system
 
 
 def test_hybrid_vip_campaign_query_fetches_vip_excel_rows(monkeypatch):
