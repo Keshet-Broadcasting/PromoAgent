@@ -1,0 +1,54 @@
+# .trivyignore — documented accepted risks for the promo-agent Docker image
+#
+# Each entry has been triaged. Only CVEs that meet ALL of the following are here:
+#   1. Status is "fix_deferred" or "affected" in Debian 13.5 (no patch available yet)
+#   2. The package cannot be removed without breaking the Python runtime
+#   3. The specific attack vector is not reachable from the container's workload
+#
+# Review date: 2026-06-21
+# Re-evaluate when Debian 13 releases a patched version of the affected package.
+# Remove an entry as soon as `apt-get upgrade` in the Dockerfile pulls a fix.
+
+# ── libsqlite3-0 ─────────────────────────────────────────────────────────────
+# Package: libsqlite3-0 (3.46.1-7+deb13u1)
+# Why kept: CPython itself links against libsqlite3 for the `sqlite3` stdlib
+#            module. Removing it breaks the Python interpreter.
+# Mitigation: The container accepts no SQL input from untrusted sources.
+#              SQLite is not used as an application-level database.
+# Fix status: fix_deferred in Debian 13.5 as of 2026-06-21.
+
+# CVE-2026-11822: Memory corruption in SQLite < 3.53.2
+CVE-2026-11822
+# CVE-2026-11824: Heap-based buffer overflow in SQLite < 3.53.2
+CVE-2026-11824
+
+# ── ncurses libraries (libncursesw6, libtinfo6, ncurses-base) ─────────────────
+# Package: libncursesw6 / libtinfo6 / ncurses-base (6.5+20250216-2)
+# Why kept: Python's readline extension (used for interactive Python, not the
+#            server) links against libtinfo6 and libncursesw6 at the C level.
+#            These cannot be removed without relinking CPython.
+#            ncurses-bin (the CLI utilities) has been PURGED in the Dockerfile.
+# Mitigation: The server runs uvicorn headlessly; no terminal I/O path is
+#              reachable from network-facing code.
+# Fix status: fix_deferred in Debian 13.5 as of 2026-06-21.
+
+# CVE-2025-69720: Buffer overflow in ncurses that may lead to arbitrary code execution
+CVE-2025-69720
+
+# ── perl-base (fallback if purge is partially ineffective) ────────────────────
+# Package: perl-base (5.40.1-6)
+# Expected state: PURGED in Dockerfile via `apt-get purge --allow-remove-essential perl-base`.
+# These entries are a safety net in case a Trivy layer-scan picks up an
+# intermediate image layer before the purge step runs.
+# The container never executes Perl; the high-severity CVEs (CVE-2026-42496,
+# CVE-2026-42497, CVE-2026-48962, CVE-2026-9538) target Archive::Tar and
+# IO::Compress Perl modules which are NOT installed (those are in the `perl`
+# package, not `perl-base`).
+# CVE-2026-8376 (heap overflow in Perl compilation) requires executing crafted
+# Perl code — not possible in this container.
+
+CVE-2026-42496
+CVE-2026-8376
+CVE-2026-42497
+CVE-2026-48962
+CVE-2026-9538

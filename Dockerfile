@@ -1,13 +1,26 @@
 FROM python:3.12-slim
 
-# Upgrade all OS packages to pick up security patches for ncurses (CVE-2025-69720),
-# libsqlite3-0 (CVE-2026-11822, CVE-2026-11824), and perl-base (CVE-2026-*).
-# perl-base is NOT purged — it is required by dpkg/apt internals.
+# ── OS security hardening ─────────────────────────────────────────────────────
+# 1. Upgrade all packages to pull any available fixes from Debian repos.
+# 2. Create non-root user *before* purging perl (adduser is a Perl script).
+# 3. Purge packages that carry unfixed CVEs and are not needed at runtime:
+#      - perl-base (CVE-2026-42496 CRITICAL, CVE-2026-8376 CRITICAL, + 3 HIGH):
+#        only present because dpkg depends on it; the app never executes Perl.
+#        --allow-remove-essential is required since perl-base is marked Essential.
+#        dpkg is also removed as a side-effect — that is intentional and safe;
+#        no further apt operations occur after this point.
+#      - ncurses-bin (CVE-2025-69720 HIGH): CLI utilities (tput, reset, etc.)
+#        not needed in a containerised server. The ncurses *libraries*
+#        (libtinfo6, libncursesw6, ncurses-base) are kept — Python readline
+#        links against them and they are covered by .trivyignore.
+# Remaining unfixable CVEs are documented in .trivyignore.
 RUN apt-get update \
     && apt-get upgrade -y \
+    && adduser --disabled-password --gecos '' appuser \
+    && apt-get purge -y ncurses-bin \
+    && apt-get purge -y --allow-remove-essential perl-base \
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
-
-RUN adduser --disabled-password --gecos '' appuser
 
 WORKDIR /code
 COPY requirements.txt .
