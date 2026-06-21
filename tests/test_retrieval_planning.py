@@ -418,9 +418,10 @@ def test_hybrid_vip_campaign_query_fetches_vip_excel_rows(monkeypatch):
         semantic_called = True
         return []
 
-    monkeypatch.setattr(svc, "fetch_show_promos", fake_fetch_show_promos)
-    monkeypatch.setattr(svc, "search_excel_promos", fake_search_excel_promos)
-    monkeypatch.setattr(svc, "search_word_docs", lambda *args, **kwargs: [])
+    import app.retriever as ret
+    monkeypatch.setattr(ret, "fetch_show_promos", fake_fetch_show_promos)
+    monkeypatch.setattr(ret, "search_excel_promos", fake_search_excel_promos)
+    monkeypatch.setattr(ret, "search_word_docs", lambda *args, **kwargs: [])
 
     retrieval = svc._retrieve(
         "hybrid",
@@ -478,9 +479,10 @@ def test_hybrid_vip_campaign_query_handles_legacy_non_vip_season_metadata(monkey
             },
         ]
 
-    monkeypatch.setattr(svc, "fetch_show_promos", fake_fetch_show_promos)
-    monkeypatch.setattr(svc, "search_excel_promos", lambda *args, **kwargs: [])
-    monkeypatch.setattr(svc, "search_word_docs", lambda *args, **kwargs: [])
+    import app.retriever as ret
+    monkeypatch.setattr(ret, "fetch_show_promos", fake_fetch_show_promos)
+    monkeypatch.setattr(ret, "search_excel_promos", lambda *args, **kwargs: [])
+    monkeypatch.setattr(ret, "search_word_docs", lambda *args, **kwargs: [])
 
     retrieval = svc._retrieve(
         "hybrid",
