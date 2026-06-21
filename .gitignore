@@ -1,5 +1,6 @@
 # ── Secrets & local config ────────────────────────────────────────────────────
 .env
+.agents/
 
 # ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
@@ -23,11 +24,18 @@ ENV/
 # ── Scratch / local experiments ──────────────────────────────────────────────
 scratch/
 tmp_pkg/
+tmp_*.py
 
 # ── Generated data artifacts (reproducible from scripts) ─────────────────────
 processed_promos.json
 dataset.jsonl.bak
 *.xlsx
+
+# ── Local eval artifacts (keep locally, not in GitHub/prod) ───────────────────
+dataset.jsonl
+eval_results.json
+eval_judge_results.json
+eval_judge_progress.log
 
 # ── Backup / temp files ───────────────────────────────────────────────────────
 *.bak
@@ -49,5 +57,8 @@ Thumbs.db
 
 # ── Test artifacts ────────────────────────────────────────────────────────────
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .coverage
 htmlcov/
+eval_answers_cache*.json
