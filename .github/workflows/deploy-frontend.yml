@@ -45,23 +45,28 @@ jobs:
 
       # Upload the `out/` folder to the $web container of the Azure Storage
       # static website. Requires one repository secret:
-      #   AZURE_STORAGE_CONNECTION_STRING — connection string for aistoragekeshet
-      # Get it from: Azure Portal → Storage account → Security → Access keys → Connection string
+      #   AZURE_STORAGE_SAS_TOKEN — a SAS token scoped to the storage account.
+      #
+      # How to get a SAS token (no account key / admin rights needed):
+      #   Azure Portal → Storage accounts → aistoragekeshet
+      #   → Security + networking → Shared access signature
+      #   → Allowed services: Blob
+      #   → Allowed resource types: Container + Object
+      #   → Permissions: Read, Write, List, Create, Delete, Add
+      #   → Expiry: set ~1 year out
+      #   → Click "Generate SAS and connection string"
+      #   → Copy the "SAS token" field (starts with "sv=...")
+      # Then add it in GitHub → Settings → Secrets and variables → Actions
+      # → New repository secret → name: AZURE_STORAGE_SAS_TOKEN
       - name: Deploy to Azure Storage ($web)
         working-directory: promobot-ui
         env:
-          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+          AZURE_STORAGE_SAS_TOKEN: ${{ secrets.AZURE_STORAGE_SAS_TOKEN }}
         run: |
           az storage blob upload-batch \
-            --connection-string "$AZURE_STORAGE_CONNECTION_STRING" \
+            --account-name aistoragekeshet \
+            --sas-token "$AZURE_STORAGE_SAS_TOKEN" \
             --destination '$web' \
             --source out/ \
             --overwrite \
             --content-cache-control "no-cache, no-store, must-revalidate"
-
-      - name: Purge CDN cache (if configured)
-        if: vars.CDN_PROFILE_NAME != ''
-        env:
-          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
-        run: |
-          echo "CDN purge step — wire up az cdn endpoint purge here if you add a CDN in front of the storage account."
