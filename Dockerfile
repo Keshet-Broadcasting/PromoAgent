@@ -17,8 +17,7 @@ FROM python:3.12-slim
 RUN apt-get update \
     && apt-get upgrade -y \
     && adduser --disabled-password --gecos '' appuser \
-    && apt-get purge -y ncurses-bin \
-    && apt-get purge -y --allow-remove-essential perl-base \
+    && apt-get purge -y --allow-remove-essential ncurses-bin perl-base \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
