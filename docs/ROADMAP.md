@@ -1,6 +1,6 @@
 ﻿# PromoAgent — Roadmap
 
-**Last updated:** May 28, 2026 (Phase A + Phase C + Phase D + router brief fix + dataset case 9 fix)
+**Last updated:** Jun 21, 2026 (service.py refactor — split into 5 focused sub-modules)
 
 **Strategic plan for hitting 70%:** see [`docs/PATH_TO_70_PERCENT.md`](PATH_TO_70_PERCENT.md) — handoff document with phased plan, realistic ceiling math, observability upgrade, and decision points.
 
@@ -64,6 +64,7 @@ PromoAgent is a RAG-based chatbot for Keshet TV's promo department, replacing a 
 | EXTRACT | **Word-docs extraction gap — large GPT docs lose content on ingest** | TODO (P0) | פאלו אלטו's (and likely other shows') strategy section is in the SharePoint source but MISSING from the index. Root cause: `מסמך דרמות GPT.docx` (~25.5MB) + `מסמך ריאליטי GPT.docx` (~36.3MB) take the >4MB python-docx/XML fallback in `preprocess_word_docs.py`, which drops some sections that Microsoft Graph extracts fine. Fix: re-ingest via M365 MCP/Graph extraction (delete-first), or fix `extract_chunks_docx` text-box/shape handling. See `docs/session-insights/2026-06-03-word-index-extraction-gap.md`. |
 | MCP-SYNC | SharePoint→index catalog-sync via M365 MCP (pick up new/updated docs) | TODO | M365 MCP (`sharepoint_search`/`read_resource`) is connected and verified. Build a sync that ingests DocLib4 docs not yet in the index — also the fix vector for EXTRACT above. |
 | 6g | Investigate 6 catalog shows with 0 index chunks (`רוקדים`, `הבוגדים`, …) | TODO (MED) | May need alias additions or doc-coverage check |
+| REFACTOR | Split `service.py` (1569 lines) into 5 focused sub-modules | **DONE (Jun 21)** | `formatters.py`, `excel_selector.py`, `retrieval_plan.py`, `sharepoint_helper.py`, `retriever.py`; `service.py` → 410 lines; 33/33 tests green |
 | 7 | Consolidate Hebrew vocabulary into `app/text_patterns.py` | TODO (1-2 hr) | Single source of truth for `_GROUNDING_MARKERS`, `_DOCTYPE_KEYS`, `GENRE_PATTERNS`, `_RANKING_PATTERNS`, `_LAUNCH_PATTERNS`, etc. Currently scattered across 5 files. Refactor only — no behavior change. |
 | 8 | UI parity (streaming, threads, mobile) | TODO | UX |
 
