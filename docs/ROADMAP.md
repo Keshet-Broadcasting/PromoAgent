@@ -1,6 +1,6 @@
 ﻿# PromoAgent — Roadmap
 
-**Last updated:** Jun 21, 2026 (frontend CI/CD workflow added; SAS token setup required)
+**Last updated:** Jun 22, 2026 (system prompt shortened and validated with full 64-case A/B eval)
 
 **Strategic plan for hitting 70%:** see [`docs/PATH_TO_70_PERCENT.md`](PATH_TO_70_PERCENT.md) — handoff document with phased plan, realistic ceiling math, observability upgrade, and decision points.
 
@@ -65,6 +65,7 @@ PromoAgent is a RAG-based chatbot for Keshet TV's promo department, replacing a 
 | MCP-SYNC | SharePoint→index catalog-sync via M365 MCP (pick up new/updated docs) | TODO | M365 MCP (`sharepoint_search`/`read_resource`) is connected and verified. Build a sync that ingests DocLib4 docs not yet in the index — also the fix vector for EXTRACT above. |
 | 6g | Investigate 6 catalog shows with 0 index chunks (`רוקדים`, `הבוגדים`, …) | TODO (MED) | May need alias additions or doc-coverage check |
 | REFACTOR | Split `service.py` (1569 lines) into 5 focused sub-modules | **DONE (Jun 21)** | `formatters.py`, `excel_selector.py`, `retrieval_plan.py`, `sharepoint_helper.py`, `retriever.py`; `service.py` → 410 lines; 33/33 tests green |
+| PROMPT-POS | Shorten top-level prompt and reframe style rules as positive instructions | **DONE (Jun 22)** | `app/system_prompt.txt`: top operating rules consolidated; negative wording reduced 28→4 matches; prompt-focused tests green; repeated 16-case A/B positive and full 64-case A/B positive (+3.7pp overall / +5.1pp judge); merge recommended |
 | 7 | Consolidate Hebrew vocabulary into `app/text_patterns.py` | TODO (1-2 hr) | Single source of truth for `_GROUNDING_MARKERS`, `_DOCTYPE_KEYS`, `GENRE_PATTERNS`, `_RANKING_PATTERNS`, `_LAUNCH_PATTERNS`, etc. Currently scattered across 5 files. Refactor only — no behavior change. |
 | 8 | UI parity (streaming, threads, mobile) | TODO | UX |
 

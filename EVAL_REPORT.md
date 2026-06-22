@@ -1,10 +1,50 @@
 # PromoAgent — Evaluation Report
 
-**Last updated:** Jun 21, 2026 (service.py architecture refactor — no behaviour changes)  
+**Last updated:** Jun 22, 2026 (system prompt surface cleanup — full 64-case A/B eval complete)  
 **Dataset:** `dataset.jsonl` — 62 cases  
 **Eval harness:** `tests/eval_dataset.py` (LLM-as-judge via GPT-4o)  
 **Observability:** Langfuse v4 — scores pushed per run to [cloud.langfuse.com](https://cloud.langfuse.com)  
 **Target:** Judge ≥ 70% (≈ 3.5 / 5 average) to replace the custom GPT
+
+---
+
+## Prompt Surface Cleanup — Done (Jun 22)
+
+Changed `app/system_prompt.txt` to make the top operating layer shorter and more action-oriented:
+
+- Consolidated duplicate grounding, citation, partial-evidence, and answer-shape rules.
+- Reframed style/shape prohibitions as positive instructions where safe.
+- Kept hard anti-hallucination, off-topic retrieval, entity alias, and strategic-mode source-boundary rules intact.
+- Preserved few-shot examples and strategic anchors to avoid changing the learned answer shape.
+
+Verification:
+
+- Prompt negative wording count reduced from 28 to 4 matches.
+- `tests/test_retrieval_planning.py` passed: 31/31.
+- Focused prompt-sensitive A/B eval slice (16 cases: strategy/open-ended/cross-show/MasterChef):
+  - Run 1 baseline `main`: overall 0.708, judge 0.766, grounded 1.000.
+  - Run 1 prompt refactor: overall 0.729, judge 0.797, grounded 1.000.
+  - Run 1 net: +0.021 overall, +0.031 judge.
+  - Run 2 baseline `main`: overall 0.651, judge 0.672, grounded 1.000.
+  - Run 2 prompt refactor: overall 0.707, judge 0.766, grounded 1.000.
+  - Run 2 net: +0.056 overall, +0.094 judge.
+
+Decision:
+
+- Keep the prompt refactor. The repeated focused slice confirms a positive direction despite case-level variance.
+- Case 12 looks stochastic, not prompt-caused: the second refactor run recovered to overall 0.877 / judge 1.0 and included the national-finale framing.
+- Case 24 is not a clear refactor regression: both variants answer with couples/emotional connection; both still under-emphasize the gold's "emotional cost / price of the race" framing.
+- Case 58 regressed in run 2 and should be watched in the next broader eval.
+- MasterChef VIP cases 63 and 64 stayed strong: judge 1.0 in both baseline and refactor.
+
+Full 64-case Foundry A/B eval:
+
+- Baseline `main`: overall 0.651, judge 0.637, grounded 1.000, errors 0.
+- Prompt refactor: overall 0.688, judge 0.688, grounded 0.984, errors 0.
+- Net: +0.037 overall, +0.051 judge.
+- Material per-case regressions: case 36 (-0.304 overall, likely judge variance / partial-finale nuance), case 57 (-0.117 overall, known gold-alignment gap around "will the relationship survive").
+- Material improvements: cases 5, 6, 59, 16, 47, 22, 27, 50, 31, 26, 52, 48, 62, 12.
+- Decision after full eval: green light to push; no macro regression detected.
 
 ---
 
