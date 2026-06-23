@@ -32,7 +32,6 @@ dataset.jsonl.bak
 *.xlsx
 
 # ── Local eval artifacts (keep locally, not in GitHub/prod) ───────────────────
-dataset.jsonl
 eval_results.json
 eval_judge_results.json
 eval_judge_progress.log

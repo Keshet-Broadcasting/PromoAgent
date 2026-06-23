@@ -62,7 +62,7 @@ Full 64-case Foundry A/B eval was also run:
 | Baseline `main` | 0.651 | 0.637 | 1.000 | 0 |
 | Prompt refactor | 0.688 | 0.688 | 0.984 | 0 |
 
-Macro result: +0.037 overall, +0.051 judge. The only material per-case regressions were case 36 and case 57. Case 36 appears likely judge variance / partial-finale nuance because the answer did state that some finale rows lacked rating data. Case 57 remains a real gold-alignment gap: both variants miss the sharper "will this relationship survive?" frame.
+Macro result: +0.037 overall, +0.051 judge. The only material per-case regressions were case 36 and case 57. Case 36 appears likely judge variance / partial-finale nuance because the answer did state that some finale rows lacked rating data. Case 57 was later re-diagnosed on 2026-06-23: the updated gold expects new-season strategy, but the eval `cleaned_query` had removed `לקראת עונה חדשה`, and retrieval classified it as generic `tonight`. That issue was fixed in `dataset.jsonl` and `app/retrieval_plan.py`; targeted guard slice now scores case 57 at 85% / judge 5.
 
 ## Lessons Learned
 
@@ -74,6 +74,6 @@ Macro result: +0.037 overall, +0.051 judge. The only material per-case regressio
 ## Follow-Up Actions
 
 - Merge is recommended based on two positive focused A/B runs and a positive full 64-case A/B run.
-- Track case 57 in future prompt work.
+- Case 57 (`חתונה ממבט ראשון` tonights, `strategy` category) follow-up (2026-06-23): resolved as a retrieval/eval-intent issue, not a prompt issue. The raw query said `לקראת עונה חדשה`, but `cleaned_query` removed that phrase and `_detect_event_intent()` chose `tonight`. Fix: preserve the new-season phrase in `dataset.jsonl`, classify new-season phrasing as `launch`, and add launch `שיקול`/`חידושים` question types. Avoid re-adding the reverted broad prompt hardening unless a future full eval supports it.
 - Consider a later route-specific prompt split so numeric, quote, strategic, and creative modes receive smaller prompt addenda.
 - Revisit few-shot examples only after the first pass is measured.

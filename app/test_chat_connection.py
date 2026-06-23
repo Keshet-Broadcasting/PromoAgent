@@ -21,9 +21,15 @@ import logging
 from dotenv import load_dotenv
 from openai import OpenAI
 
+from app.chat_provider import _completion_kwargs
+
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
+
+# This is a manual connectivity script, not a CI unit test. Pytest would
+# otherwise collect test_chat() and perform a live LLM call during normal tests.
+__test__ = False
 
 AZURE_OPENAI_CHAT_ENDPOINT   = os.getenv("AZURE_OPENAI_CHAT_ENDPOINT", "")
 AZURE_OPENAI_CHAT_KEY        = os.getenv("AZURE_OPENAI_CHAT_KEY", "")
@@ -53,12 +59,15 @@ def get_chat_client() -> OpenAI:
 def test_chat(prompt: str = "Say 'hello' in Hebrew in one word.") -> str:
     """Send a single chat message and return the assistant reply."""
     client = get_chat_client()
-    response = client.chat.completions.create(
-        model=AZURE_OPENAI_CHAT_DEPLOYMENT,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=50,
-        temperature=0,
-    )
+    try:
+        response = client.chat.completions.create(
+            model=AZURE_OPENAI_CHAT_DEPLOYMENT,
+            messages=[{"role": "user", "content": prompt}],
+            **_completion_kwargs(AZURE_OPENAI_CHAT_DEPLOYMENT),
+        )
+    except Exception as exc:
+        logger.error("Chat completion failed for deployment %r: %s", AZURE_OPENAI_CHAT_DEPLOYMENT, exc)
+        raise
     return response.choices[0].message.content.strip()
 
 
