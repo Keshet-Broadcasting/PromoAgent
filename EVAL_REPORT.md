@@ -21,6 +21,7 @@ Changed case 57 from a generic `חתונמי` tonight retrieval problem into the
 - `tests/test_eval_dataset_integrity.py`: added CI checks for dataset schema, unique/sorted IDs, enum/boolean fields, and cleaned-query preservation of retrieval intent terms.
 - `dataset.jsonl`: case 58 `cleaned_query` now preserves `ללא השקה וגמר`; the new integrity test caught this hidden bug while adding CI protection.
 - `app/test_chat_connection.py`: manual connectivity check is excluded from pytest collection and now uses the production `_completion_kwargs()` helper, avoiding gpt-5.4 `max_tokens` failures in normal unit-test flow.
+- PR #26 review follow-up: split launch regex into `_LAUNCH_EVENT_TERMS` / `_NEW_SEASON_TERMS`; added explicit OpenAI SDK error logging in the manual chat smoke script while preserving non-zero failure behavior.
 
 Verification:
 
@@ -28,6 +29,7 @@ Verification:
 - `python -m pytest tests/test_eval_dataset_integrity.py tests/test_retrieval_planning.py -q` → 36/36 passed.
 - `python -m pytest tests/test_eval_dataset_integrity.py tests/test_retrieval_planning.py tests/test_preprocess_chunking.py -q` → 40/40 passed.
 - `python -m pytest app/test_chat_connection.py -q` → no tests collected, expected for a manual smoke script.
+- `python -m pytest tests/test_eval_dataset_integrity.py tests/test_retrieval_planning.py app/test_chat_connection.py -q` → 36/36 passed.
 - `python -m pytest -q` → 120/120 passed after retrying transient `PyJWT` install.
 - Direct fresh case 57 score → overall 80.2%, judge 5/5.
 - Paired case 16/57 eval after narrowing the filter → case 16 recovered to 65%, case 57 70%.

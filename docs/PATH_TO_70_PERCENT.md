@@ -88,7 +88,8 @@ Status: **DONE (local changes; commit pending)**.
 | Guard regular tonight behavior | Normal `tonight` single-show queries keep the broader pre-existing Word search path | Case 16 recovered in paired eval after narrowing the filter change |
 | Add dataset CI protection | `dataset.jsonl` is no longer ignored; `tests/test_eval_dataset_integrity.py` validates schema, IDs, categories, booleans, sorted IDs, and cleaned-query intent preservation | The new guard caught case 58 dropping `ללא השקה וגמר`; fixed locally |
 | Keep manual smoke script out of CI unit flow | `app/test_chat_connection.py` sets `__test__ = False` and uses `_completion_kwargs()` so manual gpt-5.4 checks do not fail on `max_tokens` | `pytest -q app/test_chat_connection.py` reports no collected tests, as intended |
-| Verification | `tests/test_retrieval_planning.py`: 33/33; `tests/test_eval_dataset_integrity.py`: 3/3; focused non-auth subset: 40/40; full local pytest: 120/120; targeted eval `12,16,24,36,57,58`: case 57 overall 85%, judge 5/5, 0 eval errors; case 58 fresh eval after cleaned-query fix: 64.1% | Initial local PyPI 403 installing `PyJWT` cleared on retry |
+| PR #26 review follow-up | Split launch regex into named components; added SDK error logging in the manual chat smoke script while preserving raised failures | Type-hint review note was already satisfied in the PR code |
+| Verification | `tests/test_retrieval_planning.py`: 33/33; `tests/test_eval_dataset_integrity.py`: 3/3; focused non-auth subset: 40/40; PR follow-up focused test: 36/36; full local pytest: 120/120; targeted eval `12,16,24,36,57,58`: case 57 overall 85%, judge 5/5, 0 eval errors; case 58 fresh eval after cleaned-query fix: 64.1% | Initial local PyPI 403 installing `PyJWT` cleared on retry |
 
 **Section 6 (Pragmatic Sequence) has been rewritten below to reflect this.**
 

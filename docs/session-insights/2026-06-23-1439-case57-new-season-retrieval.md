@@ -35,6 +35,7 @@ Two issues combined:
 - Removed `dataset.jsonl` from `.gitignore` so CI can validate the actual eval dataset.
 - Added `tests/test_eval_dataset_integrity.py` for schema, IDs, enums, booleans, sorted order, and cleaned-query intent preservation.
 - Marked `app/test_chat_connection.py` as a manual smoke script (`__test__ = False`) and reused production `_completion_kwargs()` so normal pytest does not perform a live chat call or use stale `max_tokens` parameters.
+- PR #26 review follow-up: split launch regex into named pieces and added SDK error logging in the manual smoke script before re-raising failures.
 
 ## Tradeoffs Or Alternatives Considered
 
@@ -54,6 +55,7 @@ Two issues combined:
 - `python -m pytest tests/test_eval_dataset_integrity.py tests/test_retrieval_planning.py -q` -> 36/36 passed.
 - `python -m pytest tests/test_eval_dataset_integrity.py tests/test_retrieval_planning.py tests/test_preprocess_chunking.py -q` -> 40/40 passed.
 - `python -m pytest app/test_chat_connection.py -q` -> no tests collected, expected.
+- `python -m pytest tests/test_eval_dataset_integrity.py tests/test_retrieval_planning.py app/test_chat_connection.py -q` -> 36/36 passed.
 - `python -m pytest -q` -> 120/120 passed after retrying the transient `PyJWT` install.
 - Fresh direct case 57 score -> 80.2% overall, judge 5/5.
 - Paired case 16/57 eval -> case 16 65%, case 57 70%.

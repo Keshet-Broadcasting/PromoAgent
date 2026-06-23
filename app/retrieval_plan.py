@@ -88,10 +88,9 @@ _COVERAGE_INTENT_PATTERNS = re.compile(
     r"כל ה?דרמות|כל ה?תוכניות|כל ה?סדרות|כל ה?תכניות|כל ה?ריאליטי"
     r"|של כל ה|לכל אחת|לכל אחד|כל אחת מ|כל אחד מ"
 )
-_LAUNCH_PATTERNS = re.compile(
-    r"השקה|השקת|פתיחה|פרק ראשון|פרק 1"
-    r"|לקראת\s+עונה\s+חדש(?:ה)?|עונה\s+חדש(?:ה)?|עונה\s+חוזרת"
-)
+_LAUNCH_EVENT_TERMS = r"השקה|השקת|פתיחה|פרק ראשון|פרק 1"
+_NEW_SEASON_TERMS = r"לקראת\s+עונה\s+חדש(?:ה)?|עונה\s+חדש(?:ה)?|עונה\s+חוזרת"
+_LAUNCH_PATTERNS = re.compile(f"{_LAUNCH_EVENT_TERMS}|{_NEW_SEASON_TERMS}")
 _OPENING_METRIC_RE = re.compile(r"נקוד[התו]+\s+ה?פתיחה")
 _FINALE_PATTERNS = re.compile(r"גמר|סיום|פרק סיום|פינאל")
 _TONIGHT_PATTERNS = re.compile(r"טונייט|טונייטים|שוטף|פרומואים שוטפים")

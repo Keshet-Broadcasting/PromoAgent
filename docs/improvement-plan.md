@@ -36,7 +36,8 @@ Notes: This was intentionally a conservative prompt-surface refactor, not a rewr
 | Add CI dataset guardrails | ✅ DONE — `dataset.jsonl` is no longer ignored; `tests/test_eval_dataset_integrity.py` protects schema and cleaned-query intent preservation |
 | Fix additional dataset issue found by guard | ✅ DONE — case 58 cleaned query now preserves `ללא השקה וגמר` |
 | Keep manual connectivity script out of unit-test flow | ✅ DONE — `app/test_chat_connection.py` is marked `__test__ = False` and uses gpt-5-compatible completion kwargs |
-| Verify | ✅ DONE — full local pytest 120/120; dataset integrity 3/3; focused non-auth subset 40/40; case 57 scored 85% / judge 5; case 58 rechecked at 64.1% |
+| Address PR #26 review follow-up | ✅ DONE — launch regex split into named terms; manual chat script logs OpenAI SDK failures before re-raising |
+| Verify | ✅ DONE — full local pytest 120/120; dataset integrity 3/3; focused non-auth subset 40/40; PR follow-up focused test 36/36; case 57 scored 85% / judge 5; case 58 rechecked at 64.1% |
 
 Notes: This is a retrieval/eval-intent correction, not a prompt hardening change. A previous prompt-rule attempt over-constrained nearby cases; this fix instead makes the existing evidence reachable when the user explicitly asks about `לקראת עונה חדשה`.
 
