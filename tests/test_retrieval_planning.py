@@ -671,3 +671,45 @@ def test_word_metadata_filter_construction():
     assert "doc_type eq 'השקה'" in filt
     assert "question_type eq 'תובנות'" in filt
     assert " and " in filt
+
+
+def test_new_season_tonight_query_gets_launch_retrieval_plan():
+    """Case 57: 'לקראת עונה חדשה' is a launch-strategy signal, not latest-season tonight."""
+    from app import retrieval_plan as rp
+
+    query = "מהם כללי עשה ואל תעשה בטונייטים שוטפים של חתונה ממבט ראשון לקראת עונה חדשה?"
+    plan = rp._build_retrieval_plan(
+        "word_quote",
+        query,
+        ranking=False,
+        season_filter=None,
+    )
+
+    assert plan.event_intent == "launch"
+    assert "חידושים" in rp._question_types_for_plan(plan)
+    assert "השקה" in rp._doc_types_for_plan(plan)
+
+
+def test_new_season_tonight_word_fetch_prefers_launch_and_novelty_sections(monkeypatch):
+    """Case 57 retrieval should include launch/novelty sections, not only tonight tactics."""
+    import app.retriever as ret
+
+    captured: dict = {}
+
+    def fake_search_word_docs(query, top=5, **kwargs):
+        captured.update({"query": query, "top": top, **kwargs})
+        return [{"chunk_id": "launch-novelty", "question_type": "חידושים"}]
+
+    monkeypatch.setattr(ret, "search_word_docs", fake_search_word_docs)
+
+    retrieval = ret._retrieve(
+        "word_quote",
+        "מהם כללי עשה ואל תעשה בטונייטים שוטפים של חתונה ממבט ראשון לקראת עונה חדשה?",
+        lambda q: "חתונה ממבט ראשון",
+    )
+
+    assert retrieval.word_docs
+    assert captured["show_names"] == ["חתונה ממבט ראשון"]
+    assert "השקה" in captured["doc_types"]
+    assert "חידושים" in captured["question_types"]
+    assert "עשה_ואל_תעשה" not in captured["question_types"]

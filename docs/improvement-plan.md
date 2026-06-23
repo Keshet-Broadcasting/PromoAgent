@@ -1,7 +1,7 @@
 ﻿# PromoAgent — Improvement Plan
 ## Goal: Replace the Custom GPT on OpenAI Subscription
 
-**Written:** May 10, 2026 | **Last updated:** Jun 22, 2026 (prompt surface cleanup validated by full 64-case A/B eval)  
+**Written:** May 10, 2026 | **Last updated:** Jun 23, 2026 (case 57 new-season retrieval corrected)  
 **Current judge score:** 49.0% (≈ 2.45 / 5) — Foundry gpt-4o, 62-case dataset (Run 8, May 28); Phase A + C.1-C.3 + D.1-D.2 shipped, Run 9 eval pending  
 **Target judge score:** ≥ 70% (≈ 3.5 / 5 — "correct, complete, well-phrased")
 
@@ -21,6 +21,24 @@
 | Run full 64-case A/B eval | ✅ DONE — baseline 0.651/0.637; refactor 0.688/0.688; errors 0 |
 
 Notes: This was intentionally a conservative prompt-surface refactor, not a rewrite of the domain logic. The prompt is still long because the few-shot examples and strategic synthesis rules encode behavior that has historically improved voice and answer shape. Merge is recommended: repeated focused eval and full 64-case eval were both macro-positive. Watch case 57 in future prompt work because both variants still miss the "will the relationship survive" framing.
+
+---
+
+### Case 57 New-Season Retrieval — Done (2026-06-23)
+
+| Sub-item | Status |
+|---|---|
+| Confirm source support for `חתונמי` new-season tonight strategy | ✅ DONE — Claude/doc review found explicit support for seasonal novelty, character focus, fun tone, and avoiding heavy crisis-only framing |
+| Fix eval intent preservation | ✅ DONE — case 57 `cleaned_query` now keeps `לקראת עונה חדשה` |
+| Fix planner classification | ✅ DONE — `_LAUNCH_PATTERNS` now treats new-season phrasing as launch intent |
+| Improve launch section retrieval | ✅ DONE — launch Word filters include `שיקול` and `חידושים` sections |
+| Protect regular tonight behavior | ✅ DONE — regular `tonight` single-show queries keep the previous broader retrieval path |
+| Add CI dataset guardrails | ✅ DONE — `dataset.jsonl` is no longer ignored; `tests/test_eval_dataset_integrity.py` protects schema and cleaned-query intent preservation |
+| Fix additional dataset issue found by guard | ✅ DONE — case 58 cleaned query now preserves `ללא השקה וגמר` |
+| Keep manual connectivity script out of unit-test flow | ✅ DONE — `app/test_chat_connection.py` is marked `__test__ = False` and uses gpt-5-compatible completion kwargs |
+| Verify | ✅ DONE — full local pytest 120/120; dataset integrity 3/3; focused non-auth subset 40/40; case 57 scored 85% / judge 5; case 58 rechecked at 64.1% |
+
+Notes: This is a retrieval/eval-intent correction, not a prompt hardening change. A previous prompt-rule attempt over-constrained nearby cases; this fix instead makes the existing evidence reachable when the user explicitly asks about `לקראת עונה חדשה`.
 
 ---
 

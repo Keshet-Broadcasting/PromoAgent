@@ -1,10 +1,38 @@
 # PromoAgent — Evaluation Report
 
-**Last updated:** Jun 22, 2026 (system prompt surface cleanup — full 64-case A/B eval complete)  
-**Dataset:** `dataset.jsonl` — 62 cases  
-**Eval harness:** `tests/eval_dataset.py` (LLM-as-judge via GPT-4o)  
+**Last updated:** Jun 23, 2026 (case 57 new-season retrieval correction)  
+**Dataset:** `dataset.jsonl` — 64 cases  
+**Eval harness:** `tests/eval_dataset.py` (LLM-as-judge via configured Foundry provider)  
 **Observability:** Langfuse v4 — scores pushed per run to [cloud.langfuse.com](https://cloud.langfuse.com)  
 **Target:** Judge ≥ 70% (≈ 3.5 / 5 average) to replace the custom GPT
+
+---
+
+## Case 57 New-Season Retrieval — Done (Jun 23)
+
+Changed case 57 from a generic `חתונמי` tonight retrieval problem into the intended new-season strategy retrieval:
+
+- `dataset.jsonl`: case 57 `cleaned_query` now preserves `לקראת עונה חדשה`.
+- `app/retrieval_plan.py`: `_LAUNCH_PATTERNS` now detects `לקראת עונה חדשה`, `עונה חדשה`, and `עונה חוזרת`.
+- `app/retrieval_plan.py`: launch Word retrieval now includes `שיקול` and `חידושים` sections for single-show launch queries.
+- `app/retrieval_plan.py`: regular `tonight` single-show queries keep the previous broader retrieval path to avoid overfitting case 57 and regressing case 16.
+- `tests/test_retrieval_planning.py`: added regression coverage for case 57 launch planning and Word-search kwargs.
+- `.gitignore`: `dataset.jsonl` is no longer ignored, so CI can validate the same eval dataset used locally.
+- `tests/test_eval_dataset_integrity.py`: added CI checks for dataset schema, unique/sorted IDs, enum/boolean fields, and cleaned-query preservation of retrieval intent terms.
+- `dataset.jsonl`: case 58 `cleaned_query` now preserves `ללא השקה וגמר`; the new integrity test caught this hidden bug while adding CI protection.
+- `app/test_chat_connection.py`: manual connectivity check is excluded from pytest collection and now uses the production `_completion_kwargs()` helper, avoiding gpt-5.4 `max_tokens` failures in normal unit-test flow.
+
+Verification:
+
+- `python -m pytest tests/test_retrieval_planning.py -q` → 33/33 passed.
+- `python -m pytest tests/test_eval_dataset_integrity.py tests/test_retrieval_planning.py -q` → 36/36 passed.
+- `python -m pytest tests/test_eval_dataset_integrity.py tests/test_retrieval_planning.py tests/test_preprocess_chunking.py -q` → 40/40 passed.
+- `python -m pytest app/test_chat_connection.py -q` → no tests collected, expected for a manual smoke script.
+- `python -m pytest -q` → 120/120 passed after retrying transient `PyJWT` install.
+- Direct fresh case 57 score → overall 80.2%, judge 5/5.
+- Paired case 16/57 eval after narrowing the filter → case 16 recovered to 65%, case 57 70%.
+- Targeted guard slice `12,16,24,36,57,58` → 0 eval errors, case 57 overall 85% / judge 5/5. The command returned non-zero because the slice still contained the now-fixed case 58 weakness, not because of execution failure.
+- Fresh case 58 after cleaned-query fix → overall 64.1%, judge 3/5, grounded 100%.
 
 ---
 

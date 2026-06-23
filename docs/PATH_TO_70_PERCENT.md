@@ -1,6 +1,6 @@
 # PromoAgent — Path to 70% Judge Score (Handoff Plan)
 
-**Written:** 2026-05-25 · **Revised:** 2026-06-22 (prompt surface cleanup — full 64-case A/B eval)
+**Written:** 2026-05-25 · **Revised:** 2026-06-23 (case 57 new-season retrieval correction)
 **Audience:** the next agent (or future self) picking up where we left off
 **Current state:** judge **58.1%** (2026-06-11, 62 cases, all-time high), overall 57.0%
 **Target:** judge ≥ 70% to declare ready for Custom GPT replacement
@@ -75,6 +75,20 @@ Status: **DONE (branch: `refactor/shorten-system-prompt-positive-rules`, commit 
 | Full 64-case A/B eval | Prompt refactor beat baseline on the full dataset | Baseline overall/judge: 0.651/0.637; refactor: 0.688/0.688; errors: 0; green light to push |
 
 Decision: merge is recommended. Watch case 57 in future prompt work because both variants still miss the "will the relationship survive" framing.
+
+### Case 57 new-season retrieval correction (2026-06-23)
+
+Status: **DONE (local changes; commit pending)**.
+
+| Item | Result | Diagnostic |
+|---|---|---|
+| Preserve case 57 intent | `dataset.jsonl` cleaned query now keeps `לקראת עונה חדשה` instead of collapsing it into a generic tonight question | Root cause: eval used `cleaned_query`, so the launch/new-season signal was removed before retrieval |
+| Route new-season language to launch retrieval | `_LAUNCH_PATTERNS` in `app/retrieval_plan.py` now matches `לקראת עונה חדשה`, `עונה חדשה`, and `עונה חוזרת` | Case 57 plan now has `event_intent == "launch"` |
+| Prefer launch/novelty evidence | Launch Word retrieval now includes `שיקול` and `חידושים` question types for single-show launch queries | Retrieved chunks include `חידושים בעונה חוזרת הוא קריטי`, `כיף מנצח`, and character/dilemma passages |
+| Guard regular tonight behavior | Normal `tonight` single-show queries keep the broader pre-existing Word search path | Case 16 recovered in paired eval after narrowing the filter change |
+| Add dataset CI protection | `dataset.jsonl` is no longer ignored; `tests/test_eval_dataset_integrity.py` validates schema, IDs, categories, booleans, sorted IDs, and cleaned-query intent preservation | The new guard caught case 58 dropping `ללא השקה וגמר`; fixed locally |
+| Keep manual smoke script out of CI unit flow | `app/test_chat_connection.py` sets `__test__ = False` and uses `_completion_kwargs()` so manual gpt-5.4 checks do not fail on `max_tokens` | `pytest -q app/test_chat_connection.py` reports no collected tests, as intended |
+| Verification | `tests/test_retrieval_planning.py`: 33/33; `tests/test_eval_dataset_integrity.py`: 3/3; focused non-auth subset: 40/40; full local pytest: 120/120; targeted eval `12,16,24,36,57,58`: case 57 overall 85%, judge 5/5, 0 eval errors; case 58 fresh eval after cleaned-query fix: 64.1% | Initial local PyPI 403 installing `PyJWT` cleared on retry |
 
 **Section 6 (Pragmatic Sequence) has been rewritten below to reflect this.**
 

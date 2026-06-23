@@ -72,7 +72,7 @@ _CAMPAIGN_CONTEXT_TERMS: tuple[str, ...] = (
 
 _LAST_SEASON_PATTERNS = re.compile(
     r"ה?עונה\s+האחרונה|עונה\s+אחרונה|עונה\s+הכי\s+אחרונה"
-    r"|עונה\s+אחרון|עונה\s+חדש(?:ה)?|עונה\s+עדכנית"
+    r"|עונה\s+אחרון|עונה\s+עדכנית"
     r"|last\s+season|latest\s+season"
 )
 _FIRST_SEASON_PATTERNS = re.compile(
@@ -88,7 +88,10 @@ _COVERAGE_INTENT_PATTERNS = re.compile(
     r"כל ה?דרמות|כל ה?תוכניות|כל ה?סדרות|כל ה?תכניות|כל ה?ריאליטי"
     r"|של כל ה|לכל אחת|לכל אחד|כל אחת מ|כל אחד מ"
 )
-_LAUNCH_PATTERNS = re.compile(r"השקה|השקת|פתיחה|פרק ראשון|פרק 1")
+_LAUNCH_PATTERNS = re.compile(
+    r"השקה|השקת|פתיחה|פרק ראשון|פרק 1"
+    r"|לקראת\s+עונה\s+חדש(?:ה)?|עונה\s+חדש(?:ה)?|עונה\s+חוזרת"
+)
 _OPENING_METRIC_RE = re.compile(r"נקוד[התו]+\s+ה?פתיחה")
 _FINALE_PATTERNS = re.compile(r"גמר|סיום|פרק סיום|פינאל")
 _TONIGHT_PATTERNS = re.compile(r"טונייט|טונייטים|שוטף|פרומואים שוטפים")
@@ -241,7 +244,7 @@ def _fmt_broad_excel_evidence(
 
 def _question_types_for_plan(plan: _RetrievalPlan) -> list[str]:
     if plan.event_intent == "launch":
-        return ["אסטרטגיה", "תובנות", "מחקר", "כוונות"]
+        return ["אסטרטגיה", "שיקול", "חידושים", "תובנות", "מחקר", "כוונות"]
     if plan.event_intent == "finale":
         return ["אסטרטגיה", "תובנות", "סלוגן"]
     if plan.event_intent == "tonight":
@@ -264,5 +267,13 @@ def _doc_types_for_plan(plan: _RetrievalPlan) -> list[str]:
 def _single_show_word_kwargs(plan: _RetrievalPlan) -> dict:
     """Scope Word retrieval to one show for single-show, non-comparison queries."""
     if len(plan.show_names) == 1 and not plan.genres and not plan.comparison:
-        return {"show_names": [plan.show_names[0]]}
+        kwargs = {"show_names": [plan.show_names[0]]}
+        if plan.event_intent != "tonight":
+            doc_types = _doc_types_for_plan(plan)
+            question_types = _question_types_for_plan(plan)
+            if doc_types:
+                kwargs["doc_types"] = doc_types
+            if question_types:
+                kwargs["question_types"] = question_types
+        return kwargs
     return {}
