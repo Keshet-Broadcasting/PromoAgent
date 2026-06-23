@@ -1,6 +1,6 @@
 # PromoAgent — Path to 70% Judge Score (Handoff Plan)
 
-**Written:** 2026-05-25 · **Revised:** 2026-06-21 (architecture refactor — service.py split into 5 sub-modules)
+**Written:** 2026-05-25 · **Revised:** 2026-06-22 (prompt surface cleanup — full 64-case A/B eval)
 **Audience:** the next agent (or future self) picking up where we left off
 **Current state:** judge **58.1%** (2026-06-11, 62 cases, all-time high), overall 57.0%
 **Target:** judge ≥ 70% to declare ready for Custom GPT replacement
@@ -60,6 +60,21 @@ can be reliably measured. The corrected order is:
 2. **B observability** in parallel. Per-case variance tracked across runs.
 3. **C voice/prompt** — biggest real lever, retrieval is fine.
 4. **A routing fixes** — last priority, may not even matter.
+
+### Prompt surface cleanup (2026-06-22)
+
+Status: **DONE (branch: `refactor/shorten-system-prompt-positive-rules`, commit pending)**.
+
+| Item | Result | Diagnostic |
+|---|---|---|
+| Shorten top-level operating rules | Consolidated duplicate grounding, citation, partial-evidence, and answer-shape instructions in `app/system_prompt.txt` | Prompt remains 421 lines / 30,479 chars because few-shot examples and strategic mode are intentionally preserved |
+| Reframe negative style rules positively | Operational negative wording reduced from 28 matches to 4 remaining hard/example cases | `rg` count for `DO NOT`/`Never`/similar: 4 |
+| Preserve prompt behavior anchors | Kept strategic-mode anchors (`מסקנה אסטרטגית`, `קשת הקמפיין`, `עוגן מרכזי`, `Coverage Mode`, `thesis`) | `tests/test_retrieval_planning.py` passed: 31/31 |
+| Focused A/B eval slice | Prompt refactor slightly beat baseline on 16 prompt-sensitive cases | Baseline overall/judge: 0.708/0.766; refactor: 0.729/0.797; regressions to inspect: 12, 24 |
+| Repeated focused A/B eval slice | Prompt refactor beat baseline again on the same 16 cases | Baseline overall/judge: 0.651/0.672; refactor: 0.707/0.766; case 12 regression did not repeat; case 24 is not clearly prompt-caused |
+| Full 64-case A/B eval | Prompt refactor beat baseline on the full dataset | Baseline overall/judge: 0.651/0.637; refactor: 0.688/0.688; errors: 0; green light to push |
+
+Decision: merge is recommended. Watch case 57 in future prompt work because both variants still miss the "will the relationship survive" framing.
 
 **Section 6 (Pragmatic Sequence) has been rewritten below to reflect this.**
 

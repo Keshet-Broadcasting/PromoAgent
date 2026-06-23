@@ -1,9 +1,26 @@
 ﻿# PromoAgent — Improvement Plan
 ## Goal: Replace the Custom GPT on OpenAI Subscription
 
-**Written:** May 10, 2026 | **Last updated:** Jun 21, 2026 (architecture refactor shipped)  
+**Written:** May 10, 2026 | **Last updated:** Jun 22, 2026 (prompt surface cleanup validated by full 64-case A/B eval)  
 **Current judge score:** 49.0% (≈ 2.45 / 5) — Foundry gpt-4o, 62-case dataset (Run 8, May 28); Phase A + C.1-C.3 + D.1-D.2 shipped, Run 9 eval pending  
 **Target judge score:** ≥ 70% (≈ 3.5 / 5 — "correct, complete, well-phrased")
+
+---
+
+### Prompt Surface Cleanup — Done (2026-06-22)
+
+| Sub-item | Status |
+|---|---|
+| Consolidate duplicated top-level grounding and answer-shape rules in `app/system_prompt.txt` | ✅ DONE |
+| Convert style/shape prohibitions into positive operating instructions | ✅ DONE |
+| Preserve hard anti-hallucination and entity-boundary rules | ✅ DONE |
+| Keep few-shot examples and strategic-mode anchors stable for regression safety | ✅ DONE |
+| Verify prompt construction regressions | ✅ DONE — `tests/test_retrieval_planning.py` 31/31 |
+| Run focused prompt-sensitive A/B eval | ✅ DONE — baseline 0.708/0.766 overall/judge; refactor 0.729/0.797 |
+| Repeat focused A/B eval for judge variance | ✅ DONE — baseline 0.651/0.672; refactor 0.707/0.766 |
+| Run full 64-case A/B eval | ✅ DONE — baseline 0.651/0.637; refactor 0.688/0.688; errors 0 |
+
+Notes: This was intentionally a conservative prompt-surface refactor, not a rewrite of the domain logic. The prompt is still long because the few-shot examples and strategic synthesis rules encode behavior that has historically improved voice and answer shape. Merge is recommended: repeated focused eval and full 64-case eval were both macro-positive. Watch case 57 in future prompt work because both variants still miss the "will the relationship survive" framing.
 
 ---
 
