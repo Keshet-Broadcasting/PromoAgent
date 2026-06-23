@@ -1,9 +1,24 @@
 ﻿# PromoAgent — Improvement Plan
 ## Goal: Replace the Custom GPT on OpenAI Subscription
 
-**Written:** May 10, 2026 | **Last updated:** Jun 23, 2026 (case 57 new-season retrieval corrected)  
+**Written:** May 10, 2026 | **Last updated:** Jun 23, 2026 (frontend UX cleanup validated)  
 **Current judge score:** 49.0% (≈ 2.45 / 5) — Foundry gpt-4o, 62-case dataset (Run 8, May 28); Phase A + C.1-C.3 + D.1-D.2 shipped, Run 9 eval pending  
 **Target judge score:** ≥ 70% (≈ 3.5 / 5 — "correct, complete, well-phrased")
+
+---
+
+### Frontend UX Cleanup — Done (2026-06-23)
+
+| Sub-item | Status |
+|---|---|
+| Replace technical backend/API failures with Hebrew-friendly chat errors | ✅ DONE — `ApiError` now carries a user-facing message and optional action label |
+| Route authentication retry through login when the error requires reconnecting | ✅ DONE — `ChatWindow` uses the auth-specific action label to call `login()` |
+| Render assistant headings, bold text, ordered lists, unordered lists, and paragraphs | ✅ DONE — `MessageBubble` renders structured content instead of raw Markdown markers |
+| Preserve user message whitespace separately from assistant rendering | ✅ DONE — `whitespace-pre-wrap` now applies only to user bubbles |
+| Remove frontend TypeScript escape hatch in MSAL config | ✅ DONE — iframe and timeout options are typed through a local compatibility type |
+| Verify | ✅ DONE — `npm run lint` and `npm run build` pass; build only reports the pre-existing Next.js multiple-lockfile workspace-root warning |
+
+Notes: This is a UI presentation cleanup. It does not change retrieval, prompt behavior, or evaluation logic; it makes runtime failures understandable to non-technical Hebrew users and makes assistant answers look like rendered chat content instead of Markdown source text.
 
 ---
 

@@ -1,6 +1,6 @@
 # PromoAgent — Path to 70% Judge Score (Handoff Plan)
 
-**Written:** 2026-05-25 · **Revised:** 2026-06-23 (case 57 new-season retrieval correction)
+**Written:** 2026-05-25 · **Revised:** 2026-06-23 (frontend UX cleanup)
 **Audience:** the next agent (or future self) picking up where we left off
 **Current state:** judge **58.1%** (2026-06-11, 62 cases, all-time high), overall 57.0%
 **Target:** judge ≥ 70% to declare ready for Custom GPT replacement
@@ -92,6 +92,18 @@ Status: **DONE (local changes; commit pending)**.
 | Verification | `tests/test_retrieval_planning.py`: 33/33; `tests/test_eval_dataset_integrity.py`: 3/3; focused non-auth subset: 40/40; PR follow-up focused test: 36/36; full local pytest: 120/120; targeted eval `12,16,24,36,57,58`: case 57 overall 85%, judge 5/5, 0 eval errors; case 58 fresh eval after cleaned-query fix: 64.1% | Initial local PyPI 403 installing `PyJWT` cleared on retry |
 
 **Section 6 (Pragmatic Sequence) has been rewritten below to reflect this.**
+
+### Frontend UX cleanup (2026-06-23)
+
+Status: **DONE (local changes; commit pending)**.
+
+| Item | Result | Diagnostic |
+|---|---|---|
+| Friendly Hebrew API errors | `promobot-ui/src/services/api.ts` maps authentication, validation, rate-limit, unavailable-service, server, and connection failures to non-technical Hebrew messages | Chat state carries an optional contextual action label, such as re-login for auth failures |
+| Contextual error actions | `ChatWindow`, `MessageList`, and `ErrorState` pass the action label through the UI and retry auth errors by calling `login()` | Retry button text is no longer one-size-fits-all |
+| Render assistant formatting | `MessageBubble` parses assistant Markdown for headings, bold spans, ordered lists, unordered lists, and paragraphs | Assistant answers no longer expose raw `##` / `**` markers in the chat bubble |
+| Keep MSAL iframe config typed | `promobot-ui/src/config/msal.ts` uses a local compatibility type for iframe and timeout options instead of `any` | Build-time TypeScript accepts the existing runtime config |
+| Verification | Frontend lint and production build pass | `npm run lint`; `npm run build` passed, with only the existing Next.js multiple-lockfile workspace-root warning |
 
 ### What's actually real (validated across multiple runs)
 

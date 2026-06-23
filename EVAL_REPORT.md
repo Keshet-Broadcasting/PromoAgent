@@ -1,10 +1,27 @@
 # PromoAgent — Evaluation Report
 
-**Last updated:** Jun 23, 2026 (case 57 new-season retrieval correction)  
+**Last updated:** Jun 23, 2026 (frontend UX cleanup)  
 **Dataset:** `dataset.jsonl` — 64 cases  
 **Eval harness:** `tests/eval_dataset.py` (LLM-as-judge via configured Foundry provider)  
 **Observability:** Langfuse v4 — scores pushed per run to [cloud.langfuse.com](https://cloud.langfuse.com)  
 **Target:** Judge ≥ 70% (≈ 3.5 / 5 average) to replace the custom GPT
+
+---
+
+## Frontend UX Cleanup — Done (Jun 23)
+
+Changed the chat UI so non-technical users see clear Hebrew errors and assistant answers render cleanly instead of exposing Markdown syntax:
+
+- `promobot-ui/src/services/api.ts`: maps common API failures to friendly Hebrew messages and contextual action labels.
+- `promobot-ui/src/components/chat/ChatWindow.tsx`: stores the contextual error action and redirects auth retry to `login()`.
+- `promobot-ui/src/components/chat/ErrorState.tsx` and `MessageList.tsx`: pass and display the custom error action label.
+- `promobot-ui/src/components/chat/MessageBubble.tsx`: renders assistant headings, bold text, ordered lists, unordered lists, and paragraphs from Markdown-like answer text.
+- `promobot-ui/src/config/msal.ts`: keeps iframe and timeout MSAL options typed without `any`.
+
+Verification:
+
+- `npm run lint` -> passed.
+- `npm run build` -> passed; only the existing Next.js multiple-lockfile workspace-root warning remains.
 
 ---
 

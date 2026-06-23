@@ -4,10 +4,52 @@ import { Message } from '../types/chat';
 const API_ENDPOINT = process.env.NEXT_PUBLIC_API_ENDPOINT || 'http://localhost:8000/query';
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(public status: number, message: string, public actionLabel = 'נסה שוב') {
     super(message);
     this.name = 'ApiError';
   }
+}
+
+function friendlyErrorMessage(status: number, technicalMessage: string): { message: string; actionLabel: string } {
+  if (status === 401 || status === 403) {
+    return {
+      message: 'החיבור למערכת פג או שאין הרשאה מתאימה. רעננו את הדף והתחברו שוב עם חשבון Keshet.',
+      actionLabel: 'נסה להתחבר שוב',
+    };
+  }
+
+  if (status === 422) {
+    return {
+      message: technicalMessage || 'לא הצלחנו להבין את הבקשה. נסחו אותה קצת אחרת ונסו שוב.',
+      actionLabel: 'נסה שוב',
+    };
+  }
+
+  if (status === 429) {
+    return {
+      message: 'נשלחו יותר מדי בקשות בזמן קצר. המתינו רגע ונסו שוב.',
+      actionLabel: 'נסה שוב',
+    };
+  }
+
+  if (status === 503) {
+    return {
+      message: 'השירות לא זמין כרגע. נסו שוב בעוד כמה רגעים.',
+      actionLabel: 'נסה שוב',
+    };
+  }
+
+  if (status >= 500) {
+    return {
+      message: 'משהו השתבש בצד השרת. נסו שוב בעוד רגע. אם זה חוזר על עצמו, פנו לצוות התמיכה.',
+      actionLabel: 'נסה שוב',
+    };
+  }
+
+  return {
+    message: technicalMessage || 'לא הצלחנו להשלים את הפעולה. נסו שוב.',
+    actionLabel: 'נסה שוב',
+  };
 }
 
 export const chatService = {
@@ -63,7 +105,8 @@ export const chatService = {
           errorBody = await response.text().catch(() => '');
         }
         console.error('Backend error response:', response.status, errorBody);
-        throw new ApiError(response.status, `שגיאת שרת (${response.status}): ${errorBody || response.statusText}`);
+        const friendly = friendlyErrorMessage(response.status, errorBody || response.statusText);
+        throw new ApiError(response.status, friendly.message, friendly.actionLabel);
       }
 
       const data = await response.json();
@@ -77,7 +120,11 @@ export const chatService = {
       };
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw new ApiError(500, 'אירעה שגיאה בתקשורת עם השרת. ודא שהשרת (FastAPI) רץ ברקע.');
+      throw new ApiError(
+        0,
+        'לא הצלחנו להתחבר לשירות. בדקו את החיבור לאינטרנט ונסו שוב.',
+        'נסה שוב'
+      );
     }
   },
 };
