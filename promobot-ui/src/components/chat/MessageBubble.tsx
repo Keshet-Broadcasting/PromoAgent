@@ -9,6 +9,137 @@ interface MessageBubbleProps {
   message: Message;
 }
 
+type InlinePart = {
+  text: string;
+  strong: boolean;
+};
+
+type RenderBlock =
+  | { type: 'heading'; level: number; content: string }
+  | { type: 'paragraph'; content: string; detail?: boolean }
+  | { type: 'list'; ordered: boolean; items: { marker: string; content: string }[] };
+
+function parseInline(text: string): InlinePart[] {
+  return text
+    .split(/(\*\*[^*]+\*\*)/g)
+    .filter(Boolean)
+    .map((part) => {
+      const strong = part.startsWith('**') && part.endsWith('**');
+      return {
+        strong,
+        text: strong ? part.slice(2, -2) : part,
+      };
+    });
+}
+
+function renderInline(text: string) {
+  return parseInline(text).map((part, index) =>
+    part.strong ? (
+      <strong key={index} className="font-semibold text-slate-900">
+        {part.text}
+      </strong>
+    ) : (
+      <React.Fragment key={index}>{part.text}</React.Fragment>
+    )
+  );
+}
+
+function parseAssistantMessage(content: string): RenderBlock[] {
+  const blocks: RenderBlock[] = [];
+
+  for (const rawLine of content.split('\n')) {
+    const line = rawLine.trimEnd();
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+    if (headingMatch) {
+      blocks.push({
+        type: 'heading',
+        level: headingMatch[1].length,
+        content: headingMatch[2],
+      });
+      continue;
+    }
+
+    const orderedMatch = trimmed.match(/^(\d+)\.\s+(.+)$/);
+    if (orderedMatch) {
+      const previous = blocks[blocks.length - 1];
+      const item = { marker: orderedMatch[1], content: orderedMatch[2] };
+      if (previous?.type === 'list' && previous.ordered) {
+        previous.items.push(item);
+      } else {
+        blocks.push({ type: 'list', ordered: true, items: [item] });
+      }
+      continue;
+    }
+
+    const bulletMatch = trimmed.match(/^[-*•]\s+(.+)$/);
+    if (bulletMatch) {
+      const previous = blocks[blocks.length - 1];
+      const item = { marker: '•', content: bulletMatch[1] };
+      if (previous?.type === 'list' && !previous.ordered) {
+        previous.items.push(item);
+      } else {
+        blocks.push({ type: 'list', ordered: false, items: [item] });
+      }
+      continue;
+    }
+
+    blocks.push({
+      type: 'paragraph',
+      content: trimmed,
+      detail: /^\s{2,}/.test(rawLine) || trimmed.startsWith('מקור:'),
+    });
+  }
+
+  return blocks;
+}
+
+function AssistantContent({ content }: { content: string }) {
+  return (
+    <div className="space-y-3" dir="auto">
+      {parseAssistantMessage(content).map((block, blockIndex) => {
+        if (block.type === 'heading') {
+          const className = block.level <= 2
+            ? 'text-base font-semibold text-slate-900 mt-1'
+            : 'text-[15px] font-semibold text-slate-900 mt-1';
+
+          return (
+            <h3 key={blockIndex} className={className}>
+              {renderInline(block.content)}
+            </h3>
+          );
+        }
+
+        if (block.type === 'list') {
+          return (
+            <div key={blockIndex} className="space-y-2">
+              {block.items.map((item, itemIndex) => (
+                <div key={itemIndex} className="flex gap-2 text-[15px] leading-relaxed">
+                  <span className="min-w-5 text-slate-500 font-medium">
+                    {block.ordered ? `${item.marker}.` : item.marker}
+                  </span>
+                  <span className="flex-1">{renderInline(item.content)}</span>
+                </div>
+              ))}
+            </div>
+          );
+        }
+
+        return (
+          <p
+            key={blockIndex}
+            className={block.detail ? 'text-sm text-slate-600 leading-relaxed' : 'text-[15px] leading-relaxed'}
+          >
+            {renderInline(block.content)}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 export function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const [copied, setCopied] = useState(false);
@@ -84,14 +215,14 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         </div>
 
         <div
-          className={`px-5 py-3.5 rounded-2xl shadow-sm text-[15px] leading-relaxed whitespace-pre-wrap ${
+          className={`px-5 py-3.5 rounded-2xl shadow-sm text-[15px] leading-relaxed ${
             isUser
-              ? 'bg-blue-600 text-white rounded-tl-sm'
+              ? 'bg-blue-600 text-white rounded-tl-sm whitespace-pre-wrap'
               : 'bg-white text-slate-800 border border-slate-200 rounded-tr-sm'
           }`}
           dir="auto"
         >
-          {message.content}
+          {isUser ? message.content : <AssistantContent content={message.content} />}
         </div>
 
         {/* Copy button — always visible below assistant messages */}

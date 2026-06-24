@@ -11,6 +11,7 @@ export interface ChatState {
   messages: Message[];
   isLoading: boolean;
   error: string | null;
+  errorActionLabel?: string;
 }
 
 export interface User {

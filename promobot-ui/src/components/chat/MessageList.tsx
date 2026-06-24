@@ -10,10 +10,11 @@ interface MessageListProps {
   messages: Message[];
   isLoading: boolean;
   error: string | null;
+  errorActionLabel?: string;
   onRetry: () => void;
 }
 
-export function MessageList({ messages, isLoading, error, onRetry }: MessageListProps) {
+export function MessageList({ messages, isLoading, error, errorActionLabel, onRetry }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -37,7 +38,7 @@ export function MessageList({ messages, isLoading, error, onRetry }: MessageList
 
       {error && (
         <div className="flex justify-center w-full mt-4">
-          <ErrorState message={error} onRetry={onRetry} />
+          <ErrorState message={error} actionLabel={errorActionLabel} onRetry={onRetry} />
         </div>
       )}
 

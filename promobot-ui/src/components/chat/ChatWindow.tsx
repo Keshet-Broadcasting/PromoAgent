@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Message, ChatState } from '../../types/chat';
 import { chatService, ApiError } from '../../services/api';
 import { useAuth } from '../auth/AuthProvider';
@@ -29,25 +29,20 @@ function saveHistory(messages: Message[]) {
 }
 
 export function ChatWindow() {
-  const { getToken } = useAuth();
-  const [state, setState] = useState<ChatState>({
-    messages: [],
+  const { getToken, login } = useAuth();
+  const [state, setState] = useState<ChatState>(() => ({
+    messages: loadHistory(),
     isLoading: false,
     error: null,
-  });
-
-  useEffect(() => {
-    const saved = loadHistory();
-    if (saved.length > 0) {
-      setState(prev => ({ ...prev, messages: saved }));
-    }
-  }, []);
+    errorActionLabel: undefined,
+  }));
 
   const sendToBackend = async (messagesToSend: Message[]) => {
     setState((prev) => ({
       ...prev,
       isLoading: true,
       error: null,
+      errorActionLabel: undefined,
     }));
 
     try {
@@ -65,15 +60,18 @@ export function ChatWindow() {
     } catch (error) {
       console.error('Failed to send message:', error);
       let errorMessage = 'אירעה שגיאה לא צפויה. אנא נסו שוב.';
+      let errorActionLabel = 'נסה שוב';
       
       if (error instanceof ApiError) {
         errorMessage = error.message;
+        errorActionLabel = error.actionLabel;
       }
 
       setState((prev) => ({
         ...prev,
         isLoading: false,
         error: errorMessage,
+        errorActionLabel,
       }));
     }
   };
@@ -100,13 +98,18 @@ export function ChatWindow() {
   };
 
   const handleRetry = async () => {
+    if (state.errorActionLabel === 'נסה להתחבר שוב') {
+      login();
+      return;
+    }
+
     if (state.messages.length > 0) {
       await sendToBackend(state.messages);
     }
   };
 
   const handleNewChat = useCallback(() => {
-    setState({ messages: [], isLoading: false, error: null });
+    setState({ messages: [], isLoading: false, error: null, errorActionLabel: undefined });
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
@@ -128,6 +131,7 @@ export function ChatWindow() {
             messages={state.messages}
             isLoading={state.isLoading}
             error={state.error}
+            errorActionLabel={state.errorActionLabel}
             onRetry={handleRetry}
           />
         </>
