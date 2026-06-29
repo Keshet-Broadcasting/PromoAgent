@@ -35,6 +35,10 @@ on:
         description: 'Branch where the failure occurred'
         required: false
         default: 'main'
+      trigger_source:
+        description: 'Source that triggered the analyzer, e.g. workflow_run, workflow_dispatch, repository_dispatch'
+        required: false
+        default: 'workflow_dispatch'
 
 permissions:
   contents: read
@@ -65,6 +69,7 @@ You are a senior SRE and code reviewer analyzing a GitHub Actions CI failure.
 - Branch: `${{ inputs.branch }}`
 - Run URL: `${{ inputs.run_url }}`
 - PR number (may be empty): `${{ inputs.pr_number }}`
+- Trigger source: `${{ inputs.trigger_source }}`
 
 ---
 
@@ -159,6 +164,7 @@ Severity must always appear in the title and body.
 **Commit:** `${{ inputs.sha }}`
 **Branch:** `${{ inputs.branch }}`
 **PR:** #${{ inputs.pr_number }} (אם רלוונטי)
+**Trigger source:** `${{ inputs.trigger_source }}`
 **ריצה:** ${{ inputs.run_url }}
 
 ---
