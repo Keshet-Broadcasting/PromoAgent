@@ -2,6 +2,9 @@ name: Trigger CI Failure Analysis
 
 on:
   workflow_run:
+    workflows:
+      - PromoAgent Code Review
+      - Deploy Frontend
     types: [completed]
 
 permissions:
