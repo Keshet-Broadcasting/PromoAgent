@@ -1,0 +1,95 @@
+name: Failure Router
+
+on:
+  workflow_run:
+    # -------------------------------------------------------------------------
+    # PromoAgent repository configuration
+    # -------------------------------------------------------------------------
+    # Watch CI/deploy workflows here. Do not watch the PromoAgent CR workflow;
+    # it is used only as an input signal by the analyzer.
+    workflows:
+      - Deploy Frontend
+      - Trigger CI/CD on Approval
+    types: [completed]
+
+permissions:
+  actions: write
+  contents: read
+  pull-requests: read
+
+jobs:
+  route-failure:
+    name: Route failed workflow run
+    if: github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Normalize failure context
+        id: context
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ github.event.repository.owner.login }}
+          REPO: ${{ github.event.repository.name }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          TRIGGER_SOURCE: workflow_run
+        run: |
+          set -euo pipefail
+
+          # workflow_run.pull_requests is not always populated, especially for
+          # post-merge or non-pull_request events. Fall back to commit->PR lookup.
+          if [ -z "${PR_NUMBER:-}" ] || [ "$PR_NUMBER" = "null" ]; then
+            PR_NUMBER="$(gh api \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/$OWNER/$REPO/commits/$SHA/pulls" \
+              --jq '.[0].number // ""')"
+          fi
+
+          {
+            echo "owner=$OWNER"
+            echo "repo=$REPO"
+            echo "run_id=$RUN_ID"
+            echo "run_url=$RUN_URL"
+            echo "workflow_name=$WORKFLOW_NAME"
+            echo "conclusion=$CONCLUSION"
+            echo "sha=$SHA"
+            echo "branch=$BRANCH"
+            echo "pr_number=${PR_NUMBER:-}"
+            echo "trigger_source=$TRIGGER_SOURCE"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch failure analyzer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ steps.context.outputs.owner }}
+          REPO: ${{ steps.context.outputs.repo }}
+          RUN_ID: ${{ steps.context.outputs.run_id }}
+          RUN_URL: ${{ steps.context.outputs.run_url }}
+          WORKFLOW_NAME: ${{ steps.context.outputs.workflow_name }}
+          CONCLUSION: ${{ steps.context.outputs.conclusion }}
+          SHA: ${{ steps.context.outputs.sha }}
+          BRANCH: ${{ steps.context.outputs.branch }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          TRIGGER_SOURCE: ${{ steps.context.outputs.trigger_source }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+
+          gh workflow run ci-failure-analysis.md \
+            --repo "$OWNER/$REPO" \
+            --ref "$DEFAULT_BRANCH" \
+            -f owner="$OWNER" \
+            -f repo="$REPO" \
+            -f run_id="$RUN_ID" \
+            -f run_url="$RUN_URL" \
+            -f workflow_name="$WORKFLOW_NAME" \
+            -f conclusion="$CONCLUSION" \
+            -f sha="$SHA" \
+            -f pr_number="$PR_NUMBER" \
+            -f branch="$BRANCH" \
+            -f trigger_source="$TRIGGER_SOURCE"
