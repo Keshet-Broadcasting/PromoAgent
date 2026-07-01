@@ -97,6 +97,15 @@ _TONIGHT_PATTERNS = re.compile(r"טונייט|טונייטים|שוטף|פרומ
 _CONVERSION_PATTERNS = re.compile(
     r"מכפיל|יחס המרה|כוונות צפייה.*רייטינג|רייטינג.*כוונות צפייה"
 )
+_LIVE_VIEWING_PATTERNS = re.compile(
+    r"לייב|בינג'?|השלמ(?:ה|ות|ים)|ספוילר|ספויילר|צפייה\s+נדחית|לראות\s+בזמן\s+אמת"
+)
+_DRAMA_LIVE_VIEWING_PRIORITY_SHOWS: tuple[str, ...] = (
+    "אור ראשון",
+    "נוטוק",
+    "אף אחד לא עוזב את פאלו אלטו",
+    "הראש",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -140,10 +149,29 @@ class _RetrievalPlan:
         if self.show_names:
             return self.show_names
         if self.genres:
-            return shows_for_genres(self.genres)
+            targets = shows_for_genres(self.genres)
+            if self.drama_live_viewing:
+                merged = list(_DRAMA_LIVE_VIEWING_PRIORITY_SHOWS)
+                for name in targets:
+                    if name not in merged:
+                        merged.append(name)
+                return merged
+            return targets
         if self.broad_scope and re.search(r"כל ה?תוכניות|כל ה?סדרות|כל ה", self.query):
             return official_show_names()
         return []
+
+    @property
+    def drama_live_viewing(self) -> bool:
+        """Drama strategy questions about live viewing / completion / binge.
+
+        These questions have two axes: high-rating successes and learning cases
+        about delayed viewing. `נוטוק`, for example, is catalogued as
+        entertainment but source triage identifies it as a central learning case
+        for the live-viewing problem, so the cohort must be explicit rather than
+        inferred only from the coarse genre taxonomy.
+        """
+        return "drama" in self.genres and bool(_LIVE_VIEWING_PATTERNS.search(self.query))
 
     @property
     def word_targets(self) -> list[str]:
@@ -195,6 +223,7 @@ def _build_retrieval_plan(
     event_intent = _detect_event_intent(query)
     comparison   = bool(re.search(r"לעומת|השווה|השוואה|ביחס ל|בין", query)) or len(show_names) > 1
     conversion   = bool(_CONVERSION_PATTERNS.search(query))
+    drama_live   = "drama" in genres and bool(_LIVE_VIEWING_PATTERNS.search(query))
     broad_scope  = (
         bool(_BROAD_SCOPE_PATTERNS.search(query))
         or len(show_names) > 1
@@ -206,6 +235,7 @@ def _build_retrieval_plan(
     coverage = (
         bool(_COVERAGE_INTENT_PATTERNS.search(query))
         or (comparison and len(show_names) > 1)
+        or drama_live
     )
     return _RetrievalPlan(
         route=route,
@@ -305,6 +335,22 @@ def _fmt_conversion_calculator_guidance(selected: list[dict], plan: _RetrievalPl
     return "\n".join(lines)
 
 
+def _fmt_drama_live_viewing_guidance(plan: _RetrievalPlan) -> str:
+    if not plan.drama_live_viewing:
+        return ""
+
+    priority = ", ".join(_DRAMA_LIVE_VIEWING_PRIORITY_SHOWS[:3])
+    return "\n".join([
+        "### הנחיית צפייה בלייב בדרמות",
+        "- השאלה משלבת שני צירים שונים: אל תענה כרשימת רייטינג אחת שטוחה.",
+        "- ציר 1 — הצלחות רייטינג גבוהות: הסבר מה עבד אצל דרמות שהביאו צפייה גבוהה.",
+        "- ציר 2 — מקרי לימוד לבעיית לייב/השלמות/בינג': שלב גם סדרות שמלמדות על דחיפות, FOMO, ספוילרים או צפייה נדחית גם אם הרייטינג שלהן נמוך יותר.",
+        f"- ודא שהמקרים {priority} מקבלים מקום בניתוח: אור ראשון כהצלחת אירוע/רייטינג, נוטוק כמקרה לימוד ישיר על השלמות ולייב, ופאלו אלטו כעקרון קריאייטיבי של Stakes/חיבור רגשי במקום הסבר עלילה.",
+        "- אל תיתן ל`צומת מילר` או לדוגמאות קומיות/היסטוריות לשלוט בתשובה רק בגלל שורת רייטינג גבוהה; אם הן מופיעות, מסגר אותן כדוגמאות משלימות בלבד אלא אם יש להן תובנת Word דרמה רלוונטית.",
+        "- מבנה מומלץ: פסק דין קריאייטיבי קצר → ציר 1 (מה עבד ברייטינג) → ציר 2 (מה מלמד על החזרת צפייה ללייב) → פתרונות פרומו מעשיים.",
+    ])
+
+
 def _fmt_broad_excel_evidence(
     docs: list[dict],
     selected: list[dict],
@@ -325,6 +371,9 @@ def _fmt_broad_excel_evidence(
     conversion_guidance = _fmt_conversion_calculator_guidance(selected, plan)
     if conversion_guidance:
         coverage += "\n" + conversion_guidance + "\n"
+    live_viewing_guidance = _fmt_drama_live_viewing_guidance(plan)
+    if live_viewing_guidance:
+        coverage += "\n" + live_viewing_guidance + "\n"
     return coverage + "\n" + _fmt_excel(selected)
 
 

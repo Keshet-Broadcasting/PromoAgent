@@ -1,10 +1,41 @@
 # PromoAgent — Evaluation Report
 
-**Last updated:** Jul 1, 2026 (case 3 retrieval fix + viewing-intentions tier disambiguation)  
+**Last updated:** Jul 1, 2026 (drama live-viewing cohort retrieval)  
 **Dataset:** `dataset.jsonl` — 64 cases  
 **Eval harness:** `tests/eval_dataset.py` (LLM-as-judge via configured Foundry provider)  
 **Observability:** Langfuse v4 — scores pushed per run to [cloud.langfuse.com](https://cloud.langfuse.com)  
 **Target:** Judge ≥ 70% (≈ 3.5 / 5 average) to replace the custom GPT
+
+---
+
+## Drama Live-Viewing Cohort Retrieval — Done (Jul 1)
+
+Fixed a regression in the high-rating drama / live-viewing strategy question where the answer
+kept PromoBot's useful "eventization" shape but over-indexed on a flat rating list
+(`להיות איתה`, `צומת מילר`) instead of separating rating winners from live/binge learning cases.
+
+- Source-truth checkpoint: Custom GPT preferred `נוטוק`, `אור ראשון`, `פאלו אלטו` for the live-viewing problem; source-doc check split the axes: `אור ראשון` is a rating/event success, while `נוטוק`/`פאלו אלטו` are learning cases for delayed viewing / stakes / emotional connection.
+- `app/retrieval_plan.py`: added `drama_live_viewing` intent for drama questions containing live/binge/completion/spoiler terms; target set now expands with `אור ראשון`, `נוטוק`, `אף אחד לא עוזב את פאלו אלטו`, `הראש` without globally reclassifying `נוטוק`.
+- `app/retrieval_plan.py`: broad context now adds `### הנחיית צפייה בלייב בדרמות`, instructing the model to answer on two axes: high-rating successes and live-viewing learning cases; `צומת מילר`/comic or historical rows must not dominate only because of rating.
+- `app/retriever.py`: per-show Word fetch for this intent prefers `תובנות` / `אסטרטגיה` / `מחקר`, matching the Jun 3 strategy-section bias that recovered `פאלו אלטו`.
+- Tests: added `test_drama_live_viewing_query_adds_priority_learning_cases` and `test_drama_live_viewing_context_splits_rating_and_learning_axes`; full `test_retrieval_planning.py`: 42 passed. Exact-prompt live retrieval: `נוטוק` and `פאלו אלטו` present in Excel+Word, `אור ראשון` present in Word, guidance present in context.
+
+---
+
+## CI: Live Data-Health Tests Deselect Instead of Skip — Done (Jul 1)
+
+The 9 `@pytest.mark.live` tests in `tests/test_data_health.py` (Azure Search index health)
+no longer show as a permanent `9 skipped` in the Azure DevOps pipeline.
+
+- `tests/conftest.py`: `pytest_collection_modifyitems` **deselects** `live` tests when
+  `AZURE_SEARCH_ENDPOINT`/`AZURE_SEARCH_KEY` are absent → CI summary reports `0 skipped`.
+  They run automatically where creds exist, or under `RUN_LIVE_TESTS=1`.
+- `tests/test_data_health.py`: DRY'd creds handling into `_require_search_creds()` +
+  `_live_index_client()`; under `RUN_LIVE_TESTS=1` missing creds **fail loudly**.
+- Rejected mocking (would make data-health assertions validate the mock, not the index) and a
+  dedicated per-CI stage (overkill for infrequent index changes; risky edit to the templated
+  prod pipeline). Integration gate: `RUN_LIVE_TESTS=1 pytest tests/test_data_health.py -m live`.
+- Verified: creds-sim `18 passed, 9 deselected, 0 skipped`; with local creds `27 passed`.
 
 ---
 
