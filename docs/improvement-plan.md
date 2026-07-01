@@ -1,9 +1,38 @@
 ﻿# PromoAgent — Improvement Plan
 ## Goal: Replace the Custom GPT on OpenAI Subscription
 
-**Written:** May 10, 2026 | **Last updated:** Jul 1, 2026 (case 3 retrieval fix + viewing-intentions tier disambiguation)  
+**Written:** May 10, 2026 | **Last updated:** Jul 1, 2026 (drama live-viewing cohort retrieval)  
 **Current judge score:** 49.0% (≈ 2.45 / 5) — Foundry gpt-4o, 62-case dataset (Run 8, May 28); Phase A + C.1-C.3 + D.1-D.2 shipped, Run 9 eval pending  
 **Target judge score:** ≥ 70% (≈ 3.5 / 5 — "correct, complete, well-phrased")
+
+---
+
+### Drama Live-Viewing Cohort Retrieval — Done (2026-07-01)
+
+| Sub-item | Status |
+|---|---|
+| Source-truth checkpoint | ✅ DONE — Custom GPT and source-doc checks confirmed the answer must split high-rating drama wins from live/binge learning cases |
+| Past-fix review | ✅ DONE — reused Jun 3 lesson: broad genre filtering + per-show Word coverage + strategy-section bias solved the older reality-contamination / missing-`פאלו אלטו` issue |
+| Regression tests | ✅ DONE — added tests for drama live-viewing priority cohort and two-axis context guidance |
+| Retrieval plan | ✅ DONE — `drama_live_viewing` intent expands targets with `אור ראשון`, `נוטוק`, `פאלו אלטו`, `הראש` without globally changing catalog genres |
+| Context contract | ✅ DONE — context now instructs the model to separate rating winners from live-viewing learning cases and not let `צומת מילר` dominate only by numeric rating |
+| Verification | ✅ DONE — `test_retrieval_planning.py` 42 passed; exact-prompt live retrieval includes `נוטוק`/`פאלו אלטו` in Excel+Word and `אור ראשון` in Word |
+
+Residual risk: `אור ראשון` has no row-level Excel promo data, so it enters primarily through Word; that matches the source check but should be noted in answers.
+
+---
+
+### CI: Live Data-Health Tests Deselect Instead of Skip — Done (2026-07-01)
+
+| Sub-item | Status |
+|---|---|
+| Root cause | ✅ `@pytest.mark.live` data-health tests self-skip without `AZURE_SEARCH_*`; test step lives in an external template we can't edit |
+| In-repo fix | ✅ `tests/conftest.py` deselects `live` tests when creds absent → CI `0 skipped`; auto-run where creds exist / `RUN_LIVE_TESTS=1` |
+| DRY + fail-loud | ✅ `_require_search_creds()` / `_live_index_client()`; `RUN_LIVE_TESTS=1` fails loudly on missing creds |
+| Rejected | ✅ mocking (defeats data-health purpose) and per-CI integration stage (overkill; risky templated-pipeline edit) |
+| Verification | ✅ creds-sim `18 passed, 9 deselected, 0 skipped`; local creds `27 passed` |
+
+Follow-up: optional nightly scheduled `RUN_LIVE_TESTS=1 pytest -m live` if automated index monitoring is wanted.
 
 ---
 

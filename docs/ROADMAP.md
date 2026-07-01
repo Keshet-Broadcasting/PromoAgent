@@ -1,6 +1,6 @@
 ﻿# PromoAgent — Roadmap
 
-**Last updated:** Jul 1, 2026 (case 3 retrieval fix + viewing-intentions tier disambiguation)
+**Last updated:** Jul 1, 2026 (drama live-viewing cohort retrieval)
 
 **Strategic plan for hitting 70%:** see [`docs/PATH_TO_70_PERCENT.md`](PATH_TO_70_PERCENT.md) — handoff document with phased plan, realistic ceiling math, observability upgrade, and decision points.
 
@@ -74,6 +74,8 @@ PromoAgent is a RAG-based chatbot for Keshet TV's promo department, replacing a 
 | TRIAGE-C4 | Case 4 gold correction (drama intentions vs rating) | **DONE (Jul 1)** | Source-doc triage found the gold conflated promo-test intentions (67/73/72%) with a non-existent "70%+→16-17%" multiplier and a wrong הראש rating. Rewrote gold on the pre-launch tier (~40% all three) → actual ratings, no fixed multiplier; `needs_human_review=true` |
 | TRIAGE-C3 | Case 3 comparison retrieval gap | **DONE (Jul 1)** | `_RetrievalPlan.word_targets` + per-show Word fetch for named-show-vs-genre comparisons in `app/retrieval_plan.py`/`app/retriever.py`; comparators now retrieved. Judge case 3: 2→3 |
 | TRIAGE-TIER | Viewing-intentions two-tier disambiguation | **DONE (Jul 1)** | Prompt addendum in `app/prompts.py` (word/hybrid) tags promo/trailer tier (~60-85%) vs pre-launch tier (~35-45%); case 2/3 gold annotated. Slice 1-5: overall 62.4%, judge 60%. Residual: case 2 retrieval ranks the 40% chunk above the 67% chunk |
+| CI-LIVE-TESTS | Live data-health tests no longer skip in CI | **DONE (Jul 1)** | `tests/conftest.py` deselects (not skips) `live` tests when `AZURE_SEARCH_*` absent → CI shows `0 skipped`; they auto-run where creds exist and under `RUN_LIVE_TESTS=1` (fail-loud if missing). Creds-sim: 18 passed/9 deselected; with creds: 27 passed. No pipeline stage added (deemed overkill for infrequent index checks); integration gate = `RUN_LIVE_TESTS=1 pytest -m live` after ingest |
+| DRAMA-LIVE | Drama live-viewing / binge strategy cohort | **DONE (Jul 1)** | Builds on Jun 3 genre-contamination fix. `app/retrieval_plan.py` now detects drama questions about live viewing / binge / completions / spoilers, expands targets with `אור ראשון`, `נוטוק`, `פאלו אלטו`, `הראש`, and adds context guidance to separate rating winners from live-viewing learning cases. `app/retriever.py` biases per-show Word fetch to `תובנות`/`אסטרטגיה`/`מחקר`. Tests: `test_retrieval_planning.py` 42 passed; exact prompt retrieval includes נוטוק/פאלו אלטו in Excel+Word and אור ראשון in Word |
 | 7 | Consolidate Hebrew vocabulary into `app/text_patterns.py` | TODO (1-2 hr) | Single source of truth for `_GROUNDING_MARKERS`, `_DOCTYPE_KEYS`, `GENRE_PATTERNS`, `_RANKING_PATTERNS`, `_LAUNCH_PATTERNS`, etc. Currently scattered across 5 files. Refactor only — no behavior change. |
 | 8 | UI parity (streaming, threads, mobile) | TODO | UX |
 

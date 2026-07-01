@@ -1,6 +1,6 @@
 # PromoAgent — Path to 70% Judge Score (Handoff Plan)
 
-**Written:** 2026-05-25 · **Revised:** 2026-07-01 (case 3 retrieval fix + viewing-intentions tier disambiguation)
+**Written:** 2026-05-25 · **Revised:** 2026-07-01 (drama live-viewing cohort retrieval)
 **Audience:** the next agent (or future self) picking up where we left off
 **Current state:** judge **58.1%** (2026-06-11, 62 cases, all-time high), overall 57.0%
 **Target:** judge ≥ 70% to declare ready for Custom GPT replacement
@@ -86,6 +86,18 @@ Status: **DONE (local changes; commit pending)**.
 | Pause case 60 code fix | Custom GPT produced a different calculator than the existing gold, so case 60 is now treated as a gold/product-alignment question until document checks confirm the intended answer | Partial local case-60 context/prompt edits remain in the working tree but should not be considered validated production behavior yet |
 | Run small drama judged slice | Cases `1,2,3,4,5` ran with LLM-as-judge via `CHAT_PROVIDER=azure_openai` | 0 execution errors; overall `58.9%`, judge `60.0%`; cases 1 and 5 strong, cases 2/3 low, case 4 middling |
 | Next action | Do not fix cases 2/3/4 directly yet | First ask Custom GPT and Claude/source-doc questions to determine whether these are retrieval failures, model summarization failures, or bad/obsolete gold |
+
+### Drama live-viewing cohort retrieval (2026-07-01)
+
+Status: **DONE (local changes; commit pending)**.
+
+| Item | Result | Diagnostic |
+|---|---|---|
+| Root cause | The bot answered a live-viewing drama strategy question as one flat high-rating list, letting `להיות איתה` / `צומת מילר` dominate and underweighting `נוטוק` / `פאלו אלטו` / `אור ראשון` | Custom GPT + source-doc checks showed two axes: rating winners vs live/binge learning cases |
+| Prior-art check | Reused the Jun 3 genre-contamination fix rather than replacing it | Broad retrieval/per-show coverage already solved reality leakage and missing `פאלו אלטו`; this adds the missing business-intent cohort and answer contract |
+| Retrieval/context fix | `app/retrieval_plan.py` detects drama + live/binge/completion/spoiler intent, expands targets with `אור ראשון`, `נוטוק`, `פאלו אלטו`, `הראש`, and adds a two-axis guidance block | Keeps `נוטוק` catalogued as entertainment globally; only this intent pulls it into the drama-live-viewing cohort |
+| Word fetch | `app/retriever.py` biases per-show Word retrieval toward `תובנות` / `אסטרטגיה` / `מחקר` for this intent | Mirrors the Jun 3 strategy-section bias that recovered `פאלו אלטו` |
+| Verification | `tests/test_retrieval_planning.py`: 42 passed; exact-prompt live retrieval includes `נוטוק` and `פאלו אלטו` in Excel+Word, `אור ראשון` in Word, guidance in context | `אור ראשון` lacks row-level Excel promo data, so Word is the expected source |
 
 ### Case 30 launch-comparison range calibration (2026-06-30)
 

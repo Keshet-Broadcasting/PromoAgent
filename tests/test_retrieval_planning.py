@@ -167,6 +167,62 @@ def test_coverage_intent_set_for_all_dramas_query(monkeypatch):
     assert narrow.coverage is False
 
 
+def test_drama_live_viewing_query_adds_priority_learning_cases(monkeypatch):
+    """Regression: live/binge drama strategy questions need both rating winners
+    and learning cases. A plain drama genre target excludes נוטוק (catalogued as
+    entertainment) even though source triage says it is central to this problem."""
+    monkeypatch.setenv("BROAD_RETRIEVAL_ENABLED", "true")
+    import app.retrieval_plan as rp
+    importlib.reload(rp)
+
+    query = (
+        "אנחנו מתקשים להביא צופים לצפות בדרמות בלייב. חלקם משלימים בסופ\"ש "
+        "וחלק משלימים בסיום הסדרה כבינג'. סכם את כל התובנות של סדרות הדרמה "
+        "בהן הרייטינג הממוצע העונתי היה גבוה ביחס לאחרות, והבא פתרונות."
+    )
+    plan = rp._build_retrieval_plan("hybrid", query, ranking=False, season_filter=None)
+
+    assert plan.drama_live_viewing is True
+    assert plan.coverage is True
+    targets = plan.target_show_names
+    assert "אור ראשון" in targets
+    assert "אף אחד לא עוזב את פאלו אלטו" in targets
+    assert "נוטוק" in targets
+
+
+def test_drama_live_viewing_context_splits_rating_and_learning_axes():
+    """The LLM should not answer this query as one flat highest-rating table.
+    It must separate high-rating successes from live/binge learning cases and
+    demote shows with weak Word-drama support such as צומת מילר."""
+    from app import retrieval_plan as rp
+
+    plan = rp._RetrievalPlan(
+        route="hybrid",
+        query=(
+            "סכם את כל התובנות של סדרות הדרמה שבהן הרייטינג הממוצע העונתי "
+            "היה גבוה, כדי להביא צפייה בלייב ולא בבינג'"
+        ),
+        genres=["drama"],
+        broad_scope=True,
+    )
+    docs = [
+        {"show_name": "להיות איתה", "season": "3", "rating": "20.7", "tab_name": "מעקבי פרומו.xlsx"},
+        {"show_name": "צומת מילר", "season": "3", "rating": "18.3", "tab_name": "מעקבי פרומו.xlsx"},
+        {"show_name": "נוטוק", "season": "1", "rating": "15.7", "tab_name": "מעקבי פרומו.xlsx"},
+        {"show_name": "אף אחד לא עוזב את פאלו אלטו", "rating": "11.9", "tab_name": "מעקבי פרומו.xlsx"},
+        {"show_name": "אור ראשון", "rating": "20", "opening_point": "20", "tab_name": "מעקבי פרומו.xlsx"},
+    ]
+
+    context = rp._fmt_broad_excel_evidence(docs, docs, plan)
+
+    assert "הנחיית צפייה בלייב בדרמות" in context
+    assert "ציר 1" in context and "ציר 2" in context
+    assert "נוטוק" in context
+    assert "אף אחד לא עוזב את פאלו אלטו" in context
+    assert "אור ראשון" in context
+    assert "צומת מילר" in context and "אל תיתן" in context
+
+
 def test_named_show_vs_genre_comparison_expands_word_targets(monkeypatch):
     """Case 3 regression: 'compare אור ראשון to other dramas' must expand the Word
     targets to the genre's comparator shows. Before the fix, an explicit show name

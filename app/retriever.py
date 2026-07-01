@@ -80,6 +80,8 @@ def _fetch_word_docs(plan: _RetrievalPlan, query: str, word_top: int) -> list[di
             prefer = None
             if re.search(r"אסטרטגי|מכירה|סלוגן|בריף|פוזישנינג|מיצוב", query):
                 prefer = ["אסטרטגיה", "סלוגן"]
+            elif plan.drama_live_viewing:
+                prefer = ["תובנות", "אסטרטגיה", "מחקר"]
             return fetch_word_docs_per_show(
                 query,
                 targets,

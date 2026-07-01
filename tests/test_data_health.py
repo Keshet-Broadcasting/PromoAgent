@@ -23,11 +23,18 @@ Three test layers:
    - Schema has show_name + rating fields.
    - The big shows the eval relies on each have a meaningful number of rows.
 
+The `live` tests are **integration** tests. They are auto-deselected (see
+`tests/conftest.py`) when `AZURE_SEARCH_ENDPOINT` / `AZURE_SEARCH_KEY` are absent,
+so a credential-less CI run reports `0 skipped` rather than a permanent
+`9 skipped`. They run automatically when those creds are present.
+
 Usage:
-    # Fast tests only
-    pytest tests/test_data_health.py -m "not live"
-    # All tests
+    # Unit run — live integration tests auto-deselected when creds are absent
     pytest tests/test_data_health.py
+    # Explicitly exclude the live integration tests
+    pytest tests/test_data_health.py -m "not live"
+    # Integration run — requires AZURE_SEARCH_* creds; fails loudly if missing
+    RUN_LIVE_TESTS=1 pytest tests/test_data_health.py -m live
 """
 from __future__ import annotations
 
@@ -207,30 +214,49 @@ def test_extract_show_never_returns_doc_type():
 # ===========================================================================
 
 
+def _require_search_creds() -> tuple[str, str]:
+    """Return (endpoint, key) for Azure Search, or skip the test.
+
+    When ``RUN_LIVE_TESTS=1`` (a dedicated integration run that is *supposed* to
+    have credentials) the missing creds are a configuration error, so we fail
+    loudly instead of skipping — otherwise a broken integration stage would go
+    green while silently testing nothing.
+    """
+    ep = os.getenv("AZURE_SEARCH_ENDPOINT")
+    key = os.getenv("AZURE_SEARCH_KEY")
+    if not ep or not key:
+        msg = (
+            "Azure Search credentials (AZURE_SEARCH_ENDPOINT, AZURE_SEARCH_KEY) "
+            "not configured"
+        )
+        if os.getenv("RUN_LIVE_TESTS") == "1":
+            pytest.fail(f"{msg}, but RUN_LIVE_TESTS=1 requires them")
+        pytest.skip(msg)
+    return ep, key
+
+
 def _live_search_client(index_name: str):
     """Return a SearchClient or skip the test if credentials aren't configured."""
     from azure.core.credentials import AzureKeyCredential
     from azure.search.documents import SearchClient
 
-    ep = os.getenv("AZURE_SEARCH_ENDPOINT")
-    key = os.getenv("AZURE_SEARCH_KEY")
-    if not ep or not key:
-        pytest.skip(f"Azure Search credentials not configured")
+    ep, key = _require_search_creds()
     return SearchClient(endpoint=ep, index_name=index_name, credential=AzureKeyCredential(key))
+
+
+def _live_index_client():
+    """Return a SearchIndexClient or skip the test if credentials aren't configured."""
+    from azure.core.credentials import AzureKeyCredential
+    from azure.search.documents.indexes import SearchIndexClient
+
+    ep, key = _require_search_creds()
+    return SearchIndexClient(endpoint=ep, credential=AzureKeyCredential(key))
 
 
 @pytest.mark.live
 def test_word_docs_schema_has_phase_6b_fields():
     """The schema migration must have included the 4 metadata fields."""
-    from azure.core.credentials import AzureKeyCredential
-    from azure.search.documents.indexes import SearchIndexClient
-
-    ep = os.getenv("AZURE_SEARCH_ENDPOINT")
-    key = os.getenv("AZURE_SEARCH_KEY")
-    if not ep or not key:
-        pytest.skip("Azure Search credentials not configured")
-
-    client = SearchIndexClient(endpoint=ep, credential=AzureKeyCredential(key))
+    client = _live_index_client()
     idx = client.get_index("word-docs")
     field_names = {f.name for f in idx.fields}
     expected = {"show_name", "season", "doc_type", "question_type"}
@@ -304,15 +330,7 @@ def test_word_docs_catalog_overlap():
 @pytest.mark.live
 def test_tv_promos_has_essential_fields():
     """The Excel index must expose the fields service.py relies on."""
-    from azure.core.credentials import AzureKeyCredential
-    from azure.search.documents.indexes import SearchIndexClient
-
-    ep = os.getenv("AZURE_SEARCH_ENDPOINT")
-    key = os.getenv("AZURE_SEARCH_KEY")
-    if not ep or not key:
-        pytest.skip("Azure Search credentials not configured")
-
-    client = SearchIndexClient(endpoint=ep, credential=AzureKeyCredential(key))
+    client = _live_index_client()
     idx = client.get_index("tv-promos")
     field_names = {f.name for f in idx.fields}
     required = {"show_name", "season", "rating", "opening_point", "promo_text"}
