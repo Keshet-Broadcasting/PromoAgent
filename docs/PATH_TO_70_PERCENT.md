@@ -1,6 +1,6 @@
 # PromoAgent — Path to 70% Judge Score (Handoff Plan)
 
-**Written:** 2026-05-25 · **Revised:** 2026-06-23 (frontend UX cleanup)
+**Written:** 2026-05-25 · **Revised:** 2026-07-01 (case 3 retrieval fix + viewing-intentions tier disambiguation)
 **Audience:** the next agent (or future self) picking up where we left off
 **Current state:** judge **58.1%** (2026-06-11, 62 cases, all-time high), overall 57.0%
 **Target:** judge ≥ 70% to declare ready for Custom GPT replacement
@@ -76,6 +76,28 @@ Status: **DONE (branch: `refactor/shorten-system-prompt-positive-rules`, commit 
 
 Decision: merge is recommended. Watch case 57 in future prompt work because both variants still miss the "will the relationship survive" framing.
 
+### Eval triage rule + drama slice check (2026-07-01)
+
+Status: **DONE (local changes; commit pending)**.
+
+| Item | Result | Diagnostic |
+|---|---|---|
+| Add source-of-truth checkpoint before fixes | `.cursor/rules/eval-regression-triage-before-code.mdc` now requires exact copy-paste Custom GPT and Claude/document-focused questions, plus Langfuse trace comparison, before changing prompts, retrieval, code, model config, or gold answers | Prevents overfitting eval failures before confirming whether the product baseline or source docs support the gold |
+| Pause case 60 code fix | Custom GPT produced a different calculator than the existing gold, so case 60 is now treated as a gold/product-alignment question until document checks confirm the intended answer | Partial local case-60 context/prompt edits remain in the working tree but should not be considered validated production behavior yet |
+| Run small drama judged slice | Cases `1,2,3,4,5` ran with LLM-as-judge via `CHAT_PROVIDER=azure_openai` | 0 execution errors; overall `58.9%`, judge `60.0%`; cases 1 and 5 strong, cases 2/3 low, case 4 middling |
+| Next action | Do not fix cases 2/3/4 directly yet | First ask Custom GPT and Claude/source-doc questions to determine whether these are retrieval failures, model summarization failures, or bad/obsolete gold |
+
+### Case 30 launch-comparison range calibration (2026-06-30)
+
+Status: **DONE (local changes; commit pending)**.
+
+| Item | Result | Diagnostic |
+|---|---|---|
+| Identify regression mode | Retrieval was healthy (3 show-filter fetches, 369 raw Excel rows, 11 selected launch rows), but gpt-5.4-mini collapsed `חתונה ממבט ראשון` to the peak launch row `23.5%` | Langfuse trace `c0bb61c6bf287a090ecbde74f9d5dd6a` scored 2 because the gold expected a cross-season range around `20-21%`, not only the highest season |
+| Encode answer-shape contract in context | `app/retrieval_plan.py` now adds `### הנחיית השוואת השקות` for multi-show launch comparisons, including per-show ranges and all launch values | The model sees the aggregate/range before the raw table and is explicitly told not to choose only highest/latest unless requested |
+| Add regression coverage | `tests/test_retrieval_planning.py` checks the anti-peak-only instruction and per-show summary for the `נינג'ה ישראל` / `חתונמי` / `המירוץ למיליון` case | Prevents future prompt/context changes from silently removing the guard |
+| Verify | Focused tests passed; fresh judged eval case 30 recovered | `pytest ... 3 passed`; `tests/eval_dataset.py --id 30 --judge`: overall `82.4%`, numeric `100%`, grounded `100%`, judge `4/5` |
+
 ### Case 57 new-season retrieval correction (2026-06-23)
 
 Status: **DONE (local changes; commit pending)**.
@@ -104,6 +126,18 @@ Status: **DONE (local changes; commit pending)**.
 | Render assistant formatting | `MessageBubble` parses assistant Markdown for headings, bold spans, ordered lists, unordered lists, and paragraphs | Assistant answers no longer expose raw `##` / `**` markers in the chat bubble |
 | Keep MSAL iframe config typed | `promobot-ui/src/config/msal.ts` uses a local compatibility type for iframe and timeout options instead of `any` | Build-time TypeScript accepts the existing runtime config |
 | Verification | Frontend lint and production build pass | `npm run lint`; `npm run build` passed, with only the existing Next.js multiple-lockfile workspace-root warning |
+
+### Prompt Cache + Partial-Coverage Calibration (2026-06-30)
+
+Status: **DONE (local changes; commit pending)**.
+
+| Item | Result | Diagnostic |
+|---|---|---|
+| Investigate repeated prompt-cache miss | Langfuse trace `3799af40e9541aa56d8df47a40d69d45` repeated the same broad/hybrid question and still reported `input_cached_tokens=0` | Same current prompt hash as prior miss; 15 Excel docs, 12 Word docs, ~14.6k context chars |
+| Compare against known cache-hit trace | Older generation `05d3e020eeddcfa8` reported `input_cached_tokens=9472` without explicit cache controls | Confirms provider caching can work, but current prod routing is unreliable without a stable cache key |
+| Add explicit cache routing controls | `app/chat_provider.py` now sends `prompt_cache_key` and `prompt_cache_retention` for Azure/OpenAI and Foundry chat completions | Default key: `promobot:<deployment>:system-prompt`; default retention: `24h`; env overrides available |
+| Explain and fix "המידע שנשלף חלקי" overstatement | `app/system_prompt.txt` and `app/retrieval_plan.py` now make partial disclaimers conditional on explicitly missing requested coverage | Root cause: broad-retrieval context plus prompt rule made the model treat broad evidence packs as inherently partial |
+| Verification | Focused tests added for cache kwargs and broad-retrieval wording | Commit hash pending until this local change is committed |
 
 ### What's actually real (validated across multiple runs)
 

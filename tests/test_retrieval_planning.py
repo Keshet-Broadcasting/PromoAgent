@@ -167,6 +167,80 @@ def test_coverage_intent_set_for_all_dramas_query(monkeypatch):
     assert narrow.coverage is False
 
 
+def test_named_show_vs_genre_comparison_expands_word_targets(monkeypatch):
+    """Case 3 regression: 'compare אור ראשון to other dramas' must expand the Word
+    targets to the genre's comparator shows. Before the fix, an explicit show name
+    short-circuited genre expansion, so retrieval saw only אור ראשון and the model
+    invented a relative claim it could not ground."""
+    monkeypatch.setenv("BROAD_RETRIEVAL_ENABLED", "true")
+    import app.retrieval_plan as rp
+    importlib.reload(rp)
+
+    plan = rp._build_retrieval_plan(
+        "hybrid",
+        "השווה את כוונות הצפייה של 'אור ראשון' לדרמות אחרות.",
+        ranking=False,
+        season_filter=None,
+    )
+
+    assert plan.comparison is True
+    assert plan.show_names == ["אור ראשון"]
+    assert "drama" in plan.genres
+
+    targets = plan.word_targets
+    assert "אור ראשון" in targets
+    assert "הראש" in targets          # drama comparator now included
+    assert "גוף שלישי" in targets     # drama comparator now included
+    assert len(targets) > 1
+    # Genre-vs-genre comparisons (no explicit show) keep the plain genre targets:
+    genre_only = rp._build_retrieval_plan(
+        "hybrid",
+        "מה ההבדל בין אסטרטגיית השקה של דרמה לעומת ריאליטי?",
+        ranking=False,
+        season_filter=None,
+    )
+    assert genre_only.word_targets == genre_only.target_show_names
+
+
+def test_named_show_vs_genre_comparison_word_fetch_covers_comparators(monkeypatch):
+    """Case 3 regression at the retrieval layer: a named-show-vs-genre comparison
+    must fetch Word docs per-show so each comparator drama is represented, not only
+    the named אור ראשון."""
+    monkeypatch.setenv("BROAD_RETRIEVAL_ENABLED", "true")
+    import app.retrieval_plan as rp
+    importlib.reload(rp)
+    import app.retriever as ret
+    importlib.reload(ret)
+
+    captured: dict = {}
+
+    def fake_per_show(query, targets, top_per_show=1, max_total=20, prefer_question_types=None):
+        captured["targets"] = list(targets)
+        return [{"chunk_id": f"c-{s}", "show_name": s} for s in targets]
+
+    def fake_search_word_docs(query, top=5, **kwargs):
+        captured["single_search"] = kwargs
+        return [{"chunk_id": "single", "show_name": "אור ראשון"}]
+
+    monkeypatch.setattr(ret, "fetch_word_docs_per_show", fake_per_show)
+    monkeypatch.setattr(ret, "search_word_docs", fake_search_word_docs)
+    monkeypatch.setattr(ret, "search_excel_promos", lambda *a, **k: [])
+    monkeypatch.setattr(ret, "fetch_many_show_promos", lambda *a, **k: [])
+    monkeypatch.setattr(ret, "_needs_sharepoint_enrichment", lambda *a, **k: False)
+
+    retrieval = ret._retrieve(
+        "hybrid",
+        "השווה את כוונות הצפייה של 'אור ראשון' לדרמות אחרות.",
+        lambda q: "אור ראשון",
+    )
+
+    assert "targets" in captured, "per-show Word fetch should run for named-show-vs-genre comparison"
+    assert "אור ראשון" in captured["targets"]
+    assert "הראש" in captured["targets"]
+    assert "גוף שלישי" in captured["targets"]
+    assert retrieval.word_docs
+
+
 def test_per_show_fetch_falls_back_when_filters_disabled(monkeypatch):
     """Without the show_name filter, per-show calls would all return the same
     unfiltered set — so the helper must fall back to a single search instead."""
@@ -588,6 +662,55 @@ def test_word_prompt_guards_campaign_role_overstatement():
     assert "תפקיד של אלמנט" in system
 
 
+def test_viewing_intentions_prompt_disambiguates_measurement_tiers():
+    """Cases 2/3/4: 'כוונות צפייה' exists in two measurement tiers in the docs —
+    promo/trailer screening (~67-81%) and pre-launch campaign (~40%). The prompt
+    must tell the model to tag which tier each number belongs to and never mix
+    them, otherwise the model cites the wrong number or blends tiers."""
+    from app.prompts import build_messages
+
+    for route in ("word_quote", "hybrid"):
+        system = build_messages(
+            route,
+            "ctx",
+            "מה היו כוונות הצפייה של אור ראשון לפני ההשקה?",
+        )[0]["content"]
+        assert "בדיקת פרומו/טריילר" in system
+        assert "לפני השקה בפועל" in system
+        assert "אל תחליף" in system
+
+    # A non-intentions query must NOT get the tier addendum (keeps prompts lean):
+    unrelated = build_messages("hybrid", "ctx", "מה היה רייטינג ההשקה של נוטוק?")[0][
+        "content"
+    ]
+    assert "בדיקת פרומו/טריילר" not in unrelated
+
+    # Follow-up whose query lacks the phrase but whose context has intentions data
+    # must still trigger the tier guidance (case 3 is a follow-up of case 2):
+    followup = build_messages(
+        "hybrid", "כוונות צפייה של אור ראשון 67%", "תשווה לדרמות אחרות"
+    )[0]["content"]
+    assert "בדיקת פרומו/טריילר" in followup
+
+
+def test_hybrid_prompt_guides_conversion_calculator_answers():
+    from app.prompts import build_messages
+
+    messages = build_messages(
+        "hybrid",
+        "ctx",
+        "מהו מחשבון החיזוי המלא לרייטינג השקת דרמות בהתבסס על כוונות צפייה מ-5 סדרות?",
+    )
+
+    system = messages[0]["content"]
+
+    assert "מחשבון" in system
+    assert "מכפיל" in system
+    assert "נוסחה" in system
+    assert "לא מודל סטטיסטי" in system
+    assert "מגבלות" in system
+
+
 def test_strategic_mode_prompt_triggers_match_retrieval_triggers():
     """Regression (2026-06-11): the retrieval layer widens for synthesis phrasing
     (סכם/תובנות/פתרונות), but the prompt-level Strategic Synthesis Mode trigger
@@ -607,6 +730,100 @@ def test_strategic_mode_prompt_triggers_match_retrieval_triggers():
     # Precedence over Coverage Mode and thesis-first must be stated:
     assert "Coverage Mode" in section
     assert "thesis" in section
+
+
+def test_broad_retrieval_context_does_not_force_partial_disclaimer():
+    """Broad retrieval summaries should report coverage, not imply missing data.
+
+    Regression context (2026-06-30): a drama-ranking answer said
+    "המידע שנשלף חלקי" even though the trace had the planned broad evidence pack.
+    The model was over-following context/prompt wording that associated every
+    broad retrieval with a partial-coverage disclaimer.
+    """
+    from app.retrieval_plan import _RetrievalPlan, _fmt_broad_excel_evidence
+
+    plan = _RetrievalPlan(
+        route="hybrid",
+        query="דרג את סדרות הדרמה",
+        genres=["drama"],
+        broad_scope=True,
+        ranking=True,
+    )
+    docs = [
+        {
+            "show_name": "אור ראשון",
+            "season": "1",
+            "episode_number": "1",
+            "date": "01.01.2024",
+            "opening_point": "24",
+            "rating": "20",
+            "tab_name": "מעקבי פרומו.xlsx",
+            "promo_text": "השקה",
+        }
+    ]
+
+    context = _fmt_broad_excel_evidence(docs, docs, plan)
+
+    assert "כיסוי שליפה רחבה" in context
+    assert "חובה לציין שהתשובה חלקית" not in context
+    assert "הממצא חלקי" not in context
+    assert "אם חסרה" in context
+
+
+def test_conversion_context_guides_heuristic_calculator_without_refusal():
+    """Case 60: calculator questions should derive a bounded heuristic.
+
+    The retrieved evidence can contain enough numeric support for a business
+    heuristic without being a statistically valid model. The context should
+    steer the model to give the formula first, then caveat it.
+    """
+    from app.retrieval_plan import _RetrievalPlan, _fmt_broad_excel_evidence
+
+    plan = _RetrievalPlan(
+        route="hybrid",
+        query="מהו מחשבון החיזוי המלא לרייטינג השקת דרמות בהתבסס על כוונות צפייה מ-5 סדרות?",
+        genres=["drama"],
+        event_intent="conversion",
+        broad_scope=True,
+        conversion=True,
+    )
+    docs = [
+        {
+            "show_name": "הראש",
+            "season": "1",
+            "episode_number": "1",
+            "date": "17.3.2025",
+            "opening_point": "18",
+            "rating": "16.2",
+            "tab_name": "מעקבי פרומו.xlsx",
+        },
+        {
+            "show_name": "נוטוק",
+            "season": "1",
+            "episode_number": "1",
+            "date": "01.01.2025",
+            "opening_point": "17",
+            "rating": "15.4",
+            "tab_name": "מעקבי פרומו.xlsx",
+        },
+        {
+            "show_name": "אור ראשון",
+            "season": "1",
+            "episode_number": "1",
+            "date": "01.01.2025",
+            "opening_point": "20",
+            "rating": "20",
+            "tab_name": "מעקבי פרומו.xlsx",
+        },
+    ]
+
+    context = _fmt_broad_excel_evidence(docs, docs, plan)
+
+    assert "הנחיית מחשבון חיזוי" in context
+    assert "לפחות 3" in context
+    assert "אל תסרב" in context
+    assert "לא מודל סטטיסטי" in context
+    assert "מגבלות" in context
 
 
 def test_per_show_fetch_prefers_strategy_section(monkeypatch):
@@ -655,6 +872,35 @@ def test_launch_selector_keeps_launch_rows_first():
     selected = svc._select_excel_rows_for_plan(docs, plan)
 
     assert [d["show_name"] for d in selected] == ["הראש", "נוטוק"]
+
+
+def test_broad_launch_comparison_context_warns_against_peak_only_summary():
+    from app import retrieval_plan as rp
+
+    plan = rp._RetrievalPlan(
+        route="excel_numeric",
+        query=(
+            "השווה את נקודות הפתיחה של פרקי ההשקה בין "
+            "'נינג'ה ישראל', 'חתונה ממבט ראשון' ו'המירוץ למיליון'."
+        ),
+        show_names=["נינג'ה ישראל", "חתונה ממבט ראשון", "המירוץ למיליון"],
+        event_intent="launch",
+        broad_scope=True,
+        comparison=True,
+    )
+    selected = [
+        {"show_name": "חתונה ממבט ראשון", "season": "7", "episode_number": 1, "opening_point": 23.5},
+        {"show_name": "חתונה ממבט ראשון", "season": "6", "episode_number": 1, "opening_point": 21.0},
+        {"show_name": "חתונה ממבט ראשון", "season": "5", "episode_number": 1, "opening_point": 20.0},
+        {"show_name": "נינג'ה ישראל", "season": "5", "episode_number": 1, "opening_point": 22.0},
+        {"show_name": "המירוץ למיליון", "season": "9", "episode_number": 1, "opening_point": 21.5},
+    ]
+
+    context = rp._fmt_broad_excel_evidence(selected, selected, plan)
+
+    assert "אל תבחר רק את הערך הגבוה" in context
+    assert "חתונה ממבט ראשון: 20-23.5" in context
+    assert "כל הערכים: 23.5, 21, 20" in context
 
 
 def test_word_metadata_filter_construction():

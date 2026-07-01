@@ -1,6 +1,6 @@
 ﻿# PromoAgent — Roadmap
 
-**Last updated:** Jun 23, 2026 (frontend UX cleanup validated)
+**Last updated:** Jul 1, 2026 (case 3 retrieval fix + viewing-intentions tier disambiguation)
 
 **Strategic plan for hitting 70%:** see [`docs/PATH_TO_70_PERCENT.md`](PATH_TO_70_PERCENT.md) — handoff document with phased plan, realistic ceiling math, observability upgrade, and decision points.
 
@@ -68,6 +68,12 @@ PromoAgent is a RAG-based chatbot for Keshet TV's promo department, replacing a 
 | PROMPT-POS | Shorten top-level prompt and reframe style rules as positive instructions | **DONE (Jun 22)** | `app/system_prompt.txt`: top operating rules consolidated; negative wording reduced 28→4 matches; prompt-focused tests green; repeated 16-case A/B positive and full 64-case A/B positive (+3.7pp overall / +5.1pp judge); merge recommended |
 | CASE57+DATASET | New-season `חתונמי` retrieval + dataset CI integrity | **DONE (Jun 23)** | `_LAUNCH_PATTERNS` now treats `לקראת עונה חדשה` as launch intent; regex split into named terms after PR #26 review; `dataset.jsonl` is no longer ignored; `tests/test_eval_dataset_integrity.py` guards schema + cleaned-query intent preservation; manual chat connectivity script no longer runs as a pytest unit test; case 57 recovered to 85%, case 58 cleaned-query bug fixed and rechecked at 64.1% |
 | UX-MD-ERRORS | Hebrew-friendly errors + rendered assistant Markdown | **DONE (Jun 23)** | `promobot-ui/src/services/api.ts`, chat components, and `promobot-ui/src/config/msal.ts`: API failures now map to non-technical Hebrew messages with contextual action labels; assistant answers render headings, bold text, and numbered/bulleted lists instead of raw `##` / `**`; frontend lint and production build pass |
+| CACHE+PARTIAL | Prompt-cache routing controls + conditional partial-coverage wording | **DONE (Jun 30)** | `app/chat_provider.py` now sends stable `prompt_cache_key` + `prompt_cache_retention`; `app/system_prompt.txt` and `app/retrieval_plan.py` only ask for "partial" disclaimers when missing requested coverage is explicit |
+| CASE30-LAUNCH-RANGE | Cross-show launch comparison range guidance | **DONE (Jun 30)** | `app/retrieval_plan.py` now adds per-show launch ranges/all values to broad Excel context so gpt-5.4-mini does not collapse multi-season comparisons to only the peak row; case 30 recovered to 82.4% overall / judge 4 |
+| TRIAGE-RULE | Eval regression source-of-truth checkpoint | **DONE (Jul 1)** | `.cursor/rules/eval-regression-triage-before-code.mdc` now requires exact copy-paste Custom GPT + Claude/source-doc questions, plus Langfuse trace comparison, before prompt/retrieval/code/gold changes; drama slice cases 1-5 ran with 0 errors but cases 2/3/4 need triage |
+| TRIAGE-C4 | Case 4 gold correction (drama intentions vs rating) | **DONE (Jul 1)** | Source-doc triage found the gold conflated promo-test intentions (67/73/72%) with a non-existent "70%+→16-17%" multiplier and a wrong הראש rating. Rewrote gold on the pre-launch tier (~40% all three) → actual ratings, no fixed multiplier; `needs_human_review=true` |
+| TRIAGE-C3 | Case 3 comparison retrieval gap | **DONE (Jul 1)** | `_RetrievalPlan.word_targets` + per-show Word fetch for named-show-vs-genre comparisons in `app/retrieval_plan.py`/`app/retriever.py`; comparators now retrieved. Judge case 3: 2→3 |
+| TRIAGE-TIER | Viewing-intentions two-tier disambiguation | **DONE (Jul 1)** | Prompt addendum in `app/prompts.py` (word/hybrid) tags promo/trailer tier (~60-85%) vs pre-launch tier (~35-45%); case 2/3 gold annotated. Slice 1-5: overall 62.4%, judge 60%. Residual: case 2 retrieval ranks the 40% chunk above the 67% chunk |
 | 7 | Consolidate Hebrew vocabulary into `app/text_patterns.py` | TODO (1-2 hr) | Single source of truth for `_GROUNDING_MARKERS`, `_DOCTYPE_KEYS`, `GENRE_PATTERNS`, `_RANKING_PATTERNS`, `_LAUNCH_PATTERNS`, etc. Currently scattered across 5 files. Refactor only — no behavior change. |
 | 8 | UI parity (streaming, threads, mobile) | TODO | UX |
 

@@ -145,6 +145,23 @@ class _RetrievalPlan:
             return official_show_names()
         return []
 
+    @property
+    def word_targets(self) -> list[str]:
+        """Show targets for Word retrieval.
+
+        For a comparison that names a show *and* a genre (e.g. "compare אור ראשון
+        to other dramas"), include the genre's shows as comparators. Plain
+        `target_show_names` short-circuits on the explicit show and would starve
+        the comparison, leaving the model to make a relative claim it cannot ground.
+        """
+        if self.comparison and self.show_names and self.genres:
+            merged = list(self.show_names)
+            for name in shows_for_genres(self.genres):
+                if name not in merged:
+                    merged.append(name)
+            return merged
+        return self.target_show_names
+
 
 # ---------------------------------------------------------------------------
 # Planner helpers
@@ -224,6 +241,70 @@ def _fmt_plan_targets(plan: _RetrievalPlan) -> str:
     return " | ".join(parts) if parts else "שליפה כללית"
 
 
+def _as_float(value) -> float | None:
+    try:
+        if value in (None, ""):
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _fmt_number(value: float) -> str:
+    return f"{value:g}"
+
+
+def _fmt_launch_comparison_summary(selected: list[dict], plan: _RetrievalPlan) -> str:
+    if not (plan.event_intent == "launch" and plan.comparison):
+        return ""
+
+    by_show: dict[str, list[float]] = {}
+    for row in selected:
+        show = row.get("show_name") or "—"
+        opening = _as_float(row.get("opening_point"))
+        if opening is None:
+            continue
+        by_show.setdefault(show, []).append(opening)
+
+    if not by_show:
+        return ""
+
+    lines = [
+        "### הנחיית השוואת השקות",
+        "- כאשר לתוכנית יש כמה עונות/פרקי השקה בקונטקסט, אל תבחר רק את הערך הגבוה או האחרון אלא אם המשתמש ביקש זאת במפורש.",
+        "- בהשוואה רוחבית, הצג טווח או את כל ערכי ההשקה הרלוונטיים לכל תוכנית.",
+    ]
+    for show, values in by_show.items():
+        low = min(values)
+        high = max(values)
+        range_text = _fmt_number(high) if low == high else f"{_fmt_number(low)}-{_fmt_number(high)}"
+        all_values = ", ".join(_fmt_number(v) for v in values)
+        lines.append(
+            f"- {show}: {range_text} (שורות השקה: {len(values)}; כל הערכים: {all_values})"
+        )
+    return "\n".join(lines)
+
+
+def _fmt_conversion_calculator_guidance(selected: list[dict], plan: _RetrievalPlan) -> str:
+    if not (plan.conversion or plan.event_intent == "conversion"):
+        return ""
+
+    numeric_rows = 0
+    for row in selected:
+        if _as_float(row.get("opening_point")) is not None or _as_float(row.get("rating")) is not None:
+            numeric_rows += 1
+
+    lines = [
+        "### הנחיית מחשבון חיזוי",
+        "- אם הקונטקסט מכיל לפחות 3 זוגות שימושיים של כוונות צפייה מול רייטינג/נקודת פתיחה, גזור מהם נוסחת חיזוי מעשית.",
+        "- אל תסרב לבנות מחשבון רק כי המדגם קטן; פתח בנוסחה/טבלת ספים ואז ציין מגבלות.",
+        "- נסח במפורש שזה כלל אצבע עסקי ולא מודל סטטיסטי מאומת.",
+        "- הצג: נוסחה, דוגמאות חישוב, ספי החלטה, חריגי אירוע, ומגבלות הכיסוי.",
+        f"- שורות כמותיות בקונטקסט Excel: {numeric_rows}. נתוני כוונות צפייה עשויים להופיע במסמכי Word הסמוכים.",
+    ]
+    return "\n".join(lines)
+
+
 def _fmt_broad_excel_evidence(
     docs: list[dict],
     selected: list[dict],
@@ -236,8 +317,14 @@ def _fmt_broad_excel_evidence(
         f"- {_fmt_plan_targets(plan)}\n"
         f"- שורות שנשלפו לפני סינון: {len(docs)}\n"
         f"- שורות שנכנסו לקונטקסט: {len(selected)}\n"
-        "- אם חסרה תוכנית או עונה מבוקשת, חובה לציין שהתשובה חלקית.\n"
+        "- אם חסרה תוכנית, עונה או קטגוריה שהמשתמש ביקש במפורש, ציין את מגבלת הכיסוי.\n"
     )
+    launch_summary = _fmt_launch_comparison_summary(selected, plan)
+    if launch_summary:
+        coverage += "\n" + launch_summary + "\n"
+    conversion_guidance = _fmt_conversion_calculator_guidance(selected, plan)
+    if conversion_guidance:
+        coverage += "\n" + conversion_guidance + "\n"
     return coverage + "\n" + _fmt_excel(selected)
 
 
