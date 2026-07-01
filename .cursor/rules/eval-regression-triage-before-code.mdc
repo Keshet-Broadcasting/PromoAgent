@@ -1,0 +1,25 @@
+---
+description: Require source-of-truth checks before changing RAG eval/prompt/retrieval behavior
+alwaysApply: true
+---
+
+# Eval Regression Triage Before Code Changes
+
+When investigating a low eval score, prompt/system gap, retrieval issue, dataset-gold concern, or model-answer regression, do **not** jump directly to code, retrieval, system-prompt, dataset, or model-config changes.
+
+First run a short evidence checkpoint:
+
+1. **Custom GPT baseline** — give the user the exact copy-paste question(s) to ask the promo team's current Custom GPT. Include the original user/eval question first, and optionally one clarified variant that tests the intended business task. Treat this as the product/source-of-truth baseline for expected answer shape, not as automatic ground truth.
+2. **Document-focused check** — give the user the exact copy-paste question(s) to ask Claude over the source documents. The questions must name the target files/topics and ask for the missing evidence explicitly, e.g. "please list all השקות של סדרות דרמה שנמצאות במסמך דרמות" or "which documents contain כוונות צפייה מול רייטינג for these shows?"
+3. **Trace comparison** — compare Langfuse traces for route, model, context length, retrieved Excel/Word counts, and whether the answer failed due to retrieval coverage, model summarization, prompt wording, or bad gold.
+4. **Record the decision** — before edits, state the likely root cause and whether the next step is: fix code/retrieval, adjust prompt/context contract, fix dataset gold, or leave the case as a questionable eval item.
+
+Only make changes after this checkpoint identifies a concrete failure mode. If the Custom GPT or document check contradicts the eval gold, prefer updating/evaluating the gold before changing production behavior.
+
+When asking the user for this checkpoint, do not say only "check with Custom GPT / Claude." Provide exact prompts, for example:
+
+**Custom GPT:**
+`מהו מחשבון החיזוי המלא לרייטינג השקת דרמות בהתבסס על כוונות צפייה מ-5 סדרות?`
+
+**Claude over source docs:**
+`במסמך דרמות ובקובץ מעקבי פרומו, מצא את כל הזוגות של כוונות צפייה מול רייטינג/נקודת פתיחה להשקת סדרות דרמה. עבור כל סדרה ציין: שם הסדרה, מקור מדויק, כוונות צפייה, רייטינג/נקודת פתיחה, והאם יש נוסחת חיזוי מפורשת או שצריך לגזור אותה מהנתונים.`

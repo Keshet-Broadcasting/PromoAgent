@@ -1,11 +1,20 @@
 # Evaluation Report — PromoBot Agent
 
-**Date:** May 1, 2026
+**Date:** Jun 30, 2026
 **Dataset:** `dataset.jsonl` (25 gold-standard Q&A pairs)
 **Model:** gpt-4o via Azure AI Foundry
 **Eval script:** `tests/eval_dataset.py`
 
 ---
+
+## Prompt Cache + Partial-Coverage Calibration — Done (2026-06-30)
+
+This update addresses two live Langfuse findings:
+
+- Repeated current-prod traces for the same long prompt showed `input_cached_tokens=0`, while an older trace showed `input_cached_tokens=9472`. The chat provider now sends explicit `prompt_cache_key` and `prompt_cache_retention` controls to improve cache routing.
+- A broad drama-ranking answer said "המידע שנשלף חלקי" even though the trace had the intended broad evidence pack. The prompt and broad-retrieval context now reserve partial disclaimers for explicitly missing requested coverage.
+
+Verification added: focused unit coverage for prompt-cache payload construction and broad-retrieval wording. Post-deploy validation should check Langfuse for nonzero `input_cached_tokens` on repeated current-prod questions.
 
 ## Executive Summary
 
@@ -69,7 +78,11 @@ Questions asking for strategy descriptions, campaign slogans, or qualitative ins
 
 ## What Needs Improvement
 
-### 1. Numeric Accuracy on Ranking/Comparison Queries (28%)
+### 1. Validate prompt-cache hits after deploy
+
+The code now sends explicit cache controls, but the success criterion is operational: repeated long prompts in Langfuse should show `input_cached_tokens > 0`.
+
+### 2. Numeric Accuracy on Ranking/Comparison Queries (28%)
 
 **Root cause: Retrieval gaps, not LLM errors.**
 
@@ -79,13 +92,13 @@ Examples:
 - Cases 13–14 (ranking): 0% numeric — the retrieved Excel rows did not include the expected episodes
 - Case 3 (comparison): 0% numeric — missing the specific numbers needed for cross-show comparison
 
-### 2. Keyword Coverage is Misleadingly Low (20%)
+### 3. Keyword Coverage is Misleadingly Low (20%)
 
 This is an artifact of the scoring method, not a real problem. Hebrew has rich morphology — the gold answer says "כוונות הצפייה הכלליות היו 67%" while the model says "כוונות הצפייה עמדו על 67%". Same meaning, different words, counted as a miss.
 
 **Recommendation:** Use the `--judge` flag for semantic scoring. LLM-as-judge captures paraphrasing and partial correctness that exact keyword matching misses.
 
-### 3. One Error (Case 19)
+### 4. One Error (Case 19)
 
 Case 19 failed with `BadRequestError` — the prompt likely exceeded the model's token limit. This was a long open-ended question about recommendations for "הכוכב הבא" promos, which produced a large retrieval context.
 

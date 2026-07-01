@@ -36,6 +36,10 @@ MODEL_PARAM_STYLE               auto | classic | reasoning  (default: auto)
                                 gpt-5 family / o-series deployments need the
                                 "reasoning" parameter style (max_completion_tokens,
                                 no temperature/seed); auto detects by name.
+PROMPT_CACHE_ENABLED            true | false  (default: true)
+PROMPT_CACHE_KEY                optional stable routing key for prompt caching.
+                                Defaults to promobot:<deployment>:system-prompt.
+PROMPT_CACHE_RETENTION          in_memory | 24h | "" to omit  (default: 24h)
 MAX_ANSWER_TOKENS_REASONING     completion budget for reasoning models — includes
                                 their invisible reasoning tokens (default: 10000)
 REASONING_EFFORT                minimal | low | medium | high | "" to omit
@@ -62,6 +66,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import importlib.util
 from abc import ABC, abstractmethod
 
 try:
@@ -71,15 +76,10 @@ try:
 except ImportError:
     _GENAI_AVAILABLE = False
 
-try:
-    # Import the langfuse-patched OpenAI class so every call becomes a child
-    # span nested inside the @observe trace in service.py.
-    # Do NOT call register_tracing() here — that registers an OTEL exporter
-    # which creates a second top-level trace and causes duplicate logging.
-    from langfuse.openai import OpenAI as _LangfuseOpenAI
-    _LANGFUSE_OPENAI_AVAILABLE = True
-except ImportError:
-    _LANGFUSE_OPENAI_AVAILABLE = False
+# Avoid importing langfuse at module import time: on some Windows test runs its
+# numpy dependency can crash during collection. Providers import it lazily only
+# when a real client is constructed.
+_LANGFUSE_OPENAI_AVAILABLE = importlib.util.find_spec("langfuse") is not None
 
 
 log = logging.getLogger(__name__)
@@ -131,6 +131,7 @@ _REASONING_EFFORT = os.getenv("REASONING_EFFORT", "low")
 # Matches gpt-5* and o1/o3/o4-style names without catching gpt-4o / gpt-4o-mini
 # ("o" must be followed by a digit and not preceded by a letter or digit).
 _REASONING_NAME_RE = re.compile(r"gpt-?5|(^|[^a-z0-9])o\d", re.IGNORECASE)
+_PROMPT_CACHE_RETENTIONS = {"in_memory", "24h"}
 
 
 def _is_reasoning_model(model_name: str) -> bool:
@@ -156,6 +157,38 @@ def _completion_kwargs(model_name: str) -> dict:
             kwargs["reasoning_effort"] = _REASONING_EFFORT
         return kwargs
     return {"temperature": 0, "seed": _LLM_SEED, "max_tokens": _MAX_TOKENS}
+
+
+def _prompt_cache_kwargs(model_name: str) -> dict:
+    """Return OpenAI-compatible prompt cache controls for chat completions.
+
+    Azure/OpenAI prompt caching is automatic, but a stable cache key improves
+    routing for repeated long system-prompt prefixes. The dynamic retrieval
+    context remains at the end of the messages list, so the shared system
+    prefix is the part we expect to cache.
+    """
+    enabled = os.getenv("PROMPT_CACHE_ENABLED", "true").lower() in ("true", "1", "yes")
+    if not enabled:
+        return {}
+
+    key = os.getenv("PROMPT_CACHE_KEY", "").strip()
+    if not key:
+        safe_model = re.sub(r"[^a-zA-Z0-9_.:-]+", "-", model_name or "default").strip("-")
+        key = f"promobot:{safe_model}:system-prompt"
+
+    extra_body = {"prompt_cache_key": key}
+    retention = os.getenv("PROMPT_CACHE_RETENTION", "24h").strip()
+    if retention:
+        if retention not in _PROMPT_CACHE_RETENTIONS:
+            log.warning(
+                "Ignoring invalid PROMPT_CACHE_RETENTION=%r; expected one of %s",
+                retention,
+                sorted(_PROMPT_CACHE_RETENTIONS),
+            )
+        else:
+            extra_body["prompt_cache_retention"] = retention
+
+    return {"extra_body": extra_body}
 
 
 class AzureOpenAIProvider(ChatProvider):
@@ -187,6 +220,7 @@ class AzureOpenAIProvider(ChatProvider):
             messages=messages,
             timeout=_LLM_TIMEOUT,
             **_completion_kwargs(self.deployment),
+            **_prompt_cache_kwargs(self.deployment),
         )
         content = resp.choices[0].message.content
         if not content:
@@ -307,6 +341,7 @@ class FoundryProvider(ChatProvider):
             messages=messages,
             timeout=_LLM_TIMEOUT,
             **_completion_kwargs(self.model),
+            **_prompt_cache_kwargs(self.model),
         )
         content = resp.choices[0].message.content
         if not content:

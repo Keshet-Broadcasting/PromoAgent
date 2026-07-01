@@ -70,8 +70,13 @@ def _fetch_word_docs(plan: _RetrievalPlan, query: str, word_top: int) -> list[di
     - single show → scoped search, wider top.
     """
     if plan.broad_word:
-        targets = plan.target_show_names
-        if plan.coverage and len(targets) > 1:
+        targets = plan.word_targets
+        # Named-show-vs-genre comparisons must fetch per-show so every comparator
+        # is represented, not only the explicitly named show.
+        force_per_show = plan.coverage or (
+            plan.comparison and bool(plan.genres) and bool(plan.show_names)
+        )
+        if force_per_show and len(targets) > 1:
             prefer = None
             if re.search(r"אסטרטגי|מכירה|סלוגן|בריף|פוזישנינג|מיצוב", query):
                 prefer = ["אסטרטגיה", "סלוגן"]

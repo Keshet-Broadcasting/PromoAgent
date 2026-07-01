@@ -1,9 +1,76 @@
 ﻿# PromoAgent — Improvement Plan
 ## Goal: Replace the Custom GPT on OpenAI Subscription
 
-**Written:** May 10, 2026 | **Last updated:** Jun 23, 2026 (frontend UX cleanup validated)  
+**Written:** May 10, 2026 | **Last updated:** Jul 1, 2026 (case 3 retrieval fix + viewing-intentions tier disambiguation)  
 **Current judge score:** 49.0% (≈ 2.45 / 5) — Foundry gpt-4o, 62-case dataset (Run 8, May 28); Phase A + C.1-C.3 + D.1-D.2 shipped, Run 9 eval pending  
 **Target judge score:** ≥ 70% (≈ 3.5 / 5 — "correct, complete, well-phrased")
+
+---
+
+### Eval Regression Triage Rule + Drama Slice — Done (2026-07-01)
+
+| Sub-item | Status |
+|---|---|
+| Add source-of-truth checkpoint rule | ✅ DONE — `.cursor/rules/eval-regression-triage-before-code.mdc` requires exact copy-paste questions for Custom GPT and Claude/source-doc checks, plus Langfuse trace comparison, before prompt/retrieval/code/gold changes |
+| Use Custom GPT answer to pause case 60 fix | ✅ DONE — Custom GPT produced a different calculator than the existing case 60 gold, so the next step is document/gold validation before production behavior changes |
+| Run drama eval slice | ✅ DONE — `tests/eval_dataset.py --only 1,2,3,4,5 --judge` completed with 0 errors; overall `58.9%`, LLM judge `60.0%` |
+| Identify follow-up candidates | ✅ DONE — cases 1 and 5 were strong; cases 2 and 3 were low; case 4 was middling and should be triaged before edits |
+
+Notes: This is an evaluation-process hardening change. It intentionally slows down low-score fixes so we first check the promo team's Custom GPT and the source documents before altering the RAG pipeline or gold answers.
+
+---
+
+### Case 3 Retrieval Fix + Tier Disambiguation — Done (2026-07-01)
+
+| Sub-item | Status |
+|---|---|
+| Failing tests first | ✅ DONE — `test_named_show_vs_genre_comparison_expands_word_targets`, `..._word_fetch_covers_comparators`, `test_viewing_intentions_prompt_disambiguates_measurement_tiers` |
+| Retrieval fix | ✅ DONE — `_RetrievalPlan.word_targets` + per-show Word fetch for named-show-vs-genre comparisons (`app/retrieval_plan.py`, `app/retriever.py`) |
+| Prompt tier guidance | ✅ DONE — viewing-intentions addendum in `app/prompts.py` (word/hybrid), triggered by intentions in query or context |
+| Gold annotation | ✅ DONE — case 2/3 gold tags the promo/trailer tier and notes the pre-launch tier |
+| Re-eval | ✅ DONE — slice 1-5 overall 62.4%, judge 60%; cases 2/3/4 improved (1→4, 2→3, 2→3), 1/5 dropped on variance |
+
+Residual follow-up: case 2 retrieval ranks the pre-launch 40% chunk above the promo 67% chunk, so the model leads with 40%. Consider a tier-preferring rerank for general intentions questions.
+
+---
+
+### Drama Slice Triage Outcome (cases 2/3/4) — Done (2026-07-01)
+
+| Case | Verdict | Action |
+|---|---|---|
+| 2 (אור ראשון pre-launch intentions) | Gold VALID (Custom GPT confirms 67% + "נמוך יחסית") | No gold change; low score is answer-framing, revisit later |
+| 3 (compare vs other dramas) | Gold VALID + grounded (promo-test tier in `מסמך דרמות GPT.docx`); root cause = retrieval gap | Planned fix: broaden retrieval per named show + prompt guard, keep tiers unmixed (not yet implemented) |
+| 4 (intentions vs actual rating) | Gold FLAWED (wrong הראש rating; non-existent multiplier; mixed tiers) | ✅ DONE — rewrote gold on pre-launch tier (~40% all three) → actual ratings, no fixed multiplier, `needs_human_review=true` |
+
+Notes: This validated the triage rule immediately — the Claude source-doc check on case 4 found a factual error and a fabricated heuristic in the gold that would otherwise have driven a wrong production "prediction calculator" change.
+
+---
+
+### Case 30 Launch-Comparison Range Calibration — Done (2026-06-30)
+
+| Sub-item | Status |
+|---|---|
+| Reproduce the regression | ✅ DONE — Langfuse trace `c0bb61c6bf287a090ecbde74f9d5dd6a` had sufficient retrieval (`retrieval_excel_docs=11`) but gpt-5.4-mini summarized `חתונה ממבט ראשון` as only `23.5%` |
+| Add regression test first | ✅ DONE — `test_broad_launch_comparison_context_warns_against_peak_only_summary` fails unless the context contains an anti-peak-only instruction and per-show launch range |
+| Fix context contract | ✅ DONE — `_fmt_broad_excel_evidence()` now adds launch-comparison guidance with range/all-values summaries for multi-show launch comparisons |
+| Verify | ✅ DONE — focused retrieval tests passed; live judged eval case 30 recovered to overall `82.4%`, judge `4/5`, numeric `100%`, grounded `100%` |
+
+Notes: This does not change retrieval selection or hard-code the dataset answer. It gives the model a clearer aggregation contract when the table contains multiple launch rows for the same show.
+
+---
+
+### Prompt Cache + Partial-Coverage Calibration — Done (2026-06-30)
+
+| Sub-item | Status |
+|---|---|
+| Confirm current repeated prod-like question misses prompt cache | ✅ DONE — Langfuse trace `3799af40e9541aa56d8df47a40d69d45` had `input_cached_tokens=0` despite matching the current system prompt prefix |
+| Compare with historical cache-hit trace | ✅ DONE — generation `05d3e020eeddcfa8` had `input_cached_tokens=9472`, proving provider-side caching works opportunistically |
+| Add explicit prompt-cache routing controls | ✅ DONE — `app/chat_provider.py` sends `prompt_cache_key` and `prompt_cache_retention` via `extra_body` for Azure/OpenAI-compatible chat completions |
+| Make cache behavior configurable | ✅ DONE — `PROMPT_CACHE_ENABLED`, `PROMPT_CACHE_KEY`, and `PROMPT_CACHE_RETENTION` control the payload |
+| Calibrate broad-retrieval partial disclaimer | ✅ DONE — broad retrieval no longer instructs the model to say "חלקי" unless missing requested coverage is explicit |
+| Add regression tests | ✅ DONE — focused tests cover cache payload and broad-retrieval wording |
+
+Notes: This is a cost/latency and answer-calibration change. It does not alter retrieval selection. After deployment, verify in Langfuse that repeated current-prod questions report nonzero `input_cached_tokens`.
 
 ---
 

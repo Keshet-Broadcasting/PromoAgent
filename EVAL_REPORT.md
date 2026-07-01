@@ -1,10 +1,78 @@
 # PromoAgent — Evaluation Report
 
-**Last updated:** Jun 23, 2026 (frontend UX cleanup)  
+**Last updated:** Jul 1, 2026 (case 3 retrieval fix + viewing-intentions tier disambiguation)  
 **Dataset:** `dataset.jsonl` — 64 cases  
 **Eval harness:** `tests/eval_dataset.py` (LLM-as-judge via configured Foundry provider)  
 **Observability:** Langfuse v4 — scores pushed per run to [cloud.langfuse.com](https://cloud.langfuse.com)  
 **Target:** Judge ≥ 70% (≈ 3.5 / 5 average) to replace the custom GPT
+
+---
+
+## Case 3 Retrieval Fix + Viewing-Intentions Tier Disambiguation — Done (Jul 1)
+
+Fixed the comparison retrieval gap and the two-tier `כוונות צפייה` ambiguity surfaced by the triage.
+
+- **Retrieval (`app/retrieval_plan.py` + `app/retriever.py`):** named-show-vs-genre comparisons (e.g. "compare אור ראשון to other dramas") now expand Word targets to the genre's comparator shows and fetch per-show, so comparators are actually retrieved. New `_RetrievalPlan.word_targets`.
+- **Prompt (`app/prompts.py`):** a viewing-intentions tier addendum (word/hybrid routes, triggered by intentions in query or context) tells the model the docs hold two measurement tiers — promo/trailer screening (~60-85%) vs pre-launch campaign (~35-45%) — to tag each number by its section header and never mix tiers.
+- **Gold (`dataset.jsonl`):** cases 2 and 3 annotated to name the promo/trailer tier explicitly and note the separate pre-launch tier, so a correct tier-tagged answer scores well.
+- **Tests:** `test_named_show_vs_genre_comparison_expands_word_targets`, `test_named_show_vs_genre_comparison_word_fetch_covers_comparators`, `test_viewing_intentions_prompt_disambiguates_measurement_tiers` (40 passed in `test_retrieval_planning.py`).
+
+Judged slice 1–5 (fresh answers, broad retrieval on): overall **62.4%**, judge **60.0%**, grounded 100%. Per-case judge:
+
+| Case | Pre-triage | After case-4 gold | After #1+#2 |
+|---|---|---|---|
+| 1 | 5 | 5 | 4 (variance) |
+| 2 | 2 | 1 | **4** |
+| 3 | 2 | 2 | **3** |
+| 4 | 3 | 2 | **3** |
+| 5 | 5 | 5 | 3 (variance, NUM=1.0) |
+
+Targeted cases 2/3/4 all improved; 1/5 dropped only on LLM phrasing variance (unchanged code paths/golds). Residual follow-up: case 2 still leads with the pre-launch 40% because retrieval ranks that chunk above the 67% promo chunk — a recall bias to revisit.
+
+---
+
+## Drama Slice Triage (cases 2/3/4) — Done (Jul 1)
+
+Ran the new source-of-truth triage on the low-scoring drama slice before any code change.
+
+- **Case 2** (אור ראשון pre-launch intentions): gold **VALID** — Custom GPT confirms 67% general + "נמוך יחסית" + weak among women/young. Low score is answer-quality (bot drops the relative framing), not gold. No dataset change; candidate for answer/prompt review later.
+- **Case 3** (compare אור ראשון vs other dramas): gold **VALID and grounded** — Claude confirms comparator numbers exist in `מסמך דרמות GPT.docx` at the **promo-screening tier** (הראש 73/78, נוטוק 72, גוף שלישי 69/81). Root cause = **retrieval gap**: only the subject's numbers reach context, so the model invents "above average". Caveat: docs also hold a lower **pre-launch campaign tier (~39–41%)** — a retrieval fix must not mix tiers. Decision: retrieval broadening + prompt guard (planned, not yet implemented).
+- **Case 4** (intentions vs actual rating): gold **FLAWED → corrected**. Document checks showed (1) הראש launch rating was wrong (gold said 14–15%; docs say opening 18 / rating 16.2), and (2) the gold mixed promo-test intentions (67/73/72%) with a "70%+ → 16–17%" multiplier that **does not exist** in the docs. Rewrote the gold on the pre-launch campaign tier (~40% for all three) paired with actual ratings, stating explicitly there is no fixed conversion multiplier. `confidence` lowered to `medium`, `needs_human_review=true`.
+
+---
+
+## Eval Triage Rule + Drama Slice — Done (Jul 1)
+
+Added a persistent project rule to prevent premature fixes for low-score eval cases:
+
+- `.cursor/rules/eval-regression-triage-before-code.mdc`: before changing prompts, retrieval, code, model config, or dataset gold, provide exact copy-paste questions for the promo team's Custom GPT and Claude/source-document checks, then compare Langfuse traces.
+- Case 60 was paused after the Custom GPT produced a different calculator than the existing gold, suggesting a product/gold-alignment check is needed before production behavior changes.
+
+Targeted judged drama slice:
+
+- Command: `tests/eval_dataset.py --only 1,2,3,4,5 --judge` with `CHAT_PROVIDER=azure_openai`.
+- Result: 5 cases, 0 errors, overall `58.9%`, LLM judge `60.0%`.
+- Per-case judge: case 1 = 5/5, case 2 = 2/5, case 3 = 2/5, case 4 = 3/5, case 5 = 5/5.
+
+Decision:
+
+- Not a clean regression pass. Cases 2/3/4 should go through the new Custom GPT + document-focused triage before any code or prompt changes.
+
+---
+
+## Case 30 Launch-Comparison Range Calibration — Done (Jun 30)
+
+Fixed a gpt-5.4-mini answer-shape regression on:
+`השווה את נקודות הפתיחה של פרקי ההשקה בין 'נינג'ה ישראל', 'חתונה ממבט ראשון' ו'המירוץ למיליון'.`
+
+- Root cause: retrieval was sufficient, but the answer collapsed multiple `חתונה ממבט ראשון` launch rows into only the peak value (`23.5%`) instead of presenting range/all-row context.
+- Change: `app/retrieval_plan.py` adds a launch-comparison guidance section with per-show ranges and all launch values before the Excel table.
+- Test: `tests/test_retrieval_planning.py` now guards against removing the anti-peak-only instruction.
+
+Verification:
+
+- Focused retrieval tests: 3/3 passed.
+- Fresh judged eval case 30: overall `82.4%`, numeric `100%`, grounded `100%`, LLM judge `4/5`.
 
 ---
 

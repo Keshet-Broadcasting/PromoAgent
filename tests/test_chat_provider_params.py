@@ -16,7 +16,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.chat_provider import _completion_kwargs, _is_reasoning_model  # noqa: E402
+from app.chat_provider import _completion_kwargs, _is_reasoning_model, _prompt_cache_kwargs  # noqa: E402
 
 
 CLASSIC_NAMES = ["gpt-4o", "gpt-4o-1", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini", "gpt-35-turbo"]
@@ -58,3 +58,35 @@ def test_param_style_env_override(monkeypatch):
     assert _is_reasoning_model("promo-chat-prod")
     monkeypatch.setenv("MODEL_PARAM_STYLE", "classic")
     assert not _is_reasoning_model("gpt-5.4-mini")
+
+
+def test_prompt_cache_kwargs_enabled_by_default(monkeypatch):
+    """Repeated prod prompts should route toward the same prompt-cache shard."""
+    monkeypatch.delenv("PROMPT_CACHE_ENABLED", raising=False)
+    monkeypatch.delenv("PROMPT_CACHE_KEY", raising=False)
+    monkeypatch.delenv("PROMPT_CACHE_RETENTION", raising=False)
+
+    kw = _prompt_cache_kwargs("gpt-5.4-mini")
+
+    assert kw == {
+        "extra_body": {
+            "prompt_cache_key": "promobot:gpt-5.4-mini:system-prompt",
+            "prompt_cache_retention": "24h",
+        }
+    }
+
+
+def test_prompt_cache_kwargs_can_be_disabled_or_overridden(monkeypatch):
+    monkeypatch.setenv("PROMPT_CACHE_ENABLED", "false")
+    assert _prompt_cache_kwargs("gpt-5.4-mini") == {}
+
+    monkeypatch.setenv("PROMPT_CACHE_ENABLED", "true")
+    monkeypatch.setenv("PROMPT_CACHE_KEY", "custom-key")
+    monkeypatch.setenv("PROMPT_CACHE_RETENTION", "in_memory")
+
+    assert _prompt_cache_kwargs("promo-chat-prod") == {
+        "extra_body": {
+            "prompt_cache_key": "custom-key",
+            "prompt_cache_retention": "in_memory",
+        }
+    }
